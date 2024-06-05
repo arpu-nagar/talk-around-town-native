@@ -12,14 +12,14 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
 
   const register = (name: any, email: any, password: any) => {
     setIsLoading(true);
-    console.log(BASE_URL)
+    console.log(BASE_URL);
     axios
       .post(`${BASE_URL}/register`, {
         name,
         email,
         password,
       })
-      .then((res: { data: any; }) => {
+      .then((res: {data: any}) => {
         let userInfo = res.data;
         setUserInfo(userInfo);
         AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
@@ -78,15 +78,47 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
   const isLoggedIn = async () => {
     try {
       setSplashLoading(true);
-
+      setIsLoading(true);
       let userInfo = await AsyncStorage.getItem('userInfo');
       userInfo = JSON.parse(userInfo as string); // Add type assertion here
-
-      if (userInfo) {
-        setUserInfo(userInfo);
-      }
-
-      setSplashLoading(false);
+      axios
+        .post(`${BASE_URL}/verify`, {
+          headers: {
+            accept: 'application/json',
+            authorization: `Bearer ${(userInfo as any).access_token}`,
+          },
+          body: {
+            token: (userInfo as any).access_token,
+          },
+        })
+        .then(res => {
+          if (res.status !== 200) {
+            AsyncStorage.removeItem('userInfo');
+            setUserInfo({});
+            setIsLoading(false);
+            setSplashLoading(false);
+            console.log('token expired');
+            return;
+          }
+          console.log('token valid');
+          setUserInfo(userInfo || {}); // Handle null case by setting it to an empty object
+          console.log((userInfo as any).access_token);
+          setIsLoading(false);
+          setSplashLoading(false);
+        })
+        .catch((e): void => {
+          console.log('error', e);
+          AsyncStorage.removeItem('userInfo');
+          setUserInfo({});
+          setIsLoading(false);
+          setSplashLoading(false);
+        });
+      // } else {
+      //   AsyncStorage.removeItem('userInfo');
+      //   setUserInfo({});
+      //   setIsLoading(false);
+      //   setSplashLoading(false);
+      // }
     } catch (e) {
       setSplashLoading(false);
       console.log(`is logged in error ${e}`);

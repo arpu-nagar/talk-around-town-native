@@ -8,18 +8,17 @@ interface Location {
   latitudeDelta: number;
   longitudeDelta: number;
 }
-
 interface LocationContextProps {
-  location: Location | null;
-  loading: boolean;
+  cur_location: Location | null;
+  loc_loading: boolean;
   setLocation: React.Dispatch<React.SetStateAction<Location | null>>;
 }
 
 export const LocationContext = createContext<LocationContextProps | undefined>(undefined);
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [location, setLocation] = useState<Location | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [cur_location, setLocation] = useState<Location | null>(null);
+  const [loc_loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchLocation = async () => {
@@ -63,7 +62,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   return (
-    <LocationContext.Provider value={{ location, loading, setLocation }}>
+    <LocationContext.Provider value={{ cur_location, loc_loading, setLocation }}>
       {children}
     </LocationContext.Provider>
   );

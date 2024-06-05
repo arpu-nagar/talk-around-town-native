@@ -9,23 +9,37 @@ import RegisterScreen from '../screens/RegisterScreen.tsx';
 import {AuthContext} from '../context/AuthContext.tsx';
 import SplashScreen from '../screens/SplashScreen.tsx';
 import MainScreen from '../screens/MainScreen.tsx';
+import {navigationRef} from '../ref/NavigationRef.tsx';
 
 const Stack = createNativeStackNavigator();
 
 const Navigation = () => {
   const {userInfo, splashLoading} = useContext<any>(AuthContext);
-
+  console.log(userInfo);
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef as any}>
       <Stack.Navigator>
         {splashLoading ? (
-          <Stack.Screen
-            name="Splash Screen"
-            component={SplashScreen}
-            options={{headerShown: false}}
-          />
+          <>
+            <Stack.Screen
+              name="Splash Screen"
+              component={SplashScreen}
+              options={{headerShown: false}}
+            />
+          </>
         ) : userInfo.access_token ? (
-          <Stack.Screen name="Home" component={MainScreen} />
+          <>
+            <Stack.Screen
+              name="Main"
+              component={MainScreen}
+              options={{headerShown: false}}
+            />
+            <Stack.Screen
+              name="Home"
+              component={HomeScreen}
+              options={{headerShown: false}}
+            />
+          </>
         ) : (
           <>
             <Stack.Screen
