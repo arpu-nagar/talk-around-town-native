@@ -20,6 +20,7 @@ const RegisterScreen = ({navigation}: any) => {
   return (
     <View style={styles.container}>
       <Spinner visible={isLoading} />
+      <Text style={{padding: 10, fontSize: 28, fontWeight: 'bold', textAlign: 'center'}}>Talk Around Town</Text>
       <View style={styles.wrapper}>
         <TextInput
           style={styles.input}
@@ -51,7 +52,7 @@ const RegisterScreen = ({navigation}: any) => {
         />
 
         <View style={{flexDirection: 'row', marginTop: 20}}>
-          <Text>Already have an accoutn? </Text>
+          <Text>Already have an account? </Text>
           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
             <Text style={styles.link}>Login</Text>
           </TouchableOpacity>

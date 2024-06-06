@@ -54,7 +54,6 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
 
   const logout = () => {
     setIsLoading(true);
-
     axios
       .post(
         `${BASE_URL}/logout`,
@@ -81,6 +80,13 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
       setIsLoading(true);
       let userInfo = await AsyncStorage.getItem('userInfo');
       userInfo = JSON.parse(userInfo as string); // Add type assertion here
+      if (!userInfo) {
+        AsyncStorage.removeItem('userInfo');
+        setUserInfo({});
+        setIsLoading(false);
+        setSplashLoading(false);
+        return;
+      }
       axios
         .post(`${BASE_URL}/verify`, {
           headers: {

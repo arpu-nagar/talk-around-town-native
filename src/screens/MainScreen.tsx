@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   TextInput,
   Pressable,
+  KeyboardAvoidingView,
 } from 'react-native';
 import MapView, {PROVIDER_GOOGLE, Marker, Circle} from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
@@ -60,14 +61,42 @@ const App: React.FC = () => {
       console.log(jsonResponse);
       setLocations(jsonResponse.locations);
       setDetails(jsonResponse.details);
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'This app needs access to your location.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          Alert.alert('Location permission denied');
+          return;
+        }
+      }
+      Geolocation.getCurrentPosition(async position => {
+        // console.log(position);
+        const {latitude, longitude} = position.coords;
+        console.log(latitude, longitude);
+        setLocation({
+          latitude,
+          longitude,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.0121,
+        });
+      });
       setLoading(false);
     } catch (error) {
+      setLoading(false);
       console.error('Error fetching locations:', error);
     }
   };
   const addLocation = async () => {
     console.log('Add location');
-    if(name === '' || description === '') {
+    if (name === '' || description === '') {
       Alert.alert('Please enter a title and description');
       return;
     }
@@ -103,72 +132,68 @@ const App: React.FC = () => {
       setDescription('');
     }
   };
+  const fetchLocationAndSendData = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Location Permission',
+          message: 'This app needs access to your location.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        Alert.alert('Location permission denied');
+        return;
+      }
+    }
+    Geolocation.getCurrentPosition(
+      async position => {
+        // console.log(position);
+        const {latitude, longitude} = position.coords;
+        console.log(latitude, longitude);
+        setLocation({
+          latitude,
+          longitude,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.0121,
+        });
+
+        if (loading) setLoading(false);
+        // Now send the location data to your server
+        try {
+          const response = await fetch('http://localhost:1337/endpoint', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${userInfo.access_token}`,
+            },
+            body: JSON.stringify({
+              latitude,
+              longitude,
+            }),
+          });
+          // const jsonResponse = await response.json();
+          console.log('Data sent to server:', response.status);
+        } catch (error) {
+          console.error('Error sending location data:', error);
+        }
+      },
+      error => {
+        Alert.alert('Error', 'Unable to fetch location');
+        console.log(error);
+      },
+      {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
+    );
+  };
 
   useEffect(() => {
-    
-    // RemoteNotification()
     // fetch an API from /endpoint/locations and set the locations and details state variables
     fetchLocations();
-    const fetchLocationAndSendData = async () => {
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Location Permission',
-            message: 'This app needs access to your location.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          },
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          Alert.alert('Location permission denied');
-          return;
-        }
-      }
-      Geolocation.getCurrentPosition(
-        async position => {
-          // console.log(position);
-          const {latitude, longitude} = position.coords;
-          console.log(latitude, longitude);
-          setLocation({
-            latitude,
-            longitude,
-            latitudeDelta: 0.015,
-            longitudeDelta: 0.0121,
-          });
-
-          if(loading)
-            setLoading(false);
-          // Now send the location data to your server
-          try {
-            const response = await fetch('http://localhost:1337/endpoint', {
-              method: 'POST',
-              headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${userInfo.access_token}`,
-              },
-              body: JSON.stringify({
-                latitude,
-                longitude,
-              }),
-            });
-            // const jsonResponse = await response.json();
-            console.log('Data sent to server:', response.status);
-          } catch (error) {
-            console.error('Error sending location data:', error);
-          }
-        },
-        error => {
-          Alert.alert('Error', 'Unable to fetch location');
-          console.log(error);
-        },
-        {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
-      );
-    };
-
-    // Set up the interval to call fetchLocationAndSendData every 7 seconds
+    // Set up the interval to call fetchLocationAndSendData every 20 seconds
     const intervalId = setInterval(fetchLocationAndSendData, 20000);
 
     // Call fetchLocationAndSendData immediately when the component mounts
@@ -178,13 +203,7 @@ const App: React.FC = () => {
     return () => clearInterval(intervalId);
   }, []);
 
-
   // background task
-  
-
-
-
-
 
   if (loading) {
     return (
@@ -224,6 +243,7 @@ const App: React.FC = () => {
         </MapView>
       )}
       <>
+      
         <GooglePlacesAutocomplete
           placeholder="Search"
           fetchDetails={true}
@@ -284,26 +304,47 @@ const App: React.FC = () => {
             </View>
           </>
         )}
-        {!newLocation && (
-          <>
-            {/* <View style={styles.bg}> */}
-            <Text style={styles.heading}>Welcome, {userInfo.user.name} </Text>
-            <Text style={styles.body_text}>
-              Please search for a location on the map, and click on Add Location
-              to continue.
-            </Text>
-            {/* </View> */}
-          </>
-        )}
+        
+          {!newLocation && (
+            <>
+              <View style={styles.tile}>
+                <Text style={styles.heading}>
+                  Welcome, {userInfo.user.name}{' '}
+                </Text>
+                <Text style={styles.body_text}>
+                  Please search for a location on the map, and click on Add
+                  Location to continue.
+                </Text>
+                {/* <Button
+                style={styles1.button}
+                title="Logout"
+                color="red"
+                onPress={logout}
+              /> */}
+              </View>
+            </>
+          )}
+          <View
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent: 'space-around',
+            }}>
+            <Pressable style={styles1.button_logout} onPress={logout}>
+              <Text style={styles1.buttonText}>Logout</Text>
+            </Pressable>
+            <Pressable style={styles1.button} onPress={addLocation}>
+              <Text style={styles1.buttonText}>Add location</Text>
+            </Pressable>
+          </View>
+
         {/* <Button title="Add location" onPress={addLocation}> */}
 
         {/* <Text>Add location</Text> */}
         {/* <Button style={styles1.button} title="Add location" onPress={addLocation}>
           <Text>Add location</Text>
         </Button> */}
-        <Pressable style={styles1.button} onPress={addLocation}>
-          <Text style={styles1.buttonText}>Add location</Text>
-        </Pressable>
+
         {/* <Text>Current Location</Text>
         <Text>{location?.latitude}</Text>
         <Text>{location?.longitude}</Text> */}
@@ -322,9 +363,14 @@ const styles = StyleSheet.create({
     // justifyContent: 'space-around',
     // alignItems: 'center',
   },
+  tile: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-around',
+  },
   map: {
     ...StyleSheet.absoluteFillObject,
-    height: '70%',
+    height: '80%',
     // margin: '3%',
     // marginTop: '17%',
     // borderBlockColor: 'black',
@@ -344,6 +390,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     padding: 10,
   },
+
   heading: {
     // make this look like a heading
     fontSize: 32,
@@ -384,6 +431,15 @@ const styles1 = StyleSheet.create({
   },
   button: {
     backgroundColor: 'blue',
+    color: 'white',
+    padding: 5,
+    width: 120,
+    margin: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  button_logout: {
+    backgroundColor: 'red',
     color: 'white',
     padding: 5,
     width: 120,

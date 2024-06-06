@@ -1,6 +1,6 @@
 package com.talk_around_town_trail
 import expo.modules.ReactActivityDelegateWrapper
-
+// import com.github.reactnativecommunity.location.RNLocationPackage;
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
