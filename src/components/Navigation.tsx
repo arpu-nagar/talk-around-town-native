@@ -15,7 +15,7 @@ const Stack = createNativeStackNavigator();
 
 const Navigation = () => {
   const {userInfo, splashLoading} = useContext<any>(AuthContext);
-  console.log(userInfo);
+  // console.log(userInfo);
   return (
     <NavigationContainer ref={navigationRef as any}>
       <Stack.Navigator>

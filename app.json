@@ -1,4 +1,15 @@
 {
   "name": "Talk_around_town_trail",
-  "displayName": "Talk_around_town_trail"
+  "displayName": "Talk_around_town_trail",
+  "expo": {
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ]
+    ]
+  }
 }

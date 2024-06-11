@@ -15,22 +15,22 @@ const fetchLocationAndSendData = async () => {
         return;
     }
     const access_token = JSON.parse(userInfo || '{}').access_token;
-    // if (Platform.OS === 'android') {
-    //   const granted = await PermissionsAndroid.request(
-    //     PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-    //     {
-    //       title: 'Location Permission',
-    //       message: 'This app needs access to your location.',
-    //       buttonNeutral: 'Ask Me Later',
-    //       buttonNegative: 'Cancel',
-    //       buttonPositive: 'OK',
-    //     },
-    //   );
-    //   if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-    //     Alert.alert('Location permission denied');
-    //     return;
-    //   }
-    // }
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Location Permission',
+          message: 'This app needs access to your location.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        Alert.alert('Location permission denied');
+        return;
+      }
+    }
     Geolocation.getCurrentPosition(
       async position => {
         // console.log(position);

@@ -330,3 +330,148 @@ const styles1 = StyleSheet.create({
   },
 });
 export default App;
+
+
+// import {Alert, PermissionsAndroid, Platform, StatusBar} from 'react-native';
+// import Navigation from './src/components/Navigation';
+// import {AuthProvider} from './src/context/AuthContext';
+// import {LocationProvider} from './src/context/LocationContext';
+// import Geolocation from '@react-native-community/geolocation';
+// import React from 'react';
+// import AsyncStorage from '@react-native-async-storage/async-storage';
+// import GetLocation1 from 'react-native-get-location';
+// import * as BackgroundFetch from 'expo-background-fetch';
+// import * as TaskManager from 'expo-task-manager';
+// // import * as Location from 'expo-location';
+// import Geolocation2 from 'react-native-geolocation-service';
+// const BACKGROUND_FETCH_TASK = 'background-fetch-task';
+// // Navigation.geolocation = require('@react-native-community/geolocation');
+// TaskManager.defineTask(BACKGROUND_FETCH_TASK, async ({data}) => {
+//   console.log('Background fetch task:', data);
+//   const now = Date.now();
+//   console.log(
+//     `Got background fetch call at date: ${new Date(now).toISOString()}`,
+//   );
+
+//   const userInfo = await AsyncStorage.getItem('userInfo');
+//   if (!userInfo) {
+//     console.log('No user info found');
+//     return;
+//   }
+//   let access_token = JSON.parse(userInfo || '{}').access_token;
+//   console.log('Access token:', access_token);
+//   if (Platform.OS === 'android') {
+//     const granted = await PermissionsAndroid.request(
+//       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+//       {
+//         title: 'Location Permission',
+//         message: 'This app needs access to your location.',
+//         buttonNeutral: 'Ask Me Later',
+//         buttonNegative: 'Cancel',
+//         buttonPositive: 'OK',
+//       },
+//     );
+//     console.log('granted: ', granted)
+//     if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+//       Alert.alert('Location permission denied');
+//       return;
+//     }
+//   }
+
+//   Geolocation.getCurrentPosition(
+//     async position => {
+//       // console.log(position);
+//       const {latitude, longitude} = position.coords;
+//       console.log(latitude, longitude);
+//       try {
+//         const response = await fetch('http://localhost:1337/endpoint', {
+//           method: 'POST',
+//           headers: {
+//             Accept: 'application/json',
+//             'Content-Type': 'application/json',
+//             Authorization: `Bearer ${access_token}`,
+//           },
+//           body: JSON.stringify({
+//             latitude,
+//             longitude,
+//           }),
+//         });
+//         // const jsonResponse = await response.json();
+//         console.log('Data sent to server via bg:', response.status);
+//       } catch (error) {
+//         console.error('Error sending location data:', error);
+//       }
+//     },
+//     error => {
+//       // Alert.alert('Error', 'Unable to fetch location');
+//       console.log(error);
+//       return BackgroundFetch.BackgroundFetchResult.Failed;
+//     },
+//     {enableHighAccuracy: false},
+//   );
+//   GetLocation1.getCurrentPosition({
+//     enableHighAccuracy: false,
+//     timeout: 5000,
+//     rationale: {
+//       title: 'Cool Photo App Camera Permission',
+//       message:
+//         'Cool Photo App needs access to your camera ' +
+//         'so you can take awesome pictures.',
+//       buttonNeutral: 'Ask Me Later',
+//       buttonNegative: 'Cancel',
+//       buttonPositive: 'OK',
+//     },
+//   })
+//     .then(async (location: any) => {
+//       console.log(location);
+//       // make the API call here
+//       let {latitude, longitude} = location;
+//       try {
+//         const response = await fetch('http://localhost:1337/endpoint', {
+//           method: 'POST',
+//           headers: {
+//             Accept: 'application/json',
+//             'Content-Type': 'application/json',
+//             Authorization: `Bearer ${access_token}`,
+//           },
+//           body: JSON.stringify({
+//             latitude,
+//             longitude,
+//           }),
+//         });
+//         // const jsonResponse = await response.json();
+//         console.log('Data sent to server in:', response.status);
+//       } catch (error) {
+//         console.error('Error sending location data:', error);
+//         return BackgroundFetch.BackgroundFetchResult.Failed;
+//       }
+//     })
+//     .catch((error: any) => {
+//       const {code, message} = error;
+//       console.warn(code, message);
+//       return BackgroundFetch.BackgroundFetchResult.Failed;
+//     });
+//     Geolocation2.getCurrentPosition(info => console.log(info));
+
+//   // Be sure to return the successful result type!
+//   return BackgroundFetch.BackgroundFetchResult.NewData;
+// });
+
+// const App = () => {
+//   BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
+//     minimumInterval: 60, // 60 seconds
+//     stopOnTerminate: false, // android only,
+//     startOnBoot: true, // android only
+//   });
+//   return (
+//     <AuthProvider>
+//       <LocationProvider>
+//         <StatusBar backgroundColor="#06bcee" />
+//         <Navigation />
+//       </LocationProvider>
+//     </AuthProvider>
+//   );
+// };
+
+// export default App;
+

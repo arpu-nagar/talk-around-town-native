@@ -77,6 +77,7 @@ const App: React.FC = () => {
           return;
         }
       }
+      let options = {};
       Geolocation.getCurrentPosition(async position => {
         // console.log(position);
         const {latitude, longitude} = position.coords;
@@ -186,7 +187,7 @@ const App: React.FC = () => {
         Alert.alert('Error', 'Unable to fetch location');
         console.log(error);
       },
-      {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
+      {enableHighAccuracy: true, timeout: 15000, maximumAge: 0},
     );
   };
 
@@ -243,7 +244,6 @@ const App: React.FC = () => {
         </MapView>
       )}
       <>
-      
         <GooglePlacesAutocomplete
           placeholder="Search"
           fetchDetails={true}
@@ -304,39 +304,37 @@ const App: React.FC = () => {
             </View>
           </>
         )}
-        
-          {!newLocation && (
-            <>
-              <View style={styles.tile}>
-                <Text style={styles.heading}>
-                  Welcome, {userInfo.user.name}{' '}
-                </Text>
-                <Text style={styles.body_text}>
-                  Please search for a location on the map, and click on Add
-                  Location to continue.
-                </Text>
-                {/* <Button
+
+        {!newLocation && (
+          <>
+            <View style={styles.tile}>
+              <Text style={styles.heading}>Welcome, {userInfo.user.name} </Text>
+              <Text style={styles.body_text}>
+                Please search for a location on the map, and click on Add
+                Location to continue.
+              </Text>
+              {/* <Button
                 style={styles1.button}
                 title="Logout"
                 color="red"
                 onPress={logout}
               /> */}
-              </View>
-            </>
-          )}
-          <View
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              justifyContent: 'space-around',
-            }}>
-            <Pressable style={styles1.button_logout} onPress={logout}>
-              <Text style={styles1.buttonText}>Logout</Text>
-            </Pressable>
-            <Pressable style={styles1.button} onPress={addLocation}>
-              <Text style={styles1.buttonText}>Add location</Text>
-            </Pressable>
-          </View>
+            </View>
+          </>
+        )}
+        <View
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            justifyContent: 'space-around',
+          }}>
+          <Pressable style={styles1.button_logout} onPress={logout}>
+            <Text style={styles1.buttonText}>Logout</Text>
+          </Pressable>
+          <Pressable style={styles1.button} onPress={addLocation}>
+            <Text style={styles1.buttonText}>Add location</Text>
+          </Pressable>
+        </View>
 
         {/* <Button title="Add location" onPress={addLocation}> */}
 

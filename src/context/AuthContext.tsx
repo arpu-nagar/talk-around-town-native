@@ -108,7 +108,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
           }
           console.log('token valid');
           setUserInfo(userInfo || {}); // Handle null case by setting it to an empty object
-          console.log((userInfo as any).access_token);
+          // console.log((userInfo as any).access_token);
           setIsLoading(false);
           setSplashLoading(false);
         })
