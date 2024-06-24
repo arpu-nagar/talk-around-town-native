@@ -35,7 +35,7 @@ const RemoteNotification = () => {
             // (required) Called when a remote or local notification is opened or received
             onNotification: function (notification) {
                 const { message, id } = notification;
-                let title = 'REMOTE NOTIFICATION'  
+                let title = 'REMOTE NOTIFICATION' 
                 let strTitle: string = JSON.stringify(title).split('"').join('');
                 let strBody: string = JSON.stringify(message).split('"').join('');
                 const key: string = JSON.stringify(id).split('"').join('');

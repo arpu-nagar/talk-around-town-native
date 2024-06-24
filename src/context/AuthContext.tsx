@@ -34,6 +34,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
 
   const login = (email: any, password: any) => {
     setIsLoading(true);
+    console.log('login');
     axios
       .post(`${BASE_URL}/login`, {
         email,
@@ -59,7 +60,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
         `${BASE_URL}/logout`,
         {},
         {
-          headers: {Authorization: `Bearer ${(userInfo as any).access_token}`},
+          headers: {Authorization: `Bearer ${(userInfo as any).access_token}`, cors: true},
         },
       )
       .then(res => {
@@ -78,6 +79,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
     try {
       setSplashLoading(true);
       setIsLoading(true);
+      // console.log('is logged in function');
       let userInfo = await AsyncStorage.getItem('userInfo');
       userInfo = JSON.parse(userInfo as string); // Add type assertion here
       if (!userInfo) {
@@ -98,6 +100,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
           },
         })
         .then(res => {
+          console.log('token verified');
           if (res.status !== 200) {
             AsyncStorage.removeItem('userInfo');
             setUserInfo({});

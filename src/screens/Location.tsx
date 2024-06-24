@@ -2,11 +2,13 @@ import React, {useContext} from 'react';
 import {PermissionsAndroid, Platform, Alert} from 'react-native';
 
 import Geolocation from '@react-native-community/geolocation';
-// import {AuthContext} from '../context/AuthContext';
+import {AuthContext} from '../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// import { userInfo } from 'os';
 
 const fetchLocationAndSendData = async () => {
   try {
+    // const {userInfo, isLoading, logout} = useContext<any>(AuthContext);
     const userInfo = await AsyncStorage.getItem('userInfo');
     if (!userInfo) {
       console.log('No user info found');
@@ -69,7 +71,7 @@ const fetchLocationAndSendData = async () => {
         }
       },
       error => {
-        Alert.alert('Error', 'Unable to fetch location in Loc component');
+        Alert.alert('Error', 'http://68.183.102.75:1337 location');
         console.log(error);
       },
       {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},

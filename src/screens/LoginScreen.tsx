@@ -20,7 +20,7 @@ const LoginScreen = ({navigation}: {navigation: any}) => {
       <Spinner visible={isLoading} />
       <View style={styles.wrapper}>
         <Text style={{padding: 10, fontSize: 28, fontWeight: 'bold', textAlign: 'center'}}>
-          Talk Around Town
+          Talk Around Town v1.0
         </Text>
         <TextInput
           style={styles.input}

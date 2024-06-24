@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useEffect} from 'react';
 import {PermissionsAndroid, Platform} from 'react-native';
 import PushNotification from 'react-native-push-notification';
-import { navigationRef } from '../ref/NavigationRef';
+import {navigationRef} from '../ref/NavigationRef';
 
 const checkApplicationPermission = async () => {
   if (Platform.OS === 'android') {
@@ -43,7 +43,7 @@ const RemoteNotification = () => {
         const userInfo = JSON.parse(jwt || '{}');
         console.log('JWT:', userInfo.access_token);
         // send access token to server
-        fetch('http://localhost:1337/api/auth/token', {
+        fetch('http://68.183.102.75:1337/api/auth/token', {
           method: 'POST',
           headers: {
             Accept: 'application/json',
@@ -67,11 +67,20 @@ const RemoteNotification = () => {
 
       // (required) Called when a remote or local notification is opened or received
       onNotification: function (notification) {
-        const {message, id} = notification;
-        let title = 'REMOTE NOTIFICATION';
-        let strTitle: string = JSON.stringify(title).split('"').join('');
-        let strBody: string = JSON.stringify(message).split('"').join('');
-        const key: string = JSON.stringify(id).split('"').join('');
+        // add ignore to the notification object
+        // @ts-ignore
+        const {message, id, title} = notification;
+
+        // Provide default values if any of the variables are null or undefined
+        const safeTitle = title !== null && title !== undefined ? title : '789';
+        const safeMessage =
+          message !== null && message !== undefined ? message : '456';
+        const safeId = id !== null && id !== undefined ? id : '123';
+
+        // Convert to strings and remove quotes
+        let strTitle = JSON.stringify(safeTitle).split('"').join('');
+        let strBody = JSON.stringify(safeMessage).split('"').join('');
+        const key = JSON.stringify(safeId).split('"').join('');
         PushNotification.createChannel(
           {
             channelId: key, // (required & must be unique)
@@ -83,18 +92,22 @@ const RemoteNotification = () => {
           created => console.log(`createChannel returned '${created}'`), // (optional) callback returns whether the channel was created, false means it already existed.
         );
         PushNotification.localNotification({
-            channelId: key, //this must be same with channelId in createchannel
-            title: strTitle,
-            message: strBody,
+          channelId: key, //this must be same with channelId in createchannel
+          title: strTitle,
+          message: strBody,
         });
+        const lastWord = strTitle.split(' ').pop();
         console.log(
-            'REMOTE NOTIFICATION ==>',
-            title,
-            message,
-            id,
-            notification,
+          'REMOTE NOTIFICATION ==>',
+          title,
+          message,
+          id,
+          notification,
+          lastWord,
         );
-        (navigationRef.current as any)?.navigate('Home');
+        (navigationRef.current as any)?.navigate('Home', {
+          notificationTitle: strTitle,
+        });
         // process the notification here
       },
       // Android only: GCM or FCM Sender ID

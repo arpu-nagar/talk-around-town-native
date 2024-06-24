@@ -1,5 +1,5 @@
-import React, { createContext, useState, useEffect, useRef } from 'react';
-import { PermissionsAndroid, Platform, Alert } from 'react-native';
+import React, {createContext, useState, useEffect, useRef} from 'react';
+import {PermissionsAndroid, Platform, Alert} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 
 interface Location {
@@ -14,9 +14,13 @@ interface LocationContextProps {
   setLocation: React.Dispatch<React.SetStateAction<Location | null>>;
 }
 
-export const LocationContext = createContext<LocationContextProps | undefined>(undefined);
+export const LocationContext = createContext<LocationContextProps | undefined>(
+  undefined,
+);
 
-export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const LocationProvider: React.FC<{children: React.ReactNode}> = ({
+  children,
+}) => {
   const [cur_location, setLocation] = useState<Location | null>(null);
   const [loc_loading, setLoading] = useState(true);
 
@@ -31,17 +35,32 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
             buttonPositive: 'OK',
-          }
+          },
         );
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
           Alert.alert('Location permission denied');
           return;
         }
+        const backgroundGranted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+          {
+            title: 'Background Location Permission',
+            message: 'This app needs access to your location in the background',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        if (backgroundGranted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('Background location permission granted');
+        } else {
+          console.log('Background location permission denied');
+        }
       }
 
       Geolocation.getCurrentPosition(
         position => {
-          const { latitude, longitude } = position.coords;
+          const {latitude, longitude} = position.coords;
           setLocation({
             latitude,
             longitude,
@@ -51,10 +70,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setLoading(false);
         },
         error => {
-          Alert.alert('Error', 'Unable to fetch location');
+          Alert.alert('Error', 'Unable to fetch location in Context');
           console.error(error);
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},
       );
     };
 
@@ -62,7 +81,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   return (
-    <LocationContext.Provider value={{ cur_location, loc_loading, setLocation }}>
+    <LocationContext.Provider value={{cur_location, loc_loading, setLocation}}>
       {children}
     </LocationContext.Provider>
   );

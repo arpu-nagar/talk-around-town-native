@@ -6,13 +6,18 @@ import {
   Platform,
   Alert,
   Text,
-  Button,
+  // Button,
   TouchableOpacity,
   TextInput,
   Pressable,
-  KeyboardAvoidingView,
+  ViewStyle,
+  TextStyle,
+  // KeyboardAvoidingView,
+  StyleProp,
 } from 'react-native';
 import MapView, {PROVIDER_GOOGLE, Marker, Circle} from 'react-native-maps';
+import {Dropdown} from 'react-native-element-dropdown';
+import AntDesign from '@expo/vector-icons/AntDesign';
 import Geolocation from '@react-native-community/geolocation';
 import {
   GooglePlacesAutocomplete,
@@ -22,8 +27,10 @@ import RemoteNotification from '../components/RemoteNotification';
 import {Icon} from 'react-native-elements';
 import Spinner from 'react-native-loading-spinner-overlay';
 import {AuthContext} from '../context/AuthContext';
+import UserLocation from '../../UserLocation';
 
 // RemoteNotification()
+
 interface Location {
   latitude: number;
   longitude: number;
@@ -42,21 +49,34 @@ const App: React.FC = () => {
   // a state variable for name and description
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [details, setDetails] = useState<
     Array<{title: string; desription: string; pinColor: string}>
   >([]);
+  const options = [
+    {label: 'Grocery Store', value: 'grocer'},
+    {label: 'Bus/Walk', value: 'bus_walk'},
+    {label: 'Library', value: 'library'},
+    {label: 'Park', value: 'park'},
+    {label: 'Restaurant', value: 'restaurant'},
+    {label: 'Waiting room', value: 'waiting_room'},
+    {label: "Other's Home", value: 'others_home'},
+  ];
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:1337/endpoint/locations', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userInfo.access_token}`,
+      const response = await fetch(
+        'http://68.183.102.75:1337/endpoint/locations',
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
         },
-      });
+      );
       const jsonResponse = await response.json();
       console.log(jsonResponse);
       setLocations(jsonResponse.locations);
@@ -76,20 +96,43 @@ const App: React.FC = () => {
           Alert.alert('Location permission denied');
           return;
         }
+        const backgroundGranted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+          {
+            title: 'Background Location Permission',
+            message: 'This app needs access to your location in the background',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
       }
-      let options = {};
-      Geolocation.getCurrentPosition(async position => {
-        // console.log(position);
-        const {latitude, longitude} = position.coords;
-        console.log(latitude, longitude);
-        setLocation({
-          latitude,
-          longitude,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.0121,
-        });
-      });
-      setLoading(false);
+      let options_loc = {
+        enableHighAccuracy: false,
+        timeout: 60000,
+        maximumAge: 0,
+      };
+      Geolocation.getCurrentPosition(
+        async position => {
+          // console.log(position);
+          const {latitude, longitude} = position.coords;
+          console.log(latitude, longitude);
+          setLoading(false);
+          setLocation({
+            latitude,
+            longitude,
+            latitudeDelta: 0.015,
+            longitudeDelta: 0.0121,
+          });
+          console.log('fetchLocations called');
+        },
+        error => {
+          console.log(error, 'fetchLocations');
+          Alert.alert('Error', 'Unable to fetch location in fetchLocations');
+        },
+        options_loc,
+      );
+      // setLoading(false);
     } catch (error) {
       setLoading(false);
       console.error('Error fetching locations:', error);
@@ -97,16 +140,18 @@ const App: React.FC = () => {
   };
   const addLocation = async () => {
     console.log('Add location');
-    if (name === '' || description === '') {
+    if (name === '' || description === '' || !selectedOption) {
       Alert.alert('Please enter a title and description');
       return;
     }
     if (newLocation) {
-      // make an HTTP POST request to endpoint: http://localhost:1337/endpoint/addLocation
+      // make an HTTP POST request to endpoint: http://68.183.102.75:1337/endpoint/addLocation
       // with the following data: {latitude: newLocation.latitude, longitude: newLocation.longitude, name, description}
+
       try {
+        setLoading(true);
         const response = await fetch(
-          'http://localhost:1337/endpoint/addLocation',
+          'http://68.183.102.75:1337/endpoint/addLocation',
           {
             method: 'POST',
             headers: {
@@ -119,18 +164,21 @@ const App: React.FC = () => {
               longitude: newLocation.longitude,
               name,
               description,
-              type: 'grocer',
+              type: selectedOption,
             }),
           },
         );
-        console.log('Location added:', response.status);
+        setLoading(false);
         fetchLocations();
+        Alert.alert('Location added!');
+        console.log('Location added:', response.status);
       } catch (error) {
         console.error('Error adding location:', error);
       }
       setNewLocation(null);
       setName('');
       setDescription('');
+      setSelectedOption(null);
     }
   };
   const fetchLocationAndSendData = async () => {
@@ -145,6 +193,21 @@ const App: React.FC = () => {
           buttonPositive: 'OK',
         },
       );
+      const backgroundGranted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+        {
+          title: 'Background Location Permission',
+          message: 'This app needs access to your location in the background',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      if (backgroundGranted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('Background location permission granted');
+      } else {
+        console.log('Background location permission denied');
+      }
       if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
         Alert.alert('Location permission denied');
         return;
@@ -165,7 +228,7 @@ const App: React.FC = () => {
         if (loading) setLoading(false);
         // Now send the location data to your server
         try {
-          const response = await fetch('http://localhost:1337/endpoint', {
+          const response = await fetch('http://68.183.102.75:1337/endpoint', {
             method: 'POST',
             headers: {
               Accept: 'application/json',
@@ -187,18 +250,16 @@ const App: React.FC = () => {
         Alert.alert('Error', 'Unable to fetch location');
         console.log(error);
       },
-      {enableHighAccuracy: true, timeout: 15000, maximumAge: 0},
+      {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},
     );
   };
 
   useEffect(() => {
     // fetch an API from /endpoint/locations and set the locations and details state variables
     fetchLocations();
-    // Set up the interval to call fetchLocationAndSendData every 20 seconds
-    const intervalId = setInterval(fetchLocationAndSendData, 20000);
-
-    // Call fetchLocationAndSendData immediately when the component mounts
-    // fetchLocationAndSendData();
+    console.log('fetchLocations called');
+    // Set up the interval to call fetchLocationAndSendData every 30 seconds
+    const intervalId = setInterval(fetchLocationAndSendData, 30000);
 
     // Clean up the interval on component unmount
     return () => clearInterval(intervalId);
@@ -253,8 +314,6 @@ const App: React.FC = () => {
             if (details) {
               const latitude = details.geometry.location.lat;
               const longitude = details.geometry.location.lng;
-              console.log('Latitude:', latitude);
-              console.log('Longitude:', longitude);
               setNewLocation({
                 latitude,
                 longitude,
@@ -285,22 +344,54 @@ const App: React.FC = () => {
         {newLocation && (
           <>
             <View style={styles.bg}>
+              <Text>Please fill out everything:</Text>
+              <Dropdown
+                style={drop.dropdown}
+                placeholderStyle={drop.placeholderStyle}
+                selectedTextStyle={drop.selectedTextStyle}
+                inputSearchStyle={drop.inputSearchStyle}
+                iconStyle={drop.iconStyle}
+                data={options}
+                maxHeight={300}
+                labelField="label"
+                valueField="value"
+                placeholder="Select an option"
+                searchPlaceholder="Search..."
+                value={selectedOption}
+                onChange={item => setSelectedOption(item.value)}
+                renderLeftIcon={() => (
+                  <AntDesign
+                    style={drop.icon}
+                    color="black"
+                    name="Safety"
+                    size={20}
+                  />
+                )}
+              />
               <TextInput
                 placeholder="Title"
-                style={styles.input}
+                style={[drop.input, drop.placeholderStyle]}
                 value={name}
-                onChange={e => {
-                  setName(e.nativeEvent.text);
-                }}
+                onChange={e => setName(e.nativeEvent.text)}
+                placeholderTextColor={drop.placeholderStyle.color}
               />
               <TextInput
                 placeholder="Description"
-                style={styles.input}
+                style={[drop.input, drop.placeholderStyle]}
                 value={description}
-                onChange={e => {
-                  setDescription(e.nativeEvent.text);
-                }}
+                onChange={e => setDescription(e.nativeEvent.text)}
+                placeholderTextColor={drop.placeholderStyle.color}
               />
+              <View
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'flex-end',
+                }}>
+                <Pressable style={styles1.button} onPress={addLocation}>
+                  <Text style={styles1.buttonText}>Add location</Text>
+                </Pressable>
+              </View>
             </View>
           </>
         )}
@@ -310,42 +401,23 @@ const App: React.FC = () => {
             <View style={styles.tile}>
               <Text style={styles.heading}>Welcome, {userInfo.user.name} </Text>
               <Text style={styles.body_text}>
-                Please search for a location on the map, and click on Add
-                Location to continue.
+                Please search for a location on the map, and follow instructions
+                to add a location of interest.
               </Text>
-              {/* <Button
-                style={styles1.button}
-                title="Logout"
-                color="red"
-                onPress={logout}
-              /> */}
+            </View>
+            <View
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                justifyContent: 'space-around',
+              }}>
+              <Pressable style={styles1.button_logout} onPress={logout}>
+                <Text style={styles1.buttonText}>Logout</Text>
+              </Pressable>
             </View>
           </>
         )}
-        <View
-          style={{
-            display: 'flex',
-            flexDirection: 'row',
-            justifyContent: 'space-around',
-          }}>
-          <Pressable style={styles1.button_logout} onPress={logout}>
-            <Text style={styles1.buttonText}>Logout</Text>
-          </Pressable>
-          <Pressable style={styles1.button} onPress={addLocation}>
-            <Text style={styles1.buttonText}>Add location</Text>
-          </Pressable>
-        </View>
-
-        {/* <Button title="Add location" onPress={addLocation}> */}
-
-        {/* <Text>Add location</Text> */}
-        {/* <Button style={styles1.button} title="Add location" onPress={addLocation}>
-          <Text>Add location</Text>
-        </Button> */}
-
-        {/* <Text>Current Location</Text>
-        <Text>{location?.latitude}</Text>
-        <Text>{location?.longitude}</Text> */}
+        <UserLocation />
       </>
       <RemoteNotification />
     </View>
@@ -447,6 +519,45 @@ const styles1 = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
+  },
+});
+
+const drop = StyleSheet.create({
+  bg: {
+    padding: 16,
+    backgroundColor: 'white',
+  },
+  placeholderStyle: {
+    fontSize: 16,
+    color: 'gray',
+  },
+  input: {
+    height: 50,
+    borderColor: 'gray',
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  dropdown: {
+    margin: 16,
+    height: 50,
+    borderBottomColor: 'gray',
+    borderBottomWidth: 1,
+  },
+  selectedTextStyle: {
+    fontSize: 16,
+    color: 'black',
+  },
+  inputSearchStyle: {
+    height: 40,
+    fontSize: 16,
+  },
+  iconStyle: {
+    width: 20,
+    height: 20,
+  },
+  icon: {
+    marginRight: 5,
   },
 });
 export default App;
