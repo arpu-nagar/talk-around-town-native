@@ -114,7 +114,7 @@ const App: React.FC = () => {
           setLoading(false);
           // Now send the location data to your server
           try {
-            const response = await fetch('http://68.183.102.75:1337/endpoint', {
+            const response = await fetch('http://localhost:1337/endpoint', {
               method: 'POST',
               headers: {
                 Accept: 'application/json',
@@ -384,7 +384,7 @@ export default App;
 //       const {latitude, longitude} = position.coords;
 //       console.log(latitude, longitude);
 //       try {
-//         const response = await fetch('http://68.183.102.75:1337/endpoint', {
+//         const response = await fetch('http://localhost:1337/endpoint', {
 //           method: 'POST',
 //           headers: {
 //             Accept: 'application/json',
@@ -427,7 +427,7 @@ export default App;
 //       // make the API call here
 //       let {latitude, longitude} = location;
 //       try {
-//         const response = await fetch('http://68.183.102.75:1337/endpoint', {
+//         const response = await fetch('http://localhost:1337/endpoint', {
 //           method: 'POST',
 //           headers: {
 //             Accept: 'application/json',

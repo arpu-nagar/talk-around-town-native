@@ -55,28 +55,25 @@ const App: React.FC = () => {
     Array<{title: string; desription: string; pinColor: string}>
   >([]);
   const options = [
-    {label: 'Grocery Store', value: 'grocer'},
-    {label: 'Bus/Walk', value: 'bus_walk'},
-    {label: 'Library', value: 'library'},
-    {label: 'Park', value: 'park'},
-    {label: 'Restaurant', value: 'restaurant'},
-    {label: 'Waiting room', value: 'waiting_room'},
-    {label: "Other's Home", value: 'others_home'},
+    {label: 'Grocery Store', value: 'Grocery Store'},
+    {label: 'Bus/Walk', value: 'Bus/Walk'},
+    {label: 'Library', value: 'Library'},
+    {label: 'Park', value: 'Park'},
+    {label: 'Restaurant', value: 'Restaurant'},
+    {label: 'Waiting Room', value: 'Waiting Room'},
+    {label: "Other's Home", value: "Other's Home"},
   ];
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        'http://68.183.102.75:1337/endpoint/locations',
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
+      const response = await fetch('http://localhost:1337/endpoint/locations', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo.access_token}`,
         },
-      );
+      });
       const jsonResponse = await response.json();
       console.log(jsonResponse);
       setLocations(jsonResponse.locations);
@@ -145,13 +142,13 @@ const App: React.FC = () => {
       return;
     }
     if (newLocation) {
-      // make an HTTP POST request to endpoint: http://68.183.102.75:1337/endpoint/addLocation
+      // make an HTTP POST request to endpoint: http://localhost:1337/endpoint/addLocation
       // with the following data: {latitude: newLocation.latitude, longitude: newLocation.longitude, name, description}
 
       try {
         setLoading(true);
         const response = await fetch(
-          'http://68.183.102.75:1337/endpoint/addLocation',
+          'http://localhost:1337/endpoint/addLocation',
           {
             method: 'POST',
             headers: {
@@ -228,7 +225,7 @@ const App: React.FC = () => {
         if (loading) setLoading(false);
         // Now send the location data to your server
         try {
-          const response = await fetch('http://68.183.102.75:1337/endpoint', {
+          const response = await fetch('http://localhost:1337/endpoint', {
             method: 'POST',
             headers: {
               Accept: 'application/json',
@@ -411,13 +408,13 @@ const App: React.FC = () => {
                 flexDirection: 'row',
                 justifyContent: 'space-around',
               }}>
+              <UserLocation />
               <Pressable style={styles1.button_logout} onPress={logout}>
                 <Text style={styles1.buttonText}>Logout</Text>
               </Pressable>
             </View>
           </>
         )}
-        <UserLocation />
       </>
       <RemoteNotification />
     </View>

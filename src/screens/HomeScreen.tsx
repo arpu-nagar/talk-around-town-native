@@ -1,22 +1,68 @@
-import React, { useContext } from 'react';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import React, {useContext, useEffect, useState} from 'react';
+import {Button, StyleSheet, Text, View} from 'react-native';
 import Spinner from 'react-native-loading-spinner-overlay';
-import { AuthContext } from '../context/AuthContext';
+import {AuthContext} from '../context/AuthContext';
 
-const HomeScreen = ({ route }: { route: any }) => {
-  const { userInfo, isLoading, logout } = useContext<any>(AuthContext);
-  const { notificationTitle } = route.params || {};
+const HomeScreen = ({route}: {route: any}) => {
+  const {userInfo, isLoading, logout} = useContext<any>(AuthContext);
+  const {notificationTitle} = route.params || {};
   console.log('notificationTitle:', notificationTitle);
+  // define a state variable to store tip names and tip descriptions which is an array of size 3
+  // create a axios request to fetch the tips from the server
+  // store the tips in the state variable
+  // display the tips in the UI
+
+  const [tips, setTips] = useState<any>([]);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch(
+          'http://localhost:1337/api/tips/get-tips',
+          {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${userInfo.access_token}`,
+            },
+            body: JSON.stringify({
+              type: notificationTitle,
+            }),
+          },
+        );
+        const responseJson = await response.json();
+        setTips(responseJson);
+      } catch (e) {
+        console.log(`get-tips error ${e}`);
+      }
+    };
+
+    fetchData();
+  }, []);
+  if (tips.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Spinner visible={true} />
+      </View>
+    );
+  }
   return (
     <View style={styles.container}>
-      <Spinner visible={isLoading} />
-      <Text style={styles.welcome}>Hey {userInfo.user.name}, engage with your child with these tips:</Text>
+      <Text style={styles.welcome}>
+        Hey {userInfo.user.name}, engage with your child with these tips:
+      </Text>
       {/* <Button title="Logout" color="red" onPress={logout} /> */}
       {/* Tips as chat messages */}
       <View style={styles.tipContainer}>
-        <Text style={styles.tip}>Tip 1: Tell your child, we are going to learn "Fast, slow, and stop today!" and label each of these speeds on your trip.; Use gestures and the speed of your voice to help our child learn fast, slow, and stop.; Ask your child, "Are we going fast or slow?"</Text>
-        <Text style={styles.tip}>Tip 2: Label 💁, "Each house has numbers! Look, that house has the numbers 4-2-3-1."; Ask your child, "Can you point to where the numbers are on another house?" When your child points, say, "Yes, those are numbers they are 5-4-2-3." Give positive attention, and say "Great job!" 👏 ; If your child doesn't point or look, say, "Look, there are the numbers!"</Text>
-        <Text style={styles.tip}>Tip 3: While waiting at a stoplight, point to the stoplight in front of you.; Say, 💁 "Look, it's a stoplight! The stoplight is a rectangle. A rectangle has four sides." Count the sides of the rectangle with your child.; Ask your child, "Do you see any other shapes?"; Point to and label other shapes surrounding the area. </Text>
+        {tips.map((tip: any) => (
+          <View key={tip.id}>
+            <Text style={styles.tip_title}>
+              {' '}
+              {'>'} {tip.title}
+            </Text>
+            <Text style={styles.tip}>{tip.description}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -37,6 +83,12 @@ const styles = StyleSheet.create({
   tipContainer: {
     marginVertical: 16,
     width: '100%',
+  },
+  tip_title: {
+    fontSize: 22,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
   },
   tip: {
     backgroundColor: '#4285F4',

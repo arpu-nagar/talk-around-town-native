@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import React, {createContext, useEffect, useState} from 'react';
 import {BASE_URL} from '../config';
+import { Alert } from 'react-native';
 
 export const AuthContext = createContext({});
 
@@ -25,8 +26,10 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
         AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
         setIsLoading(false);
         console.log(userInfo);
+        Alert.alert('Registration Successful', 'You can now login');
       })
       .catch((e: any) => {
+        Alert.alert('Error', 'Check Username/Password or contact sys admin.');
         console.log(`register error ${e}`);
         setIsLoading(false);
       });
@@ -48,6 +51,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
         setIsLoading(false);
       })
       .catch(e => {
+        Alert.alert('Error', 'Check Username/Password or contact sys admin.');
         console.log(`login error ${e}`);
         setIsLoading(false);
       });
@@ -60,7 +64,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
         `${BASE_URL}/logout`,
         {},
         {
-          headers: {Authorization: `Bearer ${(userInfo as any).access_token}`, cors: true},
+          headers: {Authorization: `Bearer ${(userInfo as any).access_token}`},
         },
       )
       .then(res => {

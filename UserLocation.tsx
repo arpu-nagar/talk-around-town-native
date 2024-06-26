@@ -118,7 +118,7 @@ TaskManager.defineTask(LOCATION_TRACKING, async ({data, error}) => {
       `${new Date(Date.now()).toLocaleString()}: ${latitude},${longitude}`,
     );
     try {
-      const response = await fetch('http://68.183.102.75:1337/endpoint', {
+      const response = await fetch('http://localhost:1337/endpoint', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
