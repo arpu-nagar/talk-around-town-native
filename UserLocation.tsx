@@ -13,14 +13,14 @@ export default function UserLocation() {
   const startLocationTracking = async () => {
     try {
       await Location.startLocationUpdatesAsync(LOCATION_TRACKING, {
-        accuracy: Location.Accuracy.Highest,
-        timeInterval: 60000,
-        distanceInterval: 0,
-        foregroundService: {
-          notificationTitle: 'Location Tracking',
-          notificationBody: 'Background location tracking is on',
-          killServiceOnDestroy: true,
-        },
+        accuracy: Location.Accuracy.High,
+        // timeInterval: 60000,
+        distanceInterval: 10,
+        // foregroundService: {
+        //   notificationTitle: 'Location Tracking',
+        //   notificationBody: 'Background location tracking is on',
+        //   killServiceOnDestroy: true,
+        // },
       });
       const hasStarted = await Location.hasStartedLocationUpdatesAsync(
         LOCATION_TRACKING,
@@ -117,22 +117,22 @@ TaskManager.defineTask(LOCATION_TRACKING, async ({data, error}) => {
     console.log(
       `${new Date(Date.now()).toLocaleString()}: ${latitude},${longitude}`,
     );
-    try {
-      const response = await fetch('http://localhost:1337/endpoint', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${access_token}`,
-        },
-        body: JSON.stringify({
-          latitude,
-          longitude,
-        }),
-      });
-      console.log('Data sent to server via bg-task:', response.status);
-    } catch (error) {
-      console.error('Error sending location data:', error);
-    }
+    // try {
+    //   const response = await fetch('http://68.183.102.75:1337/endpoint', {
+    //     method: 'POST',
+    //     headers: {
+    //       Accept: 'application/json',
+    //       'Content-Type': 'application/json',
+    //       Authorization: `Bearer ${access_token}`,
+    //     },
+    //     body: JSON.stringify({
+    //       latitude,
+    //       longitude,
+    //     }),
+    //   });
+    //   console.log('Data sent to server via bg-task:', response.status);
+    // } catch (error) {
+    //   console.error('Error sending location data:', error);
+    // }
   }
 });

@@ -4,6 +4,7 @@
   "expo": {
     "plugins": [
       [
+        "@react-native-voice/voice",
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",

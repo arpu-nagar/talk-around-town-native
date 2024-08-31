@@ -51,6 +51,7 @@ const App: React.FC = () => {
   const [description, setDescription] = useState<string>('');
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
+  const { aiTips, setAITips } = useContext<any>(AuthContext);
   const [details, setDetails] = useState<
     Array<{title: string; desription: string; pinColor: string}>
   >([]);
@@ -66,7 +67,7 @@ const App: React.FC = () => {
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:1337/endpoint/locations', {
+      const response = await fetch('http://68.183.102.75:1337/endpoint/locations', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -105,7 +106,7 @@ const App: React.FC = () => {
         );
       }
       let options_loc = {
-        enableHighAccuracy: false,
+        enableHighAccuracy: true,
         timeout: 60000,
         maximumAge: 0,
       };
@@ -142,13 +143,13 @@ const App: React.FC = () => {
       return;
     }
     if (newLocation) {
-      // make an HTTP POST request to endpoint: http://localhost:1337/endpoint/addLocation
+      // make an HTTP POST request to endpoint: http://68.183.102.75:1337/endpoint/addLocation
       // with the following data: {latitude: newLocation.latitude, longitude: newLocation.longitude, name, description}
 
       try {
         setLoading(true);
         const response = await fetch(
-          'http://localhost:1337/endpoint/addLocation',
+          'http://68.183.102.75:1337/endpoint/addLocation',
           {
             method: 'POST',
             headers: {
@@ -225,7 +226,7 @@ const App: React.FC = () => {
         if (loading) setLoading(false);
         // Now send the location data to your server
         try {
-          const response = await fetch('http://localhost:1337/endpoint', {
+          const response = await fetch('http://68.183.102.75:1337/endpoint', {
             method: 'POST',
             headers: {
               Accept: 'application/json',
@@ -247,7 +248,7 @@ const App: React.FC = () => {
         Alert.alert('Error', 'Unable to fetch location');
         console.log(error);
       },
-      {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},
+      {enableHighAccuracy: true, timeout: 60000, maximumAge: 0},
     );
   };
 
@@ -408,7 +409,14 @@ const App: React.FC = () => {
                 flexDirection: 'row',
                 justifyContent: 'space-around',
               }}>
-              <UserLocation />
+              {/* <UserLocation /> */}
+              <Pressable style={styles1.button_ai} onPress={() => {
+                setAITips(!aiTips);
+              }}>
+                <Text style={styles1.buttonText}>
+                  {aiTips ? 'Disable AI Tips' : 'Enable AI Tips'}
+                </Text>
+              </Pressable>
               <Pressable style={styles1.button_logout} onPress={logout}>
                 <Text style={styles1.buttonText}>Logout</Text>
               </Pressable>
@@ -507,6 +515,15 @@ const styles1 = StyleSheet.create({
   },
   button_logout: {
     backgroundColor: 'red',
+    color: 'white',
+    padding: 5,
+    width: 120,
+    margin: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  button_ai: {
+    backgroundColor: 'green',
     color: 'white',
     padding: 5,
     width: 120,

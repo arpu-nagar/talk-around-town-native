@@ -43,7 +43,7 @@
 //         const userInfo = JSON.parse(jwt || '{}');
 //         console.log('JWT:', userInfo.access_token);
 //         // send access token to server
-//         fetch('http://localhost:1337/api/auth/token', {
+//         fetch('http://68.183.102.75:1337/api/auth/token', {
 //           method: 'POST',
 //           headers: {
 //             Accept: 'application/json',
@@ -169,7 +169,7 @@ const RemoteNotification = () => {
         const jwt = await AsyncStorage.getItem('userInfo');
         const userInfo = JSON.parse(jwt || '{}');
         console.log('JWT:', userInfo.access_token);
-        fetch('http://localhost:1337/api/auth/token', {
+        fetch('http://68.183.102.75:1337/api/auth/token', {
           method: 'POST',
           headers: {
             Accept: 'application/json',

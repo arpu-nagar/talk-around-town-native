@@ -2,16 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import React, {createContext, useEffect, useState} from 'react';
 import {BASE_URL} from '../config';
-import { Alert } from 'react-native';
+import {Alert} from 'react-native';
 
 export const AuthContext = createContext({});
 
-export const AuthProvider = ({children}: {children: React.ReactNode}) => {
+export const AuthProvider = ({children}: {children: any}) => {
   const [userInfo, setUserInfo] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [splashLoading, setSplashLoading] = useState(false);
-
-  const register = (name: any, email: any, password: any) => {
+  const [aiTips, setAITips] = useState<Boolean>(false);
+  const register = async (name: any, email: any, password: any, location: any) => {
     setIsLoading(true);
     console.log(BASE_URL);
     axios
@@ -19,19 +19,27 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
         name,
         email,
         password,
+        location,
       })
       .then((res: {data: any}) => {
         let userInfo = res.data;
-        setUserInfo(userInfo);
-        AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
+        // setUserInfo(userInfo);
+        // AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
         setIsLoading(false);
-        console.log(userInfo);
-        Alert.alert('Registration Successful', 'You can now login');
+        console.log(userInfo, 'registered.');
+        // Alert.alert('Registration Successful', 'You can now login');
+       return true;
+      })
+      .then((data): any => {
+        Alert.alert('Success', 'You can now login');
+        console.log(data);
+        return data;
       })
       .catch((e: any) => {
         Alert.alert('Error', 'Check Username/Password or contact sys admin.');
         console.log(`register error ${e}`);
         setIsLoading(false);
+        return false;
       });
   };
 
@@ -151,6 +159,8 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
         register,
         login,
         logout,
+        aiTips,
+        setAITips,
       }}>
       {children}
     </AuthContext.Provider>

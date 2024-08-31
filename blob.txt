@@ -1,0 +1,2006 @@
+import { createRef } from 'react';
+
+export const navigationRef = createRef();import React, {createContext, useState, useEffect, useRef} from 'react';
+import {PermissionsAndroid, Platform, Alert} from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
+
+interface Location {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
+interface LocationContextProps {
+  cur_location: Location | null;
+  loc_loading: boolean;
+  setLocation: React.Dispatch<React.SetStateAction<Location | null>>;
+}
+
+export const LocationContext = createContext<LocationContextProps | undefined>(
+  undefined,
+);
+
+export const LocationProvider: React.FC<{children: React.ReactNode}> = ({
+  children,
+}) => {
+  const [cur_location, setLocation] = useState<Location | null>(null);
+  const [loc_loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLocation = async () => {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'This app needs access to your location.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          Alert.alert('Location permission denied');
+          return;
+        }
+        const backgroundGranted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+          {
+            title: 'Background Location Permission',
+            message: 'This app needs access to your location in the background',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        if (backgroundGranted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('Background location permission granted');
+        } else {
+          console.log('Background location permission denied');
+        }
+      }
+
+      Geolocation.getCurrentPosition(
+        position => {
+          const {latitude, longitude} = position.coords;
+          setLocation({
+            latitude,
+            longitude,
+            latitudeDelta: 0.015,
+            longitudeDelta: 0.0121,
+          });
+          setLoading(false);
+        },
+        error => {
+          Alert.alert('Error', 'Unable to fetch location in Context');
+          console.error(error);
+        },
+        {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},
+      );
+    };
+
+    fetchLocation();
+  }, []);
+
+  return (
+    <LocationContext.Provider value={{cur_location, loc_loading, setLocation}}>
+      {children}
+    </LocationContext.Provider>
+  );
+};
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import React, {createContext, useEffect, useState} from 'react';
+import {BASE_URL} from '../config';
+import {Alert} from 'react-native';
+
+export const AuthContext = createContext({});
+
+export const AuthProvider = ({children}: {children: React.ReactNode}) => {
+  const [userInfo, setUserInfo] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [splashLoading, setSplashLoading] = useState(false);
+  const [aiTips, setAITips] = useState<Boolean>(false);
+  const register = (name: any, email: any, password: any, location: any) => {
+    setIsLoading(true);
+    console.log(BASE_URL);
+    axios
+      .post(`${BASE_URL}/register`, {
+        name,
+        email,
+        password,
+        location,
+      })
+      .then((res: {data: any}) => {
+        let userInfo = res.data;
+        // setUserInfo(userInfo);
+        // AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
+        setIsLoading(false);
+        console.log(userInfo, 'registered.');
+        // Alert.alert('Registration Successful', 'You can now login');
+        return true;
+      })
+      .catch((e: any) => {
+        Alert.alert('Error', 'Check Username/Password or contact sys admin.');
+        console.log(`register error ${e}`);
+        setIsLoading(false);
+        return false;
+      });
+  };
+
+  const login = (email: any, password: any) => {
+    setIsLoading(true);
+    console.log('login');
+    axios
+      .post(`${BASE_URL}/login`, {
+        email,
+        password,
+      })
+      .then(res => {
+        let userInfo = res.data;
+        console.log(userInfo);
+        setUserInfo(userInfo);
+        AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
+        setIsLoading(false);
+      })
+      .catch(e => {
+        Alert.alert('Error', 'Check Username/Password or contact sys admin.');
+        console.log(`login error ${e}`);
+        setIsLoading(false);
+      });
+  };
+
+  const logout = () => {
+    setIsLoading(true);
+    axios
+      .post(
+        `${BASE_URL}/logout`,
+        {},
+        {
+          headers: {Authorization: `Bearer ${(userInfo as any).access_token}`},
+        },
+      )
+      .then(res => {
+        console.log(res.data);
+        AsyncStorage.removeItem('userInfo');
+        setUserInfo({});
+        setIsLoading(false);
+      })
+      .catch(e => {
+        console.log(`logout error ${e}`);
+        setIsLoading(false);
+      });
+  };
+
+  const isLoggedIn = async () => {
+    try {
+      setSplashLoading(true);
+      setIsLoading(true);
+      // console.log('is logged in function');
+      let userInfo = await AsyncStorage.getItem('userInfo');
+      userInfo = JSON.parse(userInfo as string); // Add type assertion here
+      if (!userInfo) {
+        AsyncStorage.removeItem('userInfo');
+        setUserInfo({});
+        setIsLoading(false);
+        setSplashLoading(false);
+        return;
+      }
+      axios
+        .post(`${BASE_URL}/verify`, {
+          headers: {
+            accept: 'application/json',
+            authorization: `Bearer ${(userInfo as any).access_token}`,
+          },
+          body: {
+            token: (userInfo as any).access_token,
+          },
+        })
+        .then(res => {
+          console.log('token verified');
+          if (res.status !== 200) {
+            AsyncStorage.removeItem('userInfo');
+            setUserInfo({});
+            setIsLoading(false);
+            setSplashLoading(false);
+            console.log('token expired');
+            return;
+          }
+          console.log('token valid');
+          setUserInfo(userInfo || {}); // Handle null case by setting it to an empty object
+          // console.log((userInfo as any).access_token);
+          setIsLoading(false);
+          setSplashLoading(false);
+        })
+        .catch((e): void => {
+          console.log('error', e);
+          AsyncStorage.removeItem('userInfo');
+          setUserInfo({});
+          setIsLoading(false);
+          setSplashLoading(false);
+        });
+      // } else {
+      //   AsyncStorage.removeItem('userInfo');
+      //   setUserInfo({});
+      //   setIsLoading(false);
+      //   setSplashLoading(false);
+      // }
+    } catch (e) {
+      setSplashLoading(false);
+      console.log(`is logged in error ${e}`);
+    }
+  };
+
+  useEffect(() => {
+    isLoggedIn();
+  }, []);
+
+  return (
+    <AuthContext.Provider
+      value={{
+        isLoading,
+        userInfo,
+        splashLoading,
+        register,
+        login,
+        logout,
+        aiTips,
+        setAITips,
+      }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+import React from 'react';
+import {ActivityIndicator, View} from 'react-native';
+
+const SplashScreen = () => {
+  return (
+    <View
+      style={{flex: 1, justifyContent: 'center', backgroundColor: '#06bcee'}}>
+      <ActivityIndicator size="large" color="#ffffff" />
+    </View>
+  );
+};
+
+export default SplashScreen;import React, {useContext, useEffect, useRef, useState} from 'react';
+import {
+  View,
+  StyleSheet,
+  PermissionsAndroid,
+  Platform,
+  Alert,
+  Text,
+  // Button,
+  TouchableOpacity,
+  TextInput,
+  Pressable,
+  ViewStyle,
+  TextStyle,
+  // KeyboardAvoidingView,
+  StyleProp,
+} from 'react-native';
+import MapView, {PROVIDER_GOOGLE, Marker, Circle} from 'react-native-maps';
+import {Dropdown} from 'react-native-element-dropdown';
+import AntDesign from '@expo/vector-icons/AntDesign';
+import Geolocation from '@react-native-community/geolocation';
+import {
+  GooglePlacesAutocomplete,
+  GooglePlacesAutocompleteRef,
+} from 'react-native-google-places-autocomplete';
+import RemoteNotification from '../components/RemoteNotification';
+import {Icon} from 'react-native-elements';
+import Spinner from 'react-native-loading-spinner-overlay';
+import {AuthContext} from '../context/AuthContext';
+import UserLocation from '../../UserLocation';
+
+// RemoteNotification()
+
+interface Location {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
+
+const App: React.FC = () => {
+  const [location, setLocation] = useState<Location | null>();
+  const ref = useRef<GooglePlacesAutocompleteRef>(null);
+  const {userInfo, isLoading, logout} = useContext<any>(AuthContext);
+  // add a loader state variable
+  const [loading, setLoading] = useState<boolean>(true);
+  // const [pinged, SetPinged] = useState<boolean>(false);
+  const [newLocation, setNewLocation] = useState<Location | null>(null);
+  // a state variable for name and description
+  const [name, setName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const { aiTips, setAITips } = useContext<any>(AuthContext);
+  const [details, setDetails] = useState<
+    Array<{title: string; desription: string; pinColor: string}>
+  >([]);
+  const options = [
+    {label: 'Grocery Store', value: 'Grocery Store'},
+    {label: 'Bus/Walk', value: 'Bus/Walk'},
+    {label: 'Library', value: 'Library'},
+    {label: 'Park', value: 'Park'},
+    {label: 'Restaurant', value: 'Restaurant'},
+    {label: 'Waiting Room', value: 'Waiting Room'},
+    {label: "Other's Home", value: "Other's Home"},
+  ];
+  const fetchLocations = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://68.183.102.75:1337/endpoint/locations', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo.access_token}`,
+        },
+      });
+      const jsonResponse = await response.json();
+      console.log(jsonResponse);
+      setLocations(jsonResponse.locations);
+      setDetails(jsonResponse.details);
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'This app needs access to your location.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          Alert.alert('Location permission denied');
+          return;
+        }
+        const backgroundGranted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+          {
+            title: 'Background Location Permission',
+            message: 'This app needs access to your location in the background',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+      }
+      let options_loc = {
+        enableHighAccuracy: true,
+        timeout: 60000,
+        maximumAge: 0,
+      };
+      Geolocation.getCurrentPosition(
+        async position => {
+          // console.log(position);
+          const {latitude, longitude} = position.coords;
+          console.log(latitude, longitude);
+          setLoading(false);
+          setLocation({
+            latitude,
+            longitude,
+            latitudeDelta: 0.015,
+            longitudeDelta: 0.0121,
+          });
+          console.log('fetchLocations called');
+        },
+        error => {
+          console.log(error, 'fetchLocations');
+          Alert.alert('Error', 'Unable to fetch location in fetchLocations');
+        },
+        options_loc,
+      );
+      // setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error('Error fetching locations:', error);
+    }
+  };
+  const addLocation = async () => {
+    console.log('Add location');
+    if (name === '' || description === '' || !selectedOption) {
+      Alert.alert('Please enter a title and description');
+      return;
+    }
+    if (newLocation) {
+      // make an HTTP POST request to endpoint: http://68.183.102.75:1337/endpoint/addLocation
+      // with the following data: {latitude: newLocation.latitude, longitude: newLocation.longitude, name, description}
+
+      try {
+        setLoading(true);
+        const response = await fetch(
+          'http://68.183.102.75:1337/endpoint/addLocation',
+          {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${userInfo.access_token}`,
+            },
+            body: JSON.stringify({
+              latitude: newLocation.latitude,
+              longitude: newLocation.longitude,
+              name,
+              description,
+              type: selectedOption,
+            }),
+          },
+        );
+        setLoading(false);
+        fetchLocations();
+        Alert.alert('Location added!');
+        console.log('Location added:', response.status);
+      } catch (error) {
+        console.error('Error adding location:', error);
+      }
+      setNewLocation(null);
+      setName('');
+      setDescription('');
+      setSelectedOption(null);
+    }
+  };
+  const fetchLocationAndSendData = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Location Permission',
+          message: 'This app needs access to your location.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      const backgroundGranted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+        {
+          title: 'Background Location Permission',
+          message: 'This app needs access to your location in the background',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      if (backgroundGranted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('Background location permission granted');
+      } else {
+        console.log('Background location permission denied');
+      }
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        Alert.alert('Location permission denied');
+        return;
+      }
+    }
+    Geolocation.getCurrentPosition(
+      async position => {
+        // console.log(position);
+        const {latitude, longitude} = position.coords;
+        console.log(latitude, longitude);
+        setLocation({
+          latitude,
+          longitude,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.0121,
+        });
+
+        if (loading) setLoading(false);
+        // Now send the location data to your server
+        try {
+          const response = await fetch('http://68.183.102.75:1337/endpoint', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${userInfo.access_token}`,
+            },
+            body: JSON.stringify({
+              latitude,
+              longitude,
+            }),
+          });
+          // const jsonResponse = await response.json();
+          console.log('Data sent to server:', response.status);
+        } catch (error) {
+          console.error('Error sending location data:', error);
+        }
+      },
+      error => {
+        Alert.alert('Error', 'Unable to fetch location');
+        console.log(error);
+      },
+      {enableHighAccuracy: true, timeout: 60000, maximumAge: 0},
+    );
+  };
+
+  useEffect(() => {
+    // fetch an API from /endpoint/locations and set the locations and details state variables
+    fetchLocations();
+    console.log('fetchLocations called');
+    // Set up the interval to call fetchLocationAndSendData every 30 seconds
+    const intervalId = setInterval(fetchLocationAndSendData, 30000);
+
+    // Clean up the interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // background task
+
+  if (loading) {
+    return (
+      <View>
+        <Spinner visible={loading} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {location && (
+        <MapView
+          provider={PROVIDER_GOOGLE}
+          style={styles.map}
+          region={newLocation ? newLocation : location}
+          showsUserLocation
+          mapType="standard"
+          userInterfaceStyle="light">
+          {locations.map((loc, index) => (
+            <React.Fragment key={index}>
+              <Marker
+                coordinate={loc}
+                title={details[index].title}
+                description={details[index].desription}
+                pinColor={details[index].pinColor}
+              />
+              <Circle
+                center={loc}
+                radius={100} // radius in meters
+                strokeColor="rgba(0,0,255,0.5)"
+                fillColor="rgba(0,0,255,0.1)"
+                zIndex={2}
+              />
+            </React.Fragment>
+          ))}
+        </MapView>
+      )}
+      <>
+        <GooglePlacesAutocomplete
+          placeholder="Search"
+          fetchDetails={true}
+          styles={styles1}
+          onPress={(data, details = null) => {
+            // 'details' is provided when fetchDetails = true
+            if (details) {
+              const latitude = details.geometry.location.lat;
+              const longitude = details.geometry.location.lng;
+              setNewLocation({
+                latitude,
+                longitude,
+                latitudeDelta: 0.015,
+                longitudeDelta: 0.0121,
+              });
+            }
+          }}
+          query={{
+            key: 'AIzaSyDBAL_WlpNc9Jvmtx6OPszKr30cJe3Kwew',
+            language: 'en',
+          }}
+          renderRightButton={() => (
+            <TouchableOpacity
+              style={styles1.clearButton}
+              onPress={() => {
+                ref.current && ref.current.clear();
+                setName('');
+                setDescription('');
+                setNewLocation(null);
+              }}>
+              <Icon name="close" size={25} color="black" />
+            </TouchableOpacity>
+          )}
+          ref={ref}
+        />
+        {/* two text input boxes, one for title and one for description. Only visible when newLocation not null */}
+        {newLocation && (
+          <>
+            <View style={styles.bg}>
+              <Text>Please fill out everything:</Text>
+              <Dropdown
+                style={drop.dropdown}
+                placeholderStyle={drop.placeholderStyle}
+                selectedTextStyle={drop.selectedTextStyle}
+                inputSearchStyle={drop.inputSearchStyle}
+                iconStyle={drop.iconStyle}
+                data={options}
+                maxHeight={300}
+                labelField="label"
+                valueField="value"
+                placeholder="Select an option"
+                searchPlaceholder="Search..."
+                value={selectedOption}
+                onChange={item => setSelectedOption(item.value)}
+                renderLeftIcon={() => (
+                  <AntDesign
+                    style={drop.icon}
+                    color="black"
+                    name="Safety"
+                    size={20}
+                  />
+                )}
+              />
+              <TextInput
+                placeholder="Title"
+                style={[drop.input, drop.placeholderStyle]}
+                value={name}
+                onChange={e => setName(e.nativeEvent.text)}
+                placeholderTextColor={drop.placeholderStyle.color}
+              />
+              <TextInput
+                placeholder="Description"
+                style={[drop.input, drop.placeholderStyle]}
+                value={description}
+                onChange={e => setDescription(e.nativeEvent.text)}
+                placeholderTextColor={drop.placeholderStyle.color}
+              />
+              <View
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'flex-end',
+                }}>
+                <Pressable style={styles1.button} onPress={addLocation}>
+                  <Text style={styles1.buttonText}>Add location</Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        )}
+
+        {!newLocation && (
+          <>
+            <View style={styles.tile}>
+              <Text style={styles.heading}>Welcome, {userInfo.user.name} </Text>
+              <Text style={styles.body_text}>
+                Please search for a location on the map, and follow instructions
+                to add a location of interest.
+              </Text>
+            </View>
+            <View
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                justifyContent: 'space-around',
+              }}>
+              {/* <UserLocation /> */}
+              <Pressable style={styles1.button_ai} onPress={() => {
+                setAITips(!aiTips);
+              }}>
+                <Text style={styles1.buttonText}>
+                  {aiTips ? 'Disable AI Tips' : 'Enable AI Tips'}
+                </Text>
+              </Pressable>
+              <Pressable style={styles1.button_logout} onPress={logout}>
+                <Text style={styles1.buttonText}>Logout</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+      </>
+      <RemoteNotification />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    ...StyleSheet.absoluteFillObject,
+    height: '100%',
+    // display: 'flex',
+    // flexDirection: 'column',
+    // justifyContent: 'space-around',
+    // alignItems: 'center',
+  },
+  tile: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-around',
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+    height: '80%',
+    // margin: '3%',
+    // marginTop: '17%',
+    // borderBlockColor: 'black',
+  },
+  bar: {
+    // height: '10%',
+    margin: '3%',
+  },
+  input: {
+    height: 40,
+    borderColor: 'black',
+    borderWidth: 1,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+  },
+  bg: {
+    backgroundColor: 'white',
+    padding: 10,
+  },
+
+  heading: {
+    // make this look like a heading
+    fontSize: 32,
+    marginBottom: 10,
+    marginLeft: 10,
+    paddingTop: 0,
+    fontWeight: 'bold',
+    color: 'black',
+  },
+  body_text: {
+    fontSize: 14,
+    marginLeft: 10,
+    fontWeight: 'normal',
+    color: 'black',
+  },
+});
+
+const styles1 = StyleSheet.create({
+  clearButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingRight: 10,
+  },
+  textInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    margin: 10,
+  },
+  textInput: {
+    height: 40,
+    color: '#5d5d5d',
+    fontSize: 16,
+    flex: 1,
+  },
+  button: {
+    backgroundColor: 'blue',
+    color: 'white',
+    padding: 5,
+    width: 120,
+    margin: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  button_logout: {
+    backgroundColor: 'red',
+    color: 'white',
+    padding: 5,
+    width: 120,
+    margin: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  button_ai: {
+    backgroundColor: 'green',
+    color: 'white',
+    padding: 5,
+    width: 120,
+    margin: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: 'white',
+  },
+});
+
+const drop = StyleSheet.create({
+  bg: {
+    padding: 16,
+    backgroundColor: 'white',
+  },
+  placeholderStyle: {
+    fontSize: 16,
+    color: 'gray',
+  },
+  input: {
+    height: 50,
+    borderColor: 'gray',
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  dropdown: {
+    margin: 16,
+    height: 50,
+    borderBottomColor: 'gray',
+    borderBottomWidth: 1,
+  },
+  selectedTextStyle: {
+    fontSize: 16,
+    color: 'black',
+  },
+  inputSearchStyle: {
+    height: 40,
+    fontSize: 16,
+  },
+  iconStyle: {
+    width: 20,
+    height: 20,
+  },
+  icon: {
+    marginRight: 5,
+  },
+});
+export default App;
+// import React, {useContext, useState} from 'react';
+// import {
+//   Button,
+//   Text,
+//   TextInput,
+//   TouchableOpacity,
+//   View,
+//   StyleSheet,
+// } from 'react-native';
+// import Spinner from 'react-native-loading-spinner-overlay';
+// import {AuthContext} from '../context/AuthContext';
+
+// const RegisterScreen = ({navigation}: any) => {
+//   const [name, setName] = useState('');
+//   const [email, setEmail] = useState('');
+//   const [password, setPassword] = useState('');
+
+//   const {isLoading, register} = useContext<any>(AuthContext);
+
+//   return (
+//     <View style={styles.container}>
+//       <Spinner visible={isLoading} />
+//       <Text style={{padding: 10, fontSize: 28, fontWeight: 'bold', textAlign: 'center'}}>Talk Around Town</Text>
+//       <View style={styles.wrapper}>
+//         <TextInput
+//           style={styles.input}
+//           value={name}
+//           placeholder="Enter name"
+//           onChangeText={text => setName(text)}
+//         />
+
+//         <TextInput
+//           style={styles.input}
+//           value={email}
+//           placeholder="Enter email"
+//           onChangeText={text => setEmail(text)}
+//         />
+
+//         <TextInput
+//           style={styles.input}
+//           value={password}
+//           placeholder="Enter password"
+//           onChangeText={text => setPassword(text)}
+//           secureTextEntry
+//         />
+
+//         <Button
+//           title="Register"
+//           onPress={() => {
+//             register(name, email, password);
+//           }}
+//         />
+
+//         <View style={{flexDirection: 'row', marginTop: 20}}>
+//           <Text>Already have an account? </Text>
+//           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+//             <Text style={styles.link}>Login</Text>
+//           </TouchableOpacity>
+//         </View>
+//       </View>
+//     </View>
+//   );
+// };
+
+// const styles = StyleSheet.create({
+//   container: {
+//     flex: 1,
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//   },
+//   wrapper: {
+//     width: '80%',
+//   },
+//   input: {
+//     marginBottom: 12,
+//     borderWidth: 1,
+//     borderColor: '#bbb',
+//     borderRadius: 5,
+//     paddingHorizontal: 14,
+//   },
+//   link: {
+//     color: 'blue',
+//   },
+// });
+
+// export default RegisterScreen;
+
+import React, {useState, useRef, useEffect, useContext} from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
+import {AuthContext} from '../context/AuthContext';
+import {Ionicons} from '@expo/vector-icons';
+import {MaterialIcons} from '@expo/vector-icons'; // or 'react-native-vector-icons/MaterialIcons'
+
+import {GooglePlacesAutocomplete} from 'react-native-google-places-autocomplete';
+import MapView, {Circle, Marker, PROVIDER_GOOGLE} from 'react-native-maps';
+import {Dimensions} from 'react-native';
+import Spinner from 'react-native-loading-spinner-overlay';
+
+const {width, height} = Dimensions.get('window');
+const ASPECT_RATIO = width / height;
+const LATITUDE_DELTA = 0.015;
+const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
+
+const HomeAddress: React.FC<{onLocationChange: (location: any) => void}> = ({
+  onLocationChange,
+}) => {
+  const [location, setLocation] = useState<any>({});
+  const [mapReady, setMapReady] = useState(false);
+  const mapRef = useRef<MapView | null>(null);
+
+  useEffect(() => {
+    if (mapReady && Object.keys(location).length > 0) {
+      setTimeout(() => {
+        mapRef.current?.animateToRegion(
+          {
+            ...location,
+            latitudeDelta: LATITUDE_DELTA,
+            longitudeDelta: LONGITUDE_DELTA,
+          },
+          1000,
+        );
+      }, 500);
+    }
+  }, [location, mapReady]);
+
+  const handleLocationChange = (newLocation: any) => {
+    setLocation(newLocation);
+    onLocationChange(newLocation);
+  };
+
+  return (
+    <>
+    {/* <Text style={styles.title}>Enter your home address</Text> */}
+    {/* <View style={{
+      
+    }}> */}
+      
+      <GooglePlacesAutocomplete
+        placeholder="Search for your home location"
+        fetchDetails={true}
+        styles={locationSearchStyles}
+        onPress={(data, details = null) => {
+          if (details) {
+            const {lat, lng} = details.geometry.location;
+            const newLocation = {
+              latitude: lat,
+              longitude: lng,
+            };
+            handleLocationChange(newLocation);
+          }
+        }}
+        query={{
+          key: 'AIzaSyDBAL_WlpNc9Jvmtx6OPszKr30cJe3Kwew',
+          language: 'en',
+        }}
+        renderRightButton={() => (
+          <TouchableOpacity
+            style={locationSearchStyles.clearButton}
+            onPress={() => {
+              handleLocationChange({});
+            }}>
+            <MaterialIcons name="close" size={25} color="black" />
+          </TouchableOpacity>
+        )}
+      />
+      {Object.keys(location).length !== 0 && (
+        <MapView
+          ref={mapRef}
+          provider={PROVIDER_GOOGLE}
+          style={locationSearchStyles.map}
+          initialRegion={{
+            ...location,
+            latitudeDelta: LATITUDE_DELTA,
+            longitudeDelta: LONGITUDE_DELTA,
+          }}
+          onMapReady={() => setMapReady(true)}>
+          <Marker coordinate={location} />
+          <Circle
+            center={location}
+            radius={100}
+            fillColor="rgba(0, 0, 255, 0.1)"
+            strokeColor="rgba(0, 0, 255, 0.3)"
+          />
+        </MapView>
+      )}
+    {/* </View> */}
+    </>
+  );
+};
+
+// const locationSearchStyles = StyleSheet.create({
+//   container: {
+//     flex: 0,
+//   },
+//   textInputContainer: {
+//     width: '100%',
+//   },
+//   clearButton: {
+//     padding: 10,
+//   },
+//   map: {
+//     // ...StyleSheet.absoluteFillObject,
+//     // height: '80%',
+//     width: Dimensions.get('window').width * 0.7,
+//     height: Dimensions.get('window').height * 0.6,
+//     minHeight: '65%',
+//     // marginTop: '17%',
+//     borderBlockColor: 'black',
+//   },
+// });
+
+const locationSearchStyles = StyleSheet.create({
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxHeight: '90%',
+  },
+  textInputContainer: {
+    width: '100%',
+  },
+  textInput: {
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+  },
+  clearButton: {
+    padding: 10,
+  },
+  map: {
+    // ...StyleSheet.absoluteFillObject,
+    // height: '80%',
+    width: Dimensions.get('window').width * 0.7,
+    height: Dimensions.get('window').height * 0.65,
+    minHeight: '65%',
+    // marginTop: '17%',
+    borderBlockColor: 'black',
+  },
+});
+
+
+const RegisterScreen = ({navigation}: any) => {
+  const [step, setStep] = useState(1);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [location, setLocation] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const {isLoading, register} = useContext<any>(AuthContext);
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const handleLocationChange = (newLocation: any) => {
+    setLocation(newLocation);
+  };
+  const ref = useRef();
+
+  const handleNext = () => {
+    if (step < 4) {
+      setStep(step + 1);
+    } else {
+      handleRegister();
+    }
+  };
+
+  const handleBack = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    }
+  };
+
+  const handleRegister = async () => {
+    console.log(
+      JSON.stringify({
+        name,
+        email,
+        password,
+        location,
+      }),
+    );
+    try {
+      const response = register(name, email, password, location);
+      console.log(response)
+      if (response) {
+        // Handle successful registration
+        console.log('Registration successful');
+        navigation.navigate('Login');
+        // naviga
+      } else {
+        // Handle registration error
+        console.error('Registration failed');
+      }
+    } catch (error) {
+      console.error('Error during registration:', error);
+    }
+  };
+
+  const renderStep = () => {
+    switch (step) {
+      case 1:
+        return (
+          <>
+            <Text style={styles.title}>Enter your name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Name"
+              value={name}
+              onChangeText={setName}
+            />
+          </>
+        );
+      case 2:
+        return (
+          <>
+            <Text style={styles.title}>Enter your email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+            />
+          </>
+        );
+      case 3:
+        return (
+          <>
+            <Text style={styles.title}>Enter a password</Text>
+            <View style={passwordBox.inputContainer}>
+              <TextInput
+                style={passwordBox.input}
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                onPress={togglePasswordVisibility}
+                style={passwordBox.eyeButton}>
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={24}
+                  color="gray"
+                />
+              </TouchableOpacity>
+            </View>
+          </>
+        );
+      case 4:
+        return (
+          <View style={passwordBox.inputContainer}>
+            <HomeAddress onLocationChange={handleLocationChange} />
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Spinner visible={isLoading} />
+      {step > 1 && (
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <MaterialIcons name="arrow-back" size={25} color="black" />
+        </TouchableOpacity>
+      )}
+      {/* <Text style={styles.title}>Step {step} of 4</Text> */}
+      {renderStep()}
+      <TouchableOpacity style={styles.button} onPress={handleNext}>
+        <Text style={styles.buttonText}>
+          {step === 4 ? 'Register' : 'Next'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const passwordBox = StyleSheet.create({
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'gray',
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 20,
+  },
+  input: {
+    flex: 1,
+    width: '70%',
+    height: 40,
+    borderColor: 'gray',
+  },
+  eyeButton: {
+    padding: 10,
+  },
+});
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    marginBottom: 20,
+  },
+  input: {
+    width: '100%',
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 20,
+  },
+  button: {
+    backgroundColor: 'blue',
+    padding: 10,
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 40,
+    left: 20,
+  },
+  // googlePlacesInput: {
+  //   textInputContainer: {
+  //     width: '100%',
+  //   },
+  //   textInput: {
+  //     height: 40,
+  //     borderColor: 'gray',
+  //     borderWidth: 1,
+  //     borderRadius: 5,
+  //     paddingHorizontal: 10,
+  //   },
+  // },
+  // clearButton: {
+  //   padding: 10,
+  // },
+});
+
+export default RegisterScreen;
+import React, {useContext} from 'react';
+import {PermissionsAndroid, Platform, Alert} from 'react-native';
+
+import Geolocation from '@react-native-community/geolocation';
+import {AuthContext} from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+// import { userInfo } from 'os';
+
+const fetchLocationAndSendData = async () => {
+  try {
+    // const {userInfo, isLoading, logout} = useContext<any>(AuthContext);
+    const userInfo = await AsyncStorage.getItem('userInfo');
+    if (!userInfo) {
+      console.log('No user info found');
+      return;
+    }
+    const access_token = JSON.parse(userInfo || '{}').access_token;
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Location Permission',
+          message: 'This app needs access to your location.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        Alert.alert('Location permission denied');
+        return;
+      }
+      const backgroundGranted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+        {
+          title: 'Background Location Permission',
+          message: 'This app needs access to your location in the background',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      if (backgroundGranted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('Background location permission granted');
+      } else {
+        console.log('Background location permission denied');
+      }
+    }
+    Geolocation.getCurrentPosition(
+      async position => {
+        // console.log(position);
+        const {latitude, longitude} = position.coords;
+        console.log(latitude, longitude);
+        try {
+          const response = await fetch('http://68.183.102.75:1337/endpoint', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${access_token}`,
+            },
+            body: JSON.stringify({
+              latitude,
+              longitude,
+            }),
+          });
+          // const jsonResponse = await response.json();
+          console.log('Data sent to server:', response.status);
+        } catch (error) {
+          console.error('Error sending location data:', error);
+        }
+      },
+      error => {
+        Alert.alert('Error', 'http://68.183.102.75:1337 location');
+        console.log(error);
+      },
+      {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},
+    );
+  } catch (error) {
+    console.error('Error fetching location:', error);
+  }
+};
+
+export default fetchLocationAndSendData;
+// export default HomeScreen;
+import React, {useContext, useEffect, useState} from 'react';
+import {Button, StyleSheet, Text, View, TouchableOpacity} from 'react-native';
+import Spinner from 'react-native-loading-spinner-overlay';
+import {AuthContext} from '../context/AuthContext';
+import Tts from 'react-native-tts';
+
+const HomeScreen = ({route}: {route: any}) => {
+  const {userInfo, isLoading, logout} = useContext<any>(AuthContext);
+  const {notificationTitle} = route.params || {};
+  const {aiTips} = useContext<any>(AuthContext);
+
+  const [tips, setTips] = useState<any>([]);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch(
+          'http://68.183.102.75:1337/api/tips/get-tips',
+          {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${userInfo.access_token}`,
+            },
+            body: JSON.stringify({
+              type: notificationTitle,
+              AI: aiTips,
+            }),
+          },
+        );
+        const responseJson = await response.json();
+        setTips(responseJson);
+      } catch (e) {
+        console.log(`get-tips error ${e}`);
+      }
+    };
+
+    fetchData();
+
+    // Initialize TTS
+    Tts.setDefaultLanguage('en-US');
+    Tts.setDefaultRate(0.5);
+    Tts.setDefaultPitch(1.0);
+
+    // Cleanup TTS when component unmounts
+    return () => {
+      Tts.stop();
+    };
+  }, []);
+
+  const speakTip = (tip: any) => {
+    setIsSpeaking(true);
+    Tts.speak(`${tip.title}. ${tip.description}`);
+    setIsSpeaking(false);
+  };
+
+  const speakAllTips = () => {
+    if (isSpeaking) {
+      Tts.stop();
+      setIsSpeaking(false);
+    } else {
+      setIsSpeaking(true);
+      tips.forEach((tip: any, index: number) => {
+        Tts.speak(`Tip ${index + 1}. ${tip.title}. ${tip.description}`);
+      });
+      Tts.addEventListener('tts-finish', () => setIsSpeaking(false));
+    }
+  };
+
+  if (tips.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Spinner visible={true} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.welcome}>
+        Hey {userInfo.user.name}, engage with your child with these tips:
+      </Text>
+      <TouchableOpacity style={styles.speakButton} onPress={speakAllTips}>
+        <Text style={styles.speakButtonText}>
+          {isSpeaking ? 'Stop Speaking' : 'Speak All Tips'}
+        </Text>
+      </TouchableOpacity>
+      <View style={styles.tipContainer}>
+        {tips.map((tip: any) => (
+          <TouchableOpacity key={tip.id} onPress={() => speakTip(tip)}>
+            <Text style={styles.tip_title}>
+              {'▶️'} {tip.title}
+            </Text>
+            <Text style={styles.tip}>{tip.description}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  welcome: {
+    fontSize: 24,
+    marginBottom: 8,
+    color: 'black',
+  },
+  tipContainer: {
+    marginVertical: 16,
+    width: '100%',
+  },
+  tip_title: {
+    fontSize: 22,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  tip: {
+    backgroundColor: '#4285F4',
+    color: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    textAlign: 'left',
+    fontSize: 18,
+  },
+  speakButton: {
+    backgroundColor: '#34A853',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  speakButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+});
+
+export default HomeScreen;
+import React, {useContext, useState} from 'react';
+import {
+  Button,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  StyleSheet,
+} from 'react-native';
+import Spinner from 'react-native-loading-spinner-overlay';
+import {AuthContext} from '../context/AuthContext';
+
+const LoginScreen = ({navigation}: {navigation: any}) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const {isLoading, login}: {isLoading: boolean, login: Function} = useContext<any>(AuthContext);
+
+  return (
+    <View style={styles.container}>
+      <Spinner visible={isLoading} />
+      <View style={styles.wrapper}>
+        <Text style={{padding: 10, fontSize: 28, fontWeight: 'bold', textAlign: 'center'}}>
+          Talk Around Town v1.0
+        </Text>
+        <TextInput
+          style={styles.input}
+          value={email}
+          placeholder="Enter email"
+          onChangeText={text => setEmail(text)}
+        />
+
+        <TextInput
+          style={styles.input}
+          value={password}
+          placeholder="Enter password"
+          onChangeText={text => setPassword(text)}
+          secureTextEntry
+        />
+
+        <Button
+          title="Login"
+          onPress={() => {
+            login(email, password);
+          }}
+        />
+
+        <View style={{flexDirection: 'row', marginTop: 20}}>
+          <Text>Don't have an account? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.link}>Register</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wrapper: {
+    width: '80%',
+  },
+  input: {
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#bbb',
+    borderRadius: 5,
+    paddingHorizontal: 14,
+  },
+  link: {
+    color: 'blue',
+  },
+});
+
+export default LoginScreen;// import AsyncStorage from '@react-native-async-storage/async-storage';
+// import {useEffect} from 'react';
+// import {PermissionsAndroid, Platform} from 'react-native';
+// import PushNotification from 'react-native-push-notification';
+// import {navigationRef} from '../ref/NavigationRef';
+
+// const checkApplicationPermission = async () => {
+//   if (Platform.OS === 'android') {
+//     try {
+//       await PermissionsAndroid.request(
+//         PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+//       );
+//     } catch (error) {
+//       console.error(error);
+//     }
+//   }
+// };
+
+// const RemoteNotification = () => {
+//   // let curtoken: String = '';
+//   useEffect(() => {
+//     checkApplicationPermission();
+//     // Using this function as we are rendering local notification so without this function we will receive multiple notification for same notification
+//     // We have same channelID for every FCM test server notification.
+//     PushNotification.getChannels(function (channel_ids) {
+//       channel_ids.forEach(id => {
+//         PushNotification.deleteChannel(id);
+//       });
+//     });
+//     PushNotification.configure({
+//       // (optional) Called when Token is generated (iOS and Android)
+//       onRegister: async function (token) {
+//         // curtoken = token.token.toString();
+//         const androidToken = await AsyncStorage.getItem('android_token');
+//         if (androidToken) {
+//           // console.log('Android token already stored:', androidToken);
+//           return;
+//         }
+//         console.log('TOKEN:', token);
+//         // access local storage and check if android token is already stored
+//         // get access token from local storage
+//         const jwt = await AsyncStorage.getItem('userInfo');
+//         const userInfo = JSON.parse(jwt || '{}');
+//         console.log('JWT:', userInfo.access_token);
+//         // send access token to server
+//         fetch('http://68.183.102.75:1337/api/auth/token', {
+//           method: 'POST',
+//           headers: {
+//             Accept: 'application/json',
+//             'Content-Type': 'application/json',
+//             Authorization: `Bearer ${userInfo.access_token}`,
+//           },
+//           body: JSON.stringify({
+//             token: token.token,
+//           }),
+//         })
+//           .then(response => response.json())
+//           .then(responseJson => {
+//             // // store token in local storage
+//             AsyncStorage.setItem('android_token', JSON.stringify(responseJson));
+//             console.log('Data sent to server:', responseJson);
+//           })
+//           .catch(error => {
+//             console.error('Error sending token data:', error);
+//           });
+//       },
+
+      
+//       // onAction: function (notification) {
+//       // },
+//       // (required) Called when a remote or local notification is opened or received
+//       onNotification: function (notification) {
+//         // add ignore to the notification object
+//         // @ts-ignore
+//         const {message, id, title} = notification;
+
+//         // Provide default values if any of the variables are null or undefined
+//         const safeTitle = title !== null && title !== undefined ? title : '789';
+//         const safeMessage =
+//           message !== null && message !== undefined ? message : '456';
+//         const safeId = id !== null && id !== undefined ? id : '123';
+
+//         // Convert to strings and remove quotes
+//         let strTitle = JSON.stringify(safeTitle).split('"').join('');
+//         let strBody = JSON.stringify(safeMessage).split('"').join('');
+//         let typeMatch = strBody.match(/^(.*?):/);
+//         let type = typeMatch ? typeMatch[1].trim() : null;
+//         console.log('BODY: ', strBody)
+//         console.log('TYPE:', type);
+//         // strBody: `${type}: Click here for some tips to make the most of your visit.`,
+//         // get the $type from the strBody
+
+//         const key = JSON.stringify(safeId).split('"').join('');
+//         PushNotification.createChannel(
+//           {
+//             channelId: key, // (required & must be unique)
+//             channelName: 'remote messasge', // (required)
+//             channelDescription: 'Notification for remote message', // (optional) default: undefined.
+//             importance: 4, // (optional) default: 4. Int value of the Android notification importance
+//             vibrate: true, // (optional) default: true. Creates the default vibration patten if true.
+//           },
+//           created => console.log(`createChannel returned '${created}'`), // (optional) callback returns whether the channel was created, false means it already existed.
+//         );
+//         PushNotification.localNotification({
+//           channelId: key, //this must be same with channelId in createchannel
+//           title: strTitle,
+//           message: strBody,
+//         });
+//         const lastWord = strTitle.split(' ').pop();
+//         console.log(
+//           'REMOTE NOTIFICATION ==>',
+//           title,
+//           message,
+//           id,
+//           notification,
+//           type,
+//         );
+//         (navigationRef.current as any)?.navigate('Home', {
+//           notificationTitle: type,
+//         });
+//         // process the notification here
+//       },
+//       // Android only: GCM or FCM Sender ID
+//       // senderID: '1234567890'
+//       popInitialNotification: true,
+//       // senderID: '1234567890',
+//       requestPermissions: true,
+//     });
+//   }, []);
+//   return null;
+// };
+// export default RemoteNotification;
+
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {useEffect} from 'react';
+import {PermissionsAndroid, Platform} from 'react-native';
+import PushNotification from 'react-native-push-notification';
+import {navigationRef} from '../ref/NavigationRef';
+
+const checkApplicationPermission = async () => {
+  if (Platform.OS === 'android') {
+    try {
+      await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+      );
+    } catch (error) {
+      console.error(error);
+    }
+  }
+};
+
+const RemoteNotification = () => {
+  useEffect(() => {
+    checkApplicationPermission();
+    PushNotification.getChannels(function (channel_ids) {
+      channel_ids.forEach(id => {
+        PushNotification.deleteChannel(id);
+      });
+    });
+
+    PushNotification.configure({
+      onRegister: async function (token) {
+        const androidToken = await AsyncStorage.getItem('android_token');
+        if (androidToken) {
+          return;
+        }
+        console.log('TOKEN:', token);
+        const jwt = await AsyncStorage.getItem('userInfo');
+        const userInfo = JSON.parse(jwt || '{}');
+        console.log('JWT:', userInfo.access_token);
+        fetch('http://68.183.102.75:1337/api/auth/token', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
+          body: JSON.stringify({
+            token: token.token,
+          }),
+        })
+          .then(response => response.json())
+          .then(responseJson => {
+            AsyncStorage.setItem('android_token', JSON.stringify(responseJson));
+            console.log('Data sent to server:', responseJson);
+          })
+          .catch(error => {
+            console.error('Error sending token data:', error);
+          });
+      },
+
+      onNotification: function (notification) {
+        // @ts-ignore
+        const {message, id, title, userInteraction} = notification;
+
+        const safeTitle = title || 'New Notification';
+        const safeMessage = message || 'You have a new notification';
+        const safeId = id || Date.now().toString();
+
+        let strTitle = safeTitle.toString();
+        let strBody = safeMessage.toString();
+        let typeMatch = strBody.match(/^(.*?):/);
+        let type = typeMatch ? typeMatch[1].trim() : 'notification';
+
+        console.log('NOTIFICATION RECEIVED:', {
+          title: strTitle,
+          body: strBody,
+          type: type,
+          userInteraction: userInteraction
+        });
+
+        if (userInteraction) {
+          // User clicked on the notification
+          console.log('User clicked on notification. Navigating to HomeScreen.');
+          (navigationRef.current as any)?.navigate('Home', {
+            notificationTitle: type,
+          });
+        } else {
+          // App received notification while in foreground or background
+          PushNotification.createChannel(
+            {
+              channelId: safeId,
+              channelName: 'Remote Message',
+              channelDescription: 'Notification for remote message',
+              importance: 4,
+              vibrate: true,
+            },
+            created => console.log(`createChannel returned '${created}'`),
+          );
+
+          PushNotification.localNotification({
+            channelId: safeId,
+            title: strTitle,
+            message: strBody,
+            userInfo: { type: type },  // Pass additional data
+          });
+        }
+      },
+
+      popInitialNotification: true,
+      requestPermissions: true,
+    });
+  }, []);
+
+  return null;
+};
+
+export default RemoteNotification;import React, {useContext} from 'react';
+import {PermissionsAndroid, Platform, Alert} from 'react-native';
+
+import Geolocation from '@react-native-community/geolocation';
+// import {AuthContext} from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const fetchLocationAndSendData = async () => {
+  try {
+    const userInfo = await AsyncStorage.getItem('userInfo');
+    if (!userInfo) {
+      console.log('No user info found');
+      return;
+    }
+    const access_token = JSON.parse(userInfo || '{}').access_token;
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Location Permission',
+          message: 'This app needs access to your location.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        Alert.alert('Location permission denied');
+        return;
+      }
+      const backgroundGranted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+        {
+          title: 'Background Location Permission',
+          message: 'This app needs access to your location in the background',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      if (backgroundGranted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('Background location permission granted');
+      } else {
+        console.log('Background location permission denied');
+      }
+    }
+    Geolocation.getCurrentPosition(
+      async position => {
+        // console.log(position);
+        const {latitude, longitude} = position.coords;
+        console.log(latitude, longitude);
+        try {
+          const response = await fetch('http://68.183.102.75:1337/endpoint', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${access_token}`,
+            },
+            body: JSON.stringify({
+              latitude,
+              longitude,
+            }),
+          });
+          // const jsonResponse = await response.json();
+          console.log('Data sent to server:', response.status);
+        } catch (error) {
+          console.error('Error sending location data:', error);
+        }
+      },
+      error => {
+        Alert.alert('Error', 'Unable to fetch location in Loc component');
+        console.log(error);
+      },
+      {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},
+    );
+  } catch (error) {
+    console.error('Error fetching location:', error);
+  }
+};
+
+export default fetchLocationAndSendData;
+import React, {useContext} from 'react';
+import {Text, View} from 'react-native';
+
+import {NavigationContainer} from '@react-navigation/native';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import HomeScreen from '../screens/HomeScreen.tsx';
+import LoginScreen from '../screens/LoginScreen.tsx';
+import RegisterScreen from '../screens/RegisterScreen.tsx';
+import {AuthContext} from '../context/AuthContext.tsx';
+import SplashScreen from '../screens/SplashScreen.tsx';
+import MainScreen from '../screens/MainScreen.tsx';
+import {navigationRef} from '../ref/NavigationRef.tsx';
+
+const Stack = createNativeStackNavigator();
+
+const Navigation = () => {
+  const {userInfo, splashLoading} = useContext<any>(AuthContext);
+  // console.log(userInfo);
+  return (
+    <NavigationContainer ref={navigationRef as any}>
+      <Stack.Navigator>
+        {splashLoading ? (
+          <>
+            <Stack.Screen
+              name="Splash Screen"
+              component={SplashScreen}
+              options={{headerShown: false}}
+            />
+          </>
+        ) : userInfo.access_token ? (
+          <>
+            <Stack.Screen
+              name="Main"
+              component={MainScreen}
+              options={{headerShown: false}}
+            />
+            <Stack.Screen
+              name="Home"
+              component={HomeScreen}
+              options={{headerShown: false}}
+            />
+          </>
+        ) : (
+          <>
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{headerShown: false}}
+            />
+            <Stack.Screen
+              name="Register"
+              component={RegisterScreen}
+              options={{headerShown: false}}
+            />
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+};
+
+export default Navigation;
+export const BASE_URL = 'http://68.183.102.75:1337/api/auth';
