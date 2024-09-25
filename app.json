@@ -1,15 +1,48 @@
 {
   "name": "Talk_around_town_trail",
-  "displayName": "Talk_around_town_trail",
   "expo": {
+    "name": "Talk_around_town_trail",
+    "slug": "talk-around-town-native",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourusername.talkaroundtown"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.yourusername.talkaroundtown"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
       [
         "@react-native-voice/voice",
+        {
+          "microphonePermission": "Allow Talk Around Town to access the microphone",
+          "speechRecognitionPermission": "Allow Talk Around Town to securely recognize user speech"
+        }
+      ],
+      [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",
-          "isAndroidBackgroundLocationEnabled": true
-        }
+          "locationAlwaysAndWhenInUsePermission": "Allow Talk Around Town to use your location.",
+          "isAndroidBackgroundLocationEnabled": true        
+}
       ]
     ]
   }
