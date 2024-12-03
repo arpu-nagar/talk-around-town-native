@@ -20,7 +20,11 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:usesCleartextTraffic="true"
-      android:theme="@style/AppTheme">
+      xmlns:tools="http://schemas.android.com/tools"
+    tools:replace="android:appComponentFactory"
+    android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+      android:theme="@style/AppTheme"
+      android:supportsRtl="true">
       <meta-data
         android:name="com.google.android.geo.API_KEY" 
         android:value="AIzaSyDBAL_WlpNc9Jvmtx6OPszKr30cJe3Kwew"/>

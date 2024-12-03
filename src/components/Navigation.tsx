@@ -1,99 +1,117 @@
-import React, {useContext} from 'react';
-import {Text, View} from 'react-native';
-
-import {NavigationContainer} from '@react-navigation/native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import HomeScreen from '../screens/HomeScreen.tsx';
-import LoginScreen from '../screens/LoginScreen.tsx';
-import RegisterScreen from '../screens/RegisterScreen.tsx';
-import {AuthContext} from '../context/AuthContext.tsx';
-import SplashScreen from '../screens/SplashScreen.tsx';
-import MainScreen from '../screens/MainScreen.tsx';
-import {navigationRef} from '../ref/NavigationRef.tsx';
+import React, { useContext } from 'react';
+import { Platform, View } from 'react-native';
+import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Assistant from '../screens/Assistant/MainScreen.tsx';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import {MaterialIcons} from '@expo/vector-icons'
-// import material icon
-// import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-const Stack = createNativeStackNavigator();
+import { AuthContext, AuthContextType } from '../context/AuthContext';
+import { navigationRef } from '../ref/NavigationRef';
+import RemoteNotification from '../components/RemoteNotification'; // Add this import
 
-const Tab = createBottomTabNavigator();
+// Screens
+import SplashScreen from '../screens/SplashScreen';
+import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
+import HomeScreen from '../screens/HomeScreen';
+import MainScreen from '../screens/MainScreen';
+import AssistantScreen from '../screens/Assistant/MainScreen';
 
-const TabNavigator = () => {
-  return (
-    <Tab.Navigator
+// Types
+export type RootStackParamList = {
+  Splash: undefined;
+  Auth: undefined;
+  Main: undefined;
+};
+
+type AuthStackParamList = {
+  Login: undefined;
+  Register: undefined;
+};
+
+type MainTabParamList = {
+  Home: undefined;
+  Assistant: undefined;
+};
+
+// Navigators
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const MainTab = createBottomTabNavigator<MainTabParamList>();
+
+// Icon configuration
+const getIconName = (routeName: string, focused: boolean): string => {
+  if (routeName === 'Home') {
+    return focused ? 'home' : 'home-outline';
+  } else if (routeName === 'Assistant') {
+    return focused ? 'chatbubbles' : 'chatbubbles-outline';
+  }
+  return 'alert-circle'; // Fallback icon
+};
+
+// Wrapper component to include RemoteNotification
+const ScreenWithNotification: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <View style={{ flex: 1 }}>
+    {children}
+    <RemoteNotification />
+  </View>
+);
+
+// Tab Navigator
+const TabNavigator = () => (
+  <ScreenWithNotification>
+    <MainTab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-
-          if (route.name === 'MainScreen') {
-            iconName = focused ? 'home' : 'home';
-          } else if (route.name === 'Assistant') {
-            iconName = focused ? 'chat' : 'chat';
-          }
-
-          return <MaterialIcons name={iconName as any} size={size} color={color} />;
+          const iconName = getIconName(route.name, focused);
+          return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: 'tomato',
+        tabBarActiveTintColor: Platform.OS === 'ios' ? '#007AFF' : '#6200EE',
         tabBarInactiveTintColor: 'gray',
+        headerShown: false,
+        tabBarStyle: {
+          paddingVertical: Platform.OS === 'ios' ? 10 : 0,
+          height: Platform.OS === 'ios' ? 88 : 60,
+        },
       })}
     >
-      <Tab.Screen 
-        name="MainScreen" 
-        component={MainScreen} 
-        options={{ headerShown: false }}
-      />
-      <Tab.Screen 
-        name="Assistant" 
-        component={Assistant} 
-        options={{ headerShown: false }}
-      />
-    </Tab.Navigator>
+      <MainTab.Screen name="Home" component={MainScreen} />
+      <MainTab.Screen name="Assistant" component={AssistantScreen} />
+    </MainTab.Navigator>
+  </ScreenWithNotification>
+);
+
+// Auth Navigator
+const AuthNavigator = () => (
+  <ScreenWithNotification>
+    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Register" component={RegisterScreen} />
+    </AuthStack.Navigator>
+  </ScreenWithNotification>
+);
+
+// Root Navigator
+const RootNavigator = () => {
+  const { userInfo, splashLoading } = useContext<AuthContextType>(AuthContext);
+  
+  return (
+    <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      {splashLoading ? (
+        <RootStack.Screen name="Splash" component={SplashScreen} />
+      ) : userInfo.access_token ? (
+        <RootStack.Screen name="Main" component={TabNavigator} />
+      ) : (
+        <RootStack.Screen name="Auth" component={AuthNavigator} />
+      )}
+    </RootStack.Navigator>
   );
 };
 
-const Navigation = () => {
-  const {userInfo, splashLoading} = useContext<any>(AuthContext);
-  return (
-    <NavigationContainer ref={navigationRef as any}>
-      <Stack.Navigator>
-        {splashLoading ? (
-          <Stack.Screen
-            name="Splash Screen"
-            component={SplashScreen}
-            options={{headerShown: false}}
-          />
-        ) : userInfo.access_token ? (
-          <>
-            <Stack.Screen
-              name="TabNavigator"
-              component={TabNavigator}
-              options={{headerShown: false}}
-            />
-            <Stack.Screen
-              name="Home"
-              component={HomeScreen}
-              options={{headerShown: false}}
-            />
-          </>
-        ) : (
-          <>
-            <Stack.Screen
-              name="Login"
-              component={LoginScreen}
-              options={{headerShown: false}}
-            />
-            <Stack.Screen
-              name="Register"
-              component={RegisterScreen}
-              options={{headerShown: false}}
-            />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-};
+// Main Navigation Component
+const Navigation = () => (
+  <NavigationContainer ref={navigationRef as React.RefObject<NavigationContainerRef<RootStackParamList>>}>
+    <RootNavigator />
+  </NavigationContainer>
+);
 
 export default Navigation;

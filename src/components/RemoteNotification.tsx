@@ -1,247 +1,375 @@
-// import AsyncStorage from '@react-native-async-storage/async-storage';
-// import {useEffect} from 'react';
-// import {PermissionsAndroid, Platform} from 'react-native';
-// import PushNotification from 'react-native-push-notification';
-// import {navigationRef} from '../ref/NavigationRef';
+import { useEffect, useContext, useRef, useCallback, useState } from 'react';
+import Geolocation from '@react-native-community/geolocation';
+import messaging from '@react-native-firebase/messaging';
+import notifee, {
+  AndroidImportance,
+  AndroidStyle,
+  EventType,
+} from '@notifee/react-native';
+import { AuthContext, AuthContextType } from '../context/AuthContext';
+import { AppState, AppStateStatus } from 'react-native';
+  
+const RemoteNotification: React.FC = () => {
 
-// const checkApplicationPermission = async () => {
-//   if (Platform.OS === 'android') {
-//     try {
-//       await PermissionsAndroid.request(
-//         PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-//       );
-//     } catch (error) {
-//       console.error(error);
-//     }
-//   }
-// };
+  const { userInfo } = useContext<AuthContextType>(AuthContext);
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
+  const lastNotificationId = useRef<string | null>(null);
+  const lastPressTime = useRef<number>(0);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const appState = useRef(AppState.currentState);
+  const setupCompleted = useRef(false);
 
-// const RemoteNotification = () => {
-//   // let curtoken: String = '';
-//   useEffect(() => {
-//     checkApplicationPermission();
-//     // Using this function as we are rendering local notification so without this function we will receive multiple notification for same notification
-//     // We have same channelID for every FCM test server notification.
-//     PushNotification.getChannels(function (channel_ids) {
-//       channel_ids.forEach(id => {
-//         PushNotification.deleteChannel(id);
-//       });
-//     });
-//     PushNotification.configure({
-//       // (optional) Called when Token is generated (iOS and Android)
-//       onRegister: async function (token) {
-//         // curtoken = token.token.toString();
-//         const androidToken = await AsyncStorage.getItem('android_token');
-//         if (androidToken) {
-//           // console.log('Android token already stored:', androidToken);
-//           return;
-//         }
-//         console.log('TOKEN:', token);
-//         // access local storage and check if android token is already stored
-//         // get access token from local storage
-//         const jwt = await AsyncStorage.getItem('userInfo');
-//         const userInfo = JSON.parse(jwt || '{}');
-//         console.log('JWT:', userInfo.access_token);
-//         // send access token to server
-//         fetch('http://68.183.102.75:1337/api/auth/token', {
-//           method: 'POST',
-//           headers: {
-//             Accept: 'application/json',
-//             'Content-Type': 'application/json',
-//             Authorization: `Bearer ${userInfo.access_token}`,
-//           },
-//           body: JSON.stringify({
-//             token: token.token,
-//           }),
-//         })
-//           .then(response => response.json())
-//           .then(responseJson => {
-//             // // store token in local storage
-//             AsyncStorage.setItem('android_token', JSON.stringify(responseJson));
-//             console.log('Data sent to server:', responseJson);
-//           })
-//           .catch(error => {
-//             console.error('Error sending token data:', error);
-//           });
-//       },
-
-      
-//       // onAction: function (notification) {
-//       // },
-//       // (required) Called when a remote or local notification is opened or received
-//       onNotification: function (notification) {
-//         // add ignore to the notification object
-//         // @ts-ignore
-//         const {message, id, title} = notification;
-
-//         // Provide default values if any of the variables are null or undefined
-//         const safeTitle = title !== null && title !== undefined ? title : '789';
-//         const safeMessage =
-//           message !== null && message !== undefined ? message : '456';
-//         const safeId = id !== null && id !== undefined ? id : '123';
-
-//         // Convert to strings and remove quotes
-//         let strTitle = JSON.stringify(safeTitle).split('"').join('');
-//         let strBody = JSON.stringify(safeMessage).split('"').join('');
-//         let typeMatch = strBody.match(/^(.*?):/);
-//         let type = typeMatch ? typeMatch[1].trim() : null;
-//         console.log('BODY: ', strBody)
-//         console.log('TYPE:', type);
-//         // strBody: `${type}: Click here for some tips to make the most of your visit.`,
-//         // get the $type from the strBody
-
-//         const key = JSON.stringify(safeId).split('"').join('');
-//         PushNotification.createChannel(
-//           {
-//             channelId: key, // (required & must be unique)
-//             channelName: 'remote messasge', // (required)
-//             channelDescription: 'Notification for remote message', // (optional) default: undefined.
-//             importance: 4, // (optional) default: 4. Int value of the Android notification importance
-//             vibrate: true, // (optional) default: true. Creates the default vibration patten if true.
-//           },
-//           created => console.log(`createChannel returned '${created}'`), // (optional) callback returns whether the channel was created, false means it already existed.
-//         );
-//         PushNotification.localNotification({
-//           channelId: key, //this must be same with channelId in createchannel
-//           title: strTitle,
-//           message: strBody,
-//         });
-//         const lastWord = strTitle.split(' ').pop();
-//         console.log(
-//           'REMOTE NOTIFICATION ==>',
-//           title,
-//           message,
-//           id,
-//           notification,
-//           type,
-//         );
-//         (navigationRef.current as any)?.navigate('Home', {
-//           notificationTitle: type,
-//         });
-//         // process the notification here
-//       },
-//       // Android only: GCM or FCM Sender ID
-//       // senderID: '1234567890'
-//       popInitialNotification: true,
-//       // senderID: '1234567890',
-//       requestPermissions: true,
-//     });
-//   }, []);
-//   return null;
-// };
-// export default RemoteNotification;
-
-
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useEffect} from 'react';
-import {PermissionsAndroid, Platform} from 'react-native';
-import PushNotification from 'react-native-push-notification';
-import {navigationRef} from '../ref/NavigationRef';
-
-const checkApplicationPermission = async () => {
-  if (Platform.OS === 'android') {
+  const verifyAuth = async (token: string) => {
     try {
-      await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-      );
+      const response = await fetch('http://68.183.102.75:1337/api/auth/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          headers: {
+            authorization: `Bearer ${token}`
+          }
+        }),
+      });
+
+      if (response.ok) {
+        setIsAuthenticated(true);
+        return true;
+      }
+      setIsAuthenticated(false);
+      return false;
     } catch (error) {
-      console.error(error);
+      console.error('Auth verification error:', error);
+      setIsAuthenticated(false);
+      return false;
     }
+  };
+
+  let tokenUpdateInProgress = false;
+
+const setupFCM = async () => {
+  try {
+    if (tokenUpdateInProgress) {
+      console.log('Token update already in progress, skipping');
+      return null;
+    }
+
+    tokenUpdateInProgress = true;
+    const token = await messaging().getToken();
+    console.log('FCM Token:', token);
+
+    if (userInfo?.access_token && token) {
+      const response = await fetch('http://68.183.102.75:1337/api/auth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo.access_token}`,
+        },
+        body: JSON.stringify({
+          token,
+          platform: 'ios'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update token on server');
+      }
+      
+      console.log('Token successfully updated on server');
+    }
+
+    return token;
+  } catch (error) {
+    console.error('Error setting up FCM:', error);
+    return null;
+  } finally {
+    tokenUpdateInProgress = false;
   }
 };
 
-const RemoteNotification = () => {
-  useEffect(() => {
-    checkApplicationPermission();
-    PushNotification.getChannels(function (channel_ids) {
-      channel_ids.forEach(id => {
-        PushNotification.deleteChannel(id);
-      });
+// Add debounce function
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
+const locationCheck = useCallback(async () => {
+  if (!userInfo?.access_token || !isAuthenticated) {
+    console.log('No valid auth token available');
+    return;
+  }
+
+  try {
+    // Get current position
+    const position = await new Promise<any>((resolve, reject) => {
+      Geolocation.getCurrentPosition(
+        resolve,
+        reject,
+        {
+          enableHighAccuracy: true,
+          timeout: 60000,
+          maximumAge: 10000,
+        }
+      );
     });
 
-    PushNotification.configure({
-      onRegister: async function (token) {
-        const androidToken = await AsyncStorage.getItem('android_token');
-        if (androidToken) {
+    const { latitude, longitude } = position.coords;
+    
+    // Check if location has changed significantly
+    if (lastLocationRef.current) {
+      const distance = calculateDistance(
+        lastLocationRef.current.latitude,
+        lastLocationRef.current.longitude,
+        latitude,
+        longitude
+      );
+      
+      setIsMoving(distance > 10);
+      
+      if (distance <= 10) {
+        console.log('Location hasn\'t changed significantly, skipping server check');
+        return;
+      }
+    }
+
+    lastLocationRef.current = { latitude, longitude };
+    console.log(`📍 Location update: ${latitude}, ${longitude}`);
+
+    // Send location to endpoint to check for nearby locations
+    const response = await fetch('http://68.183.102.75:1337/endpoint', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userInfo.access_token}`,
+      },
+      body: JSON.stringify({
+        latitude,
+        longitude,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Server response:', result);
+    
+    // If we found a nearby location, fetch and display tips
+    if (result.status === 'success' && result.location) {
+      // Get tips for this location type
+      const tipsResponse = await fetch('http://68.183.102.75:1337/api/tips/get-tips', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo.access_token}`,
+        },
+        body: JSON.stringify({
+          type: result.type
+        }),
+      });
+
+      if (!tipsResponse.ok) {
+        throw new Error('Failed to fetch tips');
+      }
+
+      const tipsData = await tipsResponse.json();
+      
+      if (!Array.isArray(tipsData) || tipsData.length === 0) {
+        console.log('No tips available for location');
+        return;
+      }
+
+      // Format tips text
+      const tipsText = tipsData
+        .map(tip => `${tip.title}\n${tip.description}`)
+        .join('\n\n');
+
+      if (!tipsText.trim()) {
+        console.log('Tips text is empty, skipping notification');
+        return;
+      }
+
+      // Display notification with tips
+      await displayFullNotification(
+        `You have arrived at ${result.location}`,
+        `${result.type} Tips:\n\n${tipsText}`,
+        {
+          notificationId: result.notificationId || String(Date.now()),
+          locationType: String(result.type || ''),
+          locationId: String(result.locationId || ''),
+          locationName: String(result.location || '')
+        }
+      );
+    }
+    
+  } catch (error) {
+    console.error('❌ Location check error:', error);
+    if (error instanceof Error && error.message.includes('401')) {
+      setIsAuthenticated(false);
+    }
+  }
+}, [userInfo?.access_token, isAuthenticated]);
+
+  // Update your setup function in useEffect
+  useEffect(() => {
+    const setup = async () => {
+      try {
+        if (!userInfo?.access_token || setupCompleted.current) {
+          console.log('Setup already completed or no access token');
           return;
         }
-        console.log('TOKEN:', token);
-        const jwt = await AsyncStorage.getItem('userInfo');
-        const userInfo = JSON.parse(jwt || '{}');
-        console.log('JWT:', userInfo.access_token);
-        fetch('http://68.183.102.75:1337/api/auth/token', {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
-          body: JSON.stringify({
-            token: token.token,
-          }),
-        })
-          .then(response => response.json())
-          .then(responseJson => {
-            AsyncStorage.setItem('android_token', JSON.stringify(responseJson));
-            console.log('Data sent to server:', responseJson);
-          })
-          .catch(error => {
-            console.error('Error sending token data:', error);
-          });
-      },
 
-      onNotification: function (notification) {
-        // @ts-ignore
-        const {message, id, title, userInteraction} = notification;
+        const isValid = await verifyAuth(userInfo.access_token);
+        if (!isValid) {
+          console.log('Initial auth verification failed');
+          return;
+        }
 
-        const safeTitle = title || 'New Notification';
-        const safeMessage = message || 'You have a new notification';
-        const safeId = id || Date.now().toString();
+        const authStatus = await messaging().requestPermission();
+        if (authStatus !== messaging.AuthorizationStatus.AUTHORIZED) {
+          console.log('❌ Notification permission denied');
+          return;
+        }
 
-        let strTitle = safeTitle.toString();
-        let strBody = safeMessage.toString();
-        let typeMatch = strBody.match(/^(.*?):/);
-        let type = typeMatch ? typeMatch[1].trim() : 'notification';
+        await setupFCM();
 
-        console.log('NOTIFICATION RECEIVED:', {
-          title: strTitle,
-          body: strBody,
-          type: type,
-          userInteraction: userInteraction
+        // Handle notification press in foreground
+        const unsubscribeNotifeePress = notifee.onForegroundEvent(({ type, detail }) => {
+          if (type === EventType.PRESS) {
+            const now = Date.now();
+            if (now - lastPressTime.current < 1000) {
+              console.log('Debouncing notification press');
+              return;
+            }
+            lastPressTime.current = now;
+            console.log('Notification pressed:', detail.notification);
+            // Handle notification press here
+          }
         });
 
-        if (userInteraction) {
-          // User clicked on the notification
-          console.log('User clicked on notification. Navigating to HomeScreen.');
-          (navigationRef.current as any)?.navigate('Home', {
-            notificationTitle: type,
-          });
-        } else {
-          // App received notification while in foreground or background
-          PushNotification.createChannel(
-            {
-              channelId: safeId,
-              channelName: 'Remote Message',
-              channelDescription: 'Notification for remote message',
-              importance: 4,
-              vibrate: true,
-            },
-            created => console.log(`createChannel returned '${created}'`),
-          );
+        // Handle notification display events
+        const unsubscribeNotifeeDisplay = notifee.onForegroundEvent(({ type, detail }) => {
+          if (type === EventType.DELIVERED) {
+            console.log('Notification delivered:', detail.notification);
+          }
+        });
 
-          PushNotification.localNotification({
-            channelId: safeId,
-            title: strTitle,
-            message: strBody,
-            userInfo: { type: type },  // Pass additional data
-          });
+        // Handle background notification press
+        messaging().onNotificationOpenedApp(async remoteMessage => {
+          console.log('Background notification pressed:', remoteMessage);
+          // Handle background notification press here
+        });
+
+        // Handle quit state notification press
+        const initialNotification = await messaging().getInitialNotification();
+        if (initialNotification) {
+          console.log('Quit state notification pressed:', initialNotification);
+          // Handle quit state notification press here
         }
-      },
 
-      popInitialNotification: true,
-      requestPermissions: true,
-    });
-  }, []);
+        // Start location checking
+        await locationCheck();
+        locationIntervalRef.current = setInterval(
+          locationCheck, 
+          isMoving ? 30000 : 60000
+        );
+
+        setupCompleted.current = true;
+
+        return () => {
+          unsubscribeNotifeePress();
+          unsubscribeNotifeeDisplay();
+          if (locationIntervalRef.current) {
+            clearInterval(locationIntervalRef.current);
+          }
+          setupCompleted.current = false;
+        };
+      } catch (error) {
+        console.error('❌ Setup error:', error);
+        setupCompleted.current = false;
+      }
+    };
+
+    if (userInfo?.access_token) {
+      setup();
+    }
+
+    return () => {
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+      }
+    };
+  }, [userInfo?.access_token, locationCheck, isMoving]);
+
+  const displayFullNotification = async (title: string, body: string, data: any) => {
+    try {
+      const channelId = await notifee.createChannel({
+        id: 'location-tips',
+        name: 'Location Tips',
+        importance: AndroidImportance.HIGH,
+      });
+  
+      // Ensure all data values are strings
+      const notificationData = {
+        notificationId: String(data.notificationId || ''),
+        locationType: String(data.locationType || ''),
+        locationId: String(data.locationId || ''),
+        locationName: String(data.locationName || '')
+      };
+  
+      await notifee.displayNotification({
+        id: notificationData.notificationId,
+        title,
+        body,
+        data: notificationData,
+        android: {
+          channelId,
+          importance: AndroidImportance.HIGH,
+          style: {
+            type: AndroidStyle.BIGTEXT,
+            text: body,
+          },
+          pressAction: {
+            id: 'default',
+          },
+        },
+        ios: {
+          critical: true,
+          interruptionLevel: 'active',
+          foregroundPresentationOptions: {
+            badge: true,
+            sound: true,
+            banner: true,
+            list: true,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error displaying notification:', error);
+    }
+  };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c * 1000; // Convert to meters
+  };
 
   return null;
 };

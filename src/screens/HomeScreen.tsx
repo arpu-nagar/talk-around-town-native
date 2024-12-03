@@ -12,6 +12,7 @@ const HomeScreen = ({route}: {route: any}) => {
 
   const [tips, setTips] = useState<any>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  
 
   useEffect(() => {
     const fetchData = async () => {
