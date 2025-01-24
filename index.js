@@ -27,5 +27,12 @@ PushNotification.configure({
     popInitialNotification: true,
     requestPermissions: true,
   });
-
-  
+  PushNotification.createChannel(
+    {
+      channelId: 'location-tips',
+      channelName: 'Location Tips',
+      importance: 4,
+      vibrate: true,
+    },
+    (created) => console.log(`Channel created: ${created}`)
+  );

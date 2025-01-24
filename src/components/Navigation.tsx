@@ -15,6 +15,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import MainScreen from '../screens/MainScreen';
 import AssistantScreen from '../screens/Assistant/MainScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 
 // Types
 export type RootStackParamList = {
@@ -26,6 +27,7 @@ export type RootStackParamList = {
 type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
 };
 
 type MainTabParamList = {
@@ -85,6 +87,7 @@ const AuthNavigator = () => (
   <ScreenWithNotification>
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
     </AuthStack.Navigator>
   </ScreenWithNotification>

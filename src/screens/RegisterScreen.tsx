@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect, useContext} from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -10,19 +10,23 @@ import {
   Platform,
   Dimensions,
   Alert,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
-import {AuthContext} from '../context/AuthContext';
-import {Ionicons} from '@expo/vector-icons';
-import {MaterialIcons} from '@expo/vector-icons';
-import {GooglePlacesAutocomplete} from 'react-native-google-places-autocomplete';
-import MapView, {Circle, Marker, PROVIDER_GOOGLE} from 'react-native-maps';
+import { AuthContext } from '../context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import Spinner from 'react-native-loading-spinner-overlay';
-import {Picker} from '@react-native-picker/picker';
+import { Picker } from '@react-native-picker/picker';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.015;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
+
 
 
 const HomeAddress: React.FC<{onLocationChange: (location: any) => void}> = ({
@@ -326,144 +330,199 @@ const years = Array.from(
     });
   };
 
+  const renderProgressBar = () => {
+    return (
+      <View style={styles.progressContainer}>
+        {Array.from({ length: 6 }).map((_, index) => (
+          <View key={index} style={styles.progressItemContainer}>
+            <View
+              style={[
+                styles.progressDot,
+                {
+                  backgroundColor: index < step ? '#4A90E2' : '#E0E0E0',
+                },
+              ]}
+            />
+            {index < 5 && (
+              <View
+                style={[
+                  styles.progressLine,
+                  {
+                    backgroundColor: index < step - 1 ? '#4A90E2' : '#E0E0E0',
+                  },
+                ]}
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const renderStep = () => {
+    const commonInputStyle = [
+      styles.input,
+      { borderColor: '#E0E0E0', backgroundColor: '#F5F5F5' },
+    ];
     switch (step) {
       case 1:
         return (
           <View style={styles.stepContainer}>
-            <Text style={styles.title}>Enter your name</Text>
+            <Text style={styles.stepTitle}>What's your name?</Text>
+            <Text style={styles.stepDescription}>Please enter your full name</Text>
             <TextInput
-              style={styles.input}
-              placeholder="Name"
+              style={commonInputStyle}
+              placeholder="Enter your name"
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
               autoCorrect={false}
+              placeholderTextColor="#A0A0A0"
             />
           </View>
         );
       case 2:
         return (
           <View style={styles.stepContainer}>
-            <Text style={styles.title}>Enter your email</Text>
+            <Text style={styles.stepTitle}>Email Address</Text>
+            <Text style={styles.stepDescription}>We'll send you a confirmation email</Text>
             <TextInput
-              style={[styles.input, emailError ? styles.inputError : null]}
-              placeholder="Email"
+              style={[commonInputStyle, emailError ? styles.inputError : null]}
+              placeholder="Enter your email"
               value={email}
               onChangeText={handleEmailChange}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              placeholderTextColor="#A0A0A0"
             />
-            {emailError ? (
-              <Text style={styles.errorText}>{emailError}</Text>
-            ) : null}
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
           </View>
         );
-      case 3:
-        return (
-          <View style={styles.stepContainer}>
-            <Text style={styles.title}>Enter a password</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                onPress={togglePasswordVisibility}
-                style={styles.eyeButton}>
-                <Ionicons
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={24}
-                  color="gray"
+        case 3:
+          return (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>Create Password</Text>
+              <Text style={styles.stepDescription}>Choose a secure password for your account</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  placeholderTextColor="#A0A0A0"
                 />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={togglePasswordVisibility}
+                  style={styles.eyeButton}>
+                  <Ionicons
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={24}
+                    color="#666666"
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        );
+          );
+  
         case 4:
           return (
             <View style={styles.stepContainer}>
-              <Text style={styles.title}>How many children do you have?</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Number of children"
-                value={numberOfChildren}
-                onChangeText={handleNumberOfChildrenChange}
-                keyboardType="numeric"
-                maxLength={2}
-              />
+              <Text style={styles.stepTitle}>Family Information</Text>
+              <Text style={styles.stepDescription}>How many children do you have?</Text>
+              <View style={styles.childrenCountContainer}>
+                <TextInput
+                  style={[commonInputStyle, styles.childrenCountInput]}
+                  placeholder="Number of children"
+                  value={numberOfChildren}
+                  onChangeText={handleNumberOfChildrenChange}
+                  keyboardType="numeric"
+                  maxLength={2}
+                  placeholderTextColor="#A0A0A0"
+                />
+              </View>
             </View>
           );
-          case 5:
-        return (
-          <View style={styles.stepContainer}>
-            <Text style={styles.title}>Enter children details</Text>
-            <ScrollView 
-              style={styles.childrenScrollView}
-              contentContainerStyle={styles.scrollContentContainer}
-              showsVerticalScrollIndicator={true}
-            >
-              {Array.from({length: parseInt(numberOfChildren)}).map((_, index) => (
-                <View key={index} style={styles.childDetailContainer}>
-                  <Text style={styles.childTitle}>Child {index + 1}</Text>
-                  
-                  <TextInput
-                    style={styles.childInput}
-                    placeholder={`Nickname for Child ${index + 1}`}
-                    value={childrenDetails[index]?.nickname || ''}
-                    onChangeText={(text) => handleChildDetailChange(index, 'nickname', text)}
-                    maxLength={50}
-                  />
-
-                  <View style={styles.dateContainer}>
-                    <View style={styles.pickerContainer}>
-                      <Text style={styles.pickerLabel}>Birth Month</Text>
-                      <Picker
-                        selectedValue={childrenDetails[index]?.birthMonth || '01'}
-                        style={styles.picker}
-                        onValueChange={(value) => handleChildDetailChange(index, 'birthMonth', value)}
-                      >
-                        {months.map((month) => (
-                          <Picker.Item 
-                            key={month.value} 
-                            label={month.label} 
-                            value={month.value}
-                          />
-                        ))}
-                      </Picker>
-                    </View>
-
-                    <View style={styles.pickerContainer}>
-                      <Text style={styles.pickerLabel}>Birth Year</Text>
-                      <Picker
-                        selectedValue={childrenDetails[index]?.birthYear || currentYear.toString()}
-                        style={styles.picker}
-                        onValueChange={(value) => handleChildDetailChange(index, 'birthYear', value)}
-                      >
-                        {years.map((year) => (
-                          <Picker.Item 
-                            key={year} 
-                            label={year} 
-                            value={year}
-                          />
-                        ))}
-                      </Picker>
+  
+        case 5:
+          return (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>Children Details</Text>
+              <Text style={styles.stepDescription}>Tell us about your children</Text>
+              <ScrollView 
+                style={styles.childrenScrollView}
+                contentContainerStyle={styles.scrollContentContainer}
+                showsVerticalScrollIndicator={false}>
+                {Array.from({length: parseInt(numberOfChildren)}).map((_, index) => (
+                  <View key={index} style={styles.childDetailCard}>
+                    <Text style={styles.childNumber}>Child {index + 1}</Text>
+                    
+                    <TextInput
+                      style={styles.childInput}
+                      placeholder="Nickname (optional)"
+                      value={childrenDetails[index]?.nickname || ''}
+                      onChangeText={(text) => handleChildDetailChange(index, 'nickname', text)}
+                      maxLength={50}
+                      placeholderTextColor="#A0A0A0"
+                    />
+  
+                    <View style={styles.dateSelectionContainer}>
+                      <View style={styles.pickerWrapper}>
+                        <Text style={styles.pickerLabel}>Birth Month</Text>
+                        <View style={styles.pickerContainer}>
+                          <Picker
+                            selectedValue={childrenDetails[index]?.birthMonth || '01'}
+                            style={styles.picker}
+                            onValueChange={(value) => handleChildDetailChange(index, 'birthMonth', value)}>
+                            {months.map((month) => (
+                              <Picker.Item 
+                                key={month.value} 
+                                label={month.label} 
+                                value={month.value}
+                                color="#333333"
+                              />
+                            ))}
+                          </Picker>
+                        </View>
+                      </View>
+  
+                      <View style={styles.pickerWrapper}>
+                        <Text style={styles.pickerLabel}>Birth Year</Text>
+                        <View style={styles.pickerContainer}>
+                          <Picker
+                            selectedValue={childrenDetails[index]?.birthYear || currentYear.toString()}
+                            style={styles.picker}
+                            onValueChange={(value) => handleChildDetailChange(index, 'birthYear', value)}>
+                            {years.map((year) => (
+                              <Picker.Item 
+                                key={year} 
+                                label={year} 
+                                value={year}
+                                color="#333333"
+                              />
+                            ))}
+                          </Picker>
+                        </View>
+                      </View>
                     </View>
                   </View>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        );
-        
+                ))}
+              </ScrollView>
+            </View>
+          );
+  
         case 6:
-          return <HomeAddress onLocationChange={handleLocationChange} />;
+          return (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>Home Location</Text>
+              <Text style={styles.stepDescription}>Help us find learning opportunities near you</Text>
+              <HomeAddress onLocationChange={handleLocationChange} />
+            </View>
+          );
+  
         default:
           return null;
       }
@@ -479,51 +538,326 @@ const years = Array.from(
       return [styles.button, isDisabled ? styles.buttonDisabled : null];
     };
 
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled">
-        <Spinner visible={isLoading} />
-        {step > 1 && (
-          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <MaterialIcons name="arrow-back" size={25} color="black" />
-          </TouchableOpacity>
-        )}
-        {renderStep()}
-        <TouchableOpacity
-  style={getButtonStyle()}
-  onPress={handleNext}
-  disabled={
-    (step === 2 && !validateEmail(email) && email.length > 0) ||
-    (step === 4 && !numberOfChildren.trim()) ||
-    (step === 5 && childrenAges.some(age => !age)) ||
-    (step === 6 && Object.keys(location).length === 0)
-  }>
-  <Text style={styles.buttonText}>
-    {step === 6 ? 'Register' : 'Next'}
-  </Text>
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <LinearGradient colors={['#4A90E2', '#357ABD']} style={styles.gradient}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardView}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
+            <ScrollView
+              contentContainerStyle={styles.scrollContainer}
+              keyboardShouldPersistTaps="handled">
+              <Spinner visible={isLoading} />
+              
+              <TouchableOpacity 
+  style={styles.backButton} 
+  onPress={() => step === 1 ? navigation.navigate('Login') : handleBack()}
+  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+>
+  <MaterialIcons name="arrow-back" size={28} color="#FFFFFF" />
 </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-};
+  
+              {renderProgressBar()}
+              
+              <View style={styles.contentCard}>
+                {renderStep()}
+                
+                <TouchableOpacity
+                  style={[
+                    styles.nextButton,
+                    (step === 2 && !validateEmail(email) && email.length > 0) ||
+                    (step === 4 && !numberOfChildren.trim()) ||
+                    (step === 5 && childrenAges.some(age => !age)) ||
+                    (step === 6 && Object.keys(location).length === 0)
+                      ? styles.buttonDisabled
+                      : null,
+                  ]}
+                  onPress={handleNext}>
+                  <Text style={styles.nextButtonText}>
+                    {step === 6 ? 'Complete Registration' : 'Continue'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  };
+  
 
 const styles = StyleSheet.create({
+  // Password input styles
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 16,
+  },
+  passwordInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333333',
+  },
+  eyeButton: {
+    padding: 8,
+  },
+
+  // Children count styles
+  childrenCountContainer: {
+    width: '100%',
+  },
+  childrenCountInput: {
+    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '500',
+  },
+
+  // Children details styles
+  childrenScrollView: {
+    maxHeight: height * 0.5,
+    width: '100%',
+  },
+  scrollContentContainer: {
+    paddingVertical: 8,
+  },
+  childDetailCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  childNumber: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 16,
+  },
+  childInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 16,
+  },
+  dateSelectionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  pickerWrapper: {
+    flex: 1,
+  },
+  pickerLabel: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 8,
+  },
+  pickerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  picker: {
+    height: 50,
+    backgroundColor: '#FFFFFF',
+  },
+
+  // Location selection styles
+  addressContainer: {
+    width: '100%',
+    height: 400,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 16,
+  },
+  searchContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    padding: 16,
+  },
+  googlePlacesContainer: {
+    flex: 0,
+  },
+  searchInput: {
+    height: 50,
+    borderRadius: 12,
+    fontSize: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchListView: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchRow: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  searchDescription: {
+    color: '#333333',
+    fontSize: 16,
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 24,
+    top: 24,
+    padding: 8,
+    zIndex: 2,
+  },
+  mapContainer: {
+    flex: 1,
+    marginTop: 60,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  map: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#4A90E2',
+  },
+  gradient: {
+    flex: 1,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    paddingTop: Platform.OS === 'ios' ? 20 : 40,
+    paddingHorizontal: 20,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 30,
+    paddingHorizontal: 20,
+  },
+  progressItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  progressDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#E0E0E0',
+  },
+  progressLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#E0E0E0',
+  },
+  contentCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    marginBottom: 20,
+  },
+  stepContainer: {
+    alignItems: 'flex-start',
+    width: '100%',
+  },
+  stepTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 8,
+  },
+  stepDescription: {
+    fontSize: 16,
+    color: '#666666',
+    marginBottom: 24,
+  },
+  input: {
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 20 : 40,
+    left: 20,
+    zIndex: 1,
+    padding: 8,
+  },
+  nextButton: {
+    backgroundColor: '#4A90E2',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 24,
+    shadowColor: '#4A90E2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  nextButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  buttonDisabled: {
+    backgroundColor: '#A5C8F2',
+  },
+  inputError: {
+    borderColor: '#FF3B30',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    marginTop: -8,
+    marginBottom: 16,
+  },
   agesScrollView: {
     width: '100%',
     maxHeight: 300,
-  },
-  childrenScrollView: {
-    width: '100%',
-    maxHeight: height * 0.6, // Adjust based on screen height
-    backgroundColor: '#fff',
-  },
-  scrollContentContainer: {
-    paddingBottom: 20,
   },
   childDetailContainer: {
     backgroundColor: '#f5f5f5',
@@ -553,147 +887,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#fff',
   },
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    padding: 10,
-    paddingTop: Platform.OS === 'ios' ? 60 : 10,
-  },
-  stepContainer: {
-    width: '100%',
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  addressContainer: {
-    width: '100%',
-    height: Platform.OS === 'ios' ? height * 0.65 : '60%',
-    marginTop: Platform.OS === 'ios' ? 20 : 0,
-  },
-  searchContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
-    padding: 10,
-  },
-  googlePlacesContainer: {
-    flex: 0,
-    width: '100%',
-    zIndex: 2,
-  },
-  mapContainer: {
-    flex: 1,
-    marginTop: 60,
-  },
-  map: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },
   title: {
     fontSize: 24,
     marginBottom: 20,
     fontWeight: '600',
     color: '#000',
   },
-  input: {
-    width: '100%',
-    height: 45,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    marginBottom: 20,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  passwordContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    backgroundColor: '#fff',
-  },
-  passwordInput: {
-    flex: 1,
-    height: 45,
-    fontSize: 16,
-  },
-  eyeButton: {
-    padding: 10,
-  },
-  searchInput: {
-    height: 45,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
   childTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 10,
-  },
-  childInput: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 10,
     marginBottom: 10,
   },
   dateContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 10,
-  },
-  pickerContainer: {
-    flex: 1,
-    marginHorizontal: 5,
-  },
-  pickerLabel: {
-    fontSize: 14,
-    marginBottom: 5,
-    color: '#666',
-  },
-  picker: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-  },
-  searchListView: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    position: 'absolute',
-    top: 55,
-    left: 10,
-    right: 10,
-    zIndex: 3,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  clearButton: {
-    padding: 8,
-    position: 'absolute',
-    right: 5,
-    top: 10,
   },
   button: {
     backgroundColor: '#007AFF',
@@ -708,25 +916,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  buttonDisabled: {
-    backgroundColor: '#B0B0B0',
-  },
-  backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 40 : 20,
-    left: 20,
-    padding: 10,
-  },
-  inputError: {
-    borderColor: '#FF3B30',
-  },
-  errorText: {
-    color: '#FF3B30',
-    fontSize: 14,
-    marginTop: -15,
-    marginBottom: 15,
-    alignSelf: 'flex-start',
   },
 });
 

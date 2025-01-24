@@ -6,6 +6,7 @@ import { Alert } from 'react-native';
 
 export interface UserInfo {
   access_token?: string;
+  refresh_token?: string;
   number_of_children?: number;
   children?: number[];
 }
@@ -28,8 +29,8 @@ export interface AuthContextType {
       }>;
     }
   ) => Promise<boolean>;
-  login: (email: string, password: string) => void;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
   setAITips: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -41,7 +42,76 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [splashLoading, setSplashLoading] = useState(false);
   const [aiTips, setAITips] = useState<boolean>(false);
 
-  // Modified register function in AuthContext
+  // Create axios instance with interceptors
+  const axiosInstance = axios.create({
+    baseURL: BASE_URL
+  });
+
+  // Add request interceptor to add token to headers
+  axiosInstance.interceptors.request.use(
+    async (config) => {
+      const userInfoString = await AsyncStorage.getItem('userInfo');
+      if (userInfoString) {
+        const userInfo = JSON.parse(userInfoString);
+        if (userInfo.access_token) {
+          config.headers.Authorization = `Bearer ${userInfo.access_token}`;
+        }
+      }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  // Add response interceptor to handle token refresh
+  axiosInstance.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const originalRequest = error.config;
+
+      // If the error is 401 and we haven't tried to refresh the token yet
+      if (error.response.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+
+        try {
+          const userInfoString = await AsyncStorage.getItem('userInfo');
+          if (userInfoString) {
+            const currentUserInfo = JSON.parse(userInfoString);
+            
+            if (currentUserInfo.refresh_token) {
+              // Try to refresh the token
+              const response = await axios.post(`${BASE_URL}/refresh`, {
+                refresh_token: currentUserInfo.refresh_token
+              });
+
+              const { access_token } = response.data;
+
+              // Update stored tokens
+              const updatedUserInfo = {
+                ...currentUserInfo,
+                access_token
+              };
+
+              await AsyncStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+              setUserInfo(updatedUserInfo);
+
+              // Retry the original request
+              originalRequest.headers.Authorization = `Bearer ${access_token}`;
+              return axiosInstance(originalRequest);
+            }
+          }
+        } catch (refreshError) {
+          // If refresh failed, logout the user
+          await logout();
+          return Promise.reject(refreshError);
+        }
+      }
+
+      return Promise.reject(error);
+    }
+  );
+
   const register = async (
     name: string, 
     email: string, 
@@ -57,9 +127,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Fix the URL - remove the duplicate /api/auth
-      console.log('Sending registration request to:', `${BASE_URL}/register`);
-      
       const registrationData = {
         name,
         email,
@@ -67,12 +134,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         location,
         children: childrenData
       };
-  
-      console.log('Registration payload:', registrationData);
       
-      const res = await axios.post(`${BASE_URL}/register`, registrationData);
+      const res = await axiosInstance.post('/register', registrationData);
       
-      console.log('Registration response:', res.data);
       Alert.alert('Success', 'You can now login');
       setIsLoading(false);
       return true;
@@ -86,25 +150,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
   };
-  
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      console.log('Sending login request to:', `${BASE_URL}/login`);
-      const res = await axios.post(`${BASE_URL}/login`, { 
+      const res = await axiosInstance.post('/login', { 
         email, 
         password 
       });
+      
       const userInfo = res.data;
       setUserInfo(userInfo);
       await AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
-      setIsLoading(false);
     } catch (e: any) {
       console.error('Login error:', e.response?.data || e);
       Alert.alert(
         'Login Failed', 
         e.response?.data?.error || 'Please check your credentials and try again.'
       );
+      throw e;
+    } finally {
       setIsLoading(false);
     }
   };
@@ -112,13 +177,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setIsLoading(true);
     try {
-      await axios.post(
-        `${BASE_URL}/logout`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${userInfo.access_token}` },
-        }
-      );
+      if (userInfo.access_token) {
+        await axiosInstance.post('/logout');
+      }
       await AsyncStorage.removeItem('userInfo');
       setUserInfo({});
     } catch (e) {
@@ -131,39 +192,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isLoggedIn = async () => {
     try {
       setSplashLoading(true);
-      setIsLoading(true);
       let userInfoString = await AsyncStorage.getItem('userInfo');
-      let userInfo: UserInfo = userInfoString ? JSON.parse(userInfoString) : {};
       
-      if (!userInfo.access_token) {
+      if (!userInfoString) {
         setUserInfo({});
         return;
       }
 
-      const res = await axios.post(
-        `${BASE_URL}/verify`,
-        {
-          token: userInfo.access_token,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
-        }
-      );
-
-      if (res.status === 200) {
-        setUserInfo(userInfo);
-      } else {
-        await AsyncStorage.removeItem('userInfo');
+      const storedUserInfo = JSON.parse(userInfoString);
+      if (!storedUserInfo.access_token) {
         setUserInfo({});
+        return;
       }
-    } catch (e) {
-      console.error('Session verification error:', e);
-      await AsyncStorage.removeItem('userInfo');
-      setUserInfo({});
+
+      try {
+        await axiosInstance.post('/verify');
+        setUserInfo(storedUserInfo);
+      } catch (error) {
+        // Token verification failed, but we'll let the interceptor handle the refresh
+        console.error('Session verification error:', error);
+      }
     } finally {
-      setIsLoading(false);
       setSplashLoading(false);
     }
   };
