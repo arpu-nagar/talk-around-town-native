@@ -44,7 +44,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Create axios instance with interceptors
   const axiosInstance = axios.create({
-    baseURL: BASE_URL
+    baseURL: `${BASE_URL}/api/auth`, // Add the /api/auth prefix
+    headers: {
+      'Content-Type': 'application/json'
+    }
   });
 
   // Add request interceptor to add token to headers
@@ -69,48 +72,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     (response) => response,
     async (error) => {
       const originalRequest = error.config;
-
-      // If the error is 401 and we haven't tried to refresh the token yet
-      if (error.response.status === 401 && !originalRequest._retry) {
+  
+      if (error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
-
+  
         try {
           const userInfoString = await AsyncStorage.getItem('userInfo');
-          if (userInfoString) {
-            const currentUserInfo = JSON.parse(userInfoString);
-            
-            if (currentUserInfo.refresh_token) {
-              // Try to refresh the token
-              const response = await axios.post(`${BASE_URL}/refresh`, {
-                refresh_token: currentUserInfo.refresh_token
-              });
-
-              const { access_token } = response.data;
-
-              // Update stored tokens
-              const updatedUserInfo = {
-                ...currentUserInfo,
-                access_token
-              };
-
-              await AsyncStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
-              setUserInfo(updatedUserInfo);
-
-              // Retry the original request
-              originalRequest.headers.Authorization = `Bearer ${access_token}`;
-              return axiosInstance(originalRequest);
-            }
+          if (!userInfoString) {
+            throw new Error('No user info found');
           }
+  
+          const currentUserInfo = JSON.parse(userInfoString);
+          if (!currentUserInfo.refresh_token) {
+            throw new Error('No refresh token found');
+          }
+  
+          // Use the correct refresh endpoint
+          const response = await axios.post(`${BASE_URL}/api/auth/refresh`, {
+            refresh_token: currentUserInfo.refresh_token
+          });
+  
+          const { access_token } = response.data;
+  
+          const updatedUserInfo = {
+            ...currentUserInfo,
+            access_token
+          };
+  
+          await AsyncStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+          setUserInfo(updatedUserInfo);
+  
+          // Update the Authorization header
+          originalRequest.headers.Authorization = `Bearer ${access_token}`;
+          return axiosInstance(originalRequest);
         } catch (refreshError) {
-          // If refresh failed, logout the user
-          await logout();
+          // Clear user data and force re-login
+          await AsyncStorage.removeItem('userInfo');
+          setUserInfo({});
           return Promise.reject(refreshError);
         }
       }
-
       return Promise.reject(error);
     }
   );
+  
 
   const register = async (
     name: string, 

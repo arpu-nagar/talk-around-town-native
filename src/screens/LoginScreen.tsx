@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
 import {
   ActivityIndicator,
   Text,
@@ -10,7 +10,6 @@ import {
   Platform,
   KeyboardAvoidingView,
   SafeAreaView,
-  Image,
   Dimensions,
   StatusBar,
 } from 'react-native';
@@ -19,11 +18,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext, AuthContextType } from '../context/AuthContext';
 import { NavigationProp } from '@react-navigation/native';
 import messaging from '@react-native-firebase/messaging';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
 
 interface LoginScreenProps {
   navigation: NavigationProp<any>;
 }
+
 interface TokenData {
   os: string;
   token: string;
@@ -37,40 +37,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { isLoading, login } = useContext<AuthContextType>(AuthContext);
-  
-  // Function to get and store FCM token
-  const getAndStoreToken = async () => {
-    try {
-      const authStatus = await messaging().requestPermission();
-      const enabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
-      if (enabled) {
-        const fcmToken = await messaging().getToken();
-        console.log('FCM Token:', fcmToken);
-        
-        // Store token locally
-        const tokenData = {
-          os: Platform.OS,
-          token: fcmToken,
-        };
-        await AsyncStorage.setItem('deviceToken', JSON.stringify(tokenData));
-        
-        // Send token to server
-        const userInfo = await AsyncStorage.getItem('userInfo');
-        if (userInfo) {
-          const { access_token } = JSON.parse(userInfo);
-          await updateServerToken(fcmToken, access_token);
-        }
-      }
-    } catch (error) {
-      console.error('Error getting FCM token:', error);
-    }
-  };
-
-  // Function to update token on server
-  const updateServerToken = async (fcmToken: string, accessToken: string) => {
+  const updateServerToken = useCallback(async (fcmToken: string, accessToken: string) => {
     try {
       const response = await fetch('http://68.183.102.75:1337/api/auth/token', {
         method: 'POST',
@@ -83,64 +51,58 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           platform: Platform.OS,
         }),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update token on server');
-      }
-
-      console.log('Token updated on server successfully');
+      
+      if (!response.ok) throw new Error('Failed to update token on server');
     } catch (error) {
       console.error('Error updating token on server:', error);
     }
-  };
-
-  // Log authentication information
-  const logAuthInfo = async () => {
-    try {
-      const userInfo = await AsyncStorage.getItem('userInfo');
-      const deviceToken = await AsyncStorage.getItem('deviceToken');
-      
-      console.log('\n=== AUTH INFORMATION ===');
-      if (userInfo) {
-        const parsedInfo = JSON.parse(userInfo);
-        console.log('User Info:', {
-          ...parsedInfo,
-          access_token: parsedInfo.access_token ? `${parsedInfo.access_token.slice(0, 10)}...` : null,
-        });
-        console.log('Full Access Token:', parsedInfo.access_token);
-      } else {
-        console.log('No user info found');
-      }
-      
-      console.log('Device Token:', deviceToken ? JSON.parse(deviceToken) : null);
-      console.log('========================\n');
-    } catch (error) {
-      console.error('Error logging auth info:', error);
-    }
-  };
-
-  // Initialize FCM when component mounts
-  useEffect(() => {
-    getAndStoreToken();
   }, []);
 
-  // Enhanced login handler
+  const getAndStoreToken = useCallback(async () => {
+    try {
+      const authStatus = await messaging().requestPermission();
+      const enabled = 
+        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+      if (!enabled) return;
+
+      const fcmToken = await messaging().getToken();
+      const tokenData: TokenData = {
+        os: Platform.OS,
+        token: fcmToken,
+      };
+      
+      await AsyncStorage.setItem('deviceToken', JSON.stringify(tokenData));
+      
+      const userInfo = await AsyncStorage.getItem('userInfo');
+      if (userInfo) {
+        const { access_token } = JSON.parse(userInfo);
+        await updateServerToken(fcmToken, access_token);
+      }
+    } catch (error) {
+      console.error('Error getting FCM token:', error);
+    }
+  }, [updateServerToken]);
+
+  useEffect(() => {
+    getAndStoreToken();
+  }, [getAndStoreToken]);
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await login(email, password);
-      
-      // After successful login, get and store FCM token
       await getAndStoreToken();
-      
-      // Log updated auth info
-      setTimeout(logAuthInfo, 1000);
     } catch (error) {
       Alert.alert('Error', 'Login failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -151,13 +113,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         colors={['#4A90E2', '#357ABD']}
         style={styles.gradientBackground}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
           <Spinner visible={isLoading} />
-          
           <View style={styles.contentContainer}>
+            {/* Header Section */}
             <View style={styles.headerContainer}>
               <View style={styles.titleContainer}>
                 <Text style={styles.title}>ENACT</Text>
@@ -168,45 +130,34 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               </View>
             </View>
 
+            {/* Form Section */}
             <View style={styles.formContainer}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Email</Text>
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#A0A0A0"
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!isSubmitting}
-                  autoComplete="email"
-                  accessibilityLabel="Email input field"
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Password</Text>
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  placeholder="Enter your password"
-                  placeholderTextColor="#A0A0A0"
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  editable={!isSubmitting}
-                  autoComplete="password"
-                  accessibilityLabel="Password input field"
-                />
-              </View>
+              <InputField
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                editable={!isSubmitting}
+              />
+              
+              <InputField
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter your password"
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="password"
+                editable={!isSubmitting}
+              />
 
               <TouchableOpacity
                 style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
                 onPress={handleLogin}
                 disabled={isSubmitting}
-                accessibilityLabel="Login button"
               >
                 {isSubmitting ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -215,7 +166,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.forgotPassword}
                 onPress={() => navigation.navigate('ForgotPassword')}
               >
@@ -233,7 +184,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 <TouchableOpacity
                   onPress={() => navigation.navigate('Register')}
                   disabled={isSubmitting}
-                  accessibilityLabel="Register for a new account"
                 >
                   <Text style={styles.link}>Create Account</Text>
                 </TouchableOpacity>
@@ -245,6 +195,22 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     </SafeAreaView>
   );
 };
+
+interface InputFieldProps extends React.ComponentProps<typeof TextInput> {
+  label: string;
+}
+
+const InputField: React.FC<InputFieldProps> = ({ label, ...props }) => (
+  <View style={styles.inputContainer}>
+    <Text style={styles.inputLabel}>{label}</Text>
+    <TextInput
+      style={styles.input}
+      placeholderTextColor="#A0A0A0"
+      {...props}
+    />
+  </View>
+);
+
 
 const styles = StyleSheet.create({
   container: {

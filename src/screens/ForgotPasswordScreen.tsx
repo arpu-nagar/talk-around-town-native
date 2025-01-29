@@ -1,4 +1,3 @@
-// ForgotPasswordScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -10,16 +9,37 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  ActivityIndicator,
+  StatusBar,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
+import { NavigationProp } from '@react-navigation/native';
+
+const API_URL = 'http://68.183.102.75:1337/api';
 
 interface ForgotPasswordScreenProps {
-  navigation: any;
+  navigation: NavigationProp<any>;
 }
 
 const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (text && !validateEmail(text)) {
+      setEmailError('Please enter a valid email address');
+    } else {
+      setEmailError('');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!email) {
@@ -27,9 +47,14 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
       return;
     }
 
+    if (!validateEmail(email)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const response = await fetch('http://your-api-url/api/auth/forgot-password', {
+      const response = await fetch(`${API_URL}/auth/request-reset`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -40,17 +65,24 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to process request');
+        throw new Error(data.message || 'Failed to send reset email');
       }
 
       Alert.alert(
         'Success',
-        'Password reset instructions have been sent to your email',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        'Password reset instructions have been sent to your email.',
+        [
+          { 
+            text: 'Enter Reset Code', 
+            onPress: () => navigation.navigate('ResetPassword', { token: '' })
+          }
+        ]
       );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to process request';
-      Alert.alert('Error', errorMessage);
+    } catch (error: any) {
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to send reset email. Please try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -58,6 +90,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
       <LinearGradient
         colors={['#4A90E2', '#357ABD']}
         style={styles.gradientBackground}
@@ -66,6 +99,13 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialIcons name="arrow-back" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+
           <View style={styles.contentContainer}>
             <View style={styles.formContainer}>
               <Text style={styles.title}>Reset Password</Text>
@@ -76,16 +116,19 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Email</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, emailError && styles.inputError]}
                   value={email}
                   placeholder="Enter your email"
                   placeholderTextColor="#A0A0A0"
-                  onChangeText={setEmail}
+                  onChangeText={handleEmailChange}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
                   editable={!isSubmitting}
                 />
+                {emailError ? (
+                  <Text style={styles.errorText}>{emailError}</Text>
+                ) : null}
               </View>
 
               <TouchableOpacity
@@ -93,14 +136,17 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                 onPress={handleSubmit}
                 disabled={isSubmitting}
               >
-                <Text style={styles.submitButtonText}>
-                  {isSubmitting ? 'Sending...' : 'Send Reset Instructions'}
-                </Text>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Send Reset Instructions</Text>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
+                style={styles.backTextButton}
+                onPress={() => navigation.navigate('Login')}
+                disabled={isSubmitting}
               >
                 <Text style={styles.backButtonText}>Back to Login</Text>
               </TouchableOpacity>
@@ -121,6 +167,13 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+  },
+  backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 20,
+    left: 20,
+    zIndex: 1,
+    padding: 8,
   },
   contentContainer: {
     flex: 1,
@@ -172,6 +225,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333333',
   },
+  inputError: {
+    borderColor: '#FF3B30',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginTop: 4,
+  },
   submitButton: {
     backgroundColor: '#4A90E2',
     borderRadius: 12,
@@ -187,7 +248,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  backButton: {
+  backTextButton: {
     alignItems: 'center',
     marginTop: 16,
   },

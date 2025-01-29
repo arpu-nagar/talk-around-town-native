@@ -1,12 +1,13 @@
 import React, { useContext } from 'react';
 import { Platform, View } from 'react-native';
-import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef, LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AuthContext, AuthContextType } from '../context/AuthContext';
 import { navigationRef } from '../ref/NavigationRef';
-import RemoteNotification from '../components/RemoteNotification'; // Add this import
+import RemoteNotification from '../components/RemoteNotification';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 
 // Screens
 import SplashScreen from '../screens/SplashScreen';
@@ -20,14 +21,15 @@ import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 // Types
 export type RootStackParamList = {
   Splash: undefined;
-  Auth: undefined;
-  Main: undefined;
+  Auth: undefined; // Corrected: No parameters as it's a navigator
+  Main: undefined; // Corrected: No parameters as it's a navigator
 };
 
 type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  ResetPassword: { token: string };
 };
 
 type MainTabParamList = {
@@ -35,22 +37,45 @@ type MainTabParamList = {
   Assistant: undefined;
 };
 
+// Linking configuration with corrected types
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['talkaroundtown://', 'https://talkaroundtown.com'],
+  config: {
+    screens: {
+      Auth: {
+        screens: {
+          Login: 'login',
+          ForgotPassword: 'forgot-password',
+          Register: 'register',
+          ResetPassword: 'reset-password/:token',
+        },
+      },
+      Main: {
+        screens: {
+          Home: 'home',
+          Assistant: 'assistant',
+        },
+      },
+    },
+  },
+};
+
 // Navigators
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 
-// Icon configuration
+// Icon configuration remains unchanged
 const getIconName = (routeName: string, focused: boolean): string => {
   if (routeName === 'Home') {
     return focused ? 'home' : 'home-outline';
   } else if (routeName === 'Assistant') {
     return focused ? 'chatbubbles' : 'chatbubbles-outline';
   }
-  return 'alert-circle'; // Fallback icon
+  return 'alert-circle';
 };
 
-// Wrapper component to include RemoteNotification
+// Wrapper component remains unchanged
 const ScreenWithNotification: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <View style={{ flex: 1 }}>
     {children}
@@ -58,7 +83,7 @@ const ScreenWithNotification: React.FC<{ children: React.ReactNode }> = ({ child
   </View>
 );
 
-// Tab Navigator
+// Tab Navigator remains unchanged
 const TabNavigator = () => (
   <ScreenWithNotification>
     <MainTab.Navigator
@@ -82,18 +107,19 @@ const TabNavigator = () => (
   </ScreenWithNotification>
 );
 
-// Auth Navigator
+// Auth Navigator remains unchanged
 const AuthNavigator = () => (
   <ScreenWithNotification>
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
     </AuthStack.Navigator>
   </ScreenWithNotification>
 );
 
-// Root Navigator
+// Root Navigator remains unchanged
 const RootNavigator = () => {
   const { userInfo, splashLoading } = useContext<AuthContextType>(AuthContext);
   
@@ -110,9 +136,13 @@ const RootNavigator = () => {
   );
 };
 
-// Main Navigation Component
+// Main Navigation Component remains unchanged
 const Navigation = () => (
-  <NavigationContainer ref={navigationRef as React.RefObject<NavigationContainerRef<RootStackParamList>>}>
+  <NavigationContainer 
+    ref={navigationRef as React.RefObject<NavigationContainerRef<RootStackParamList>>}
+    linking={linking}
+    fallback={<SplashScreen />}
+  >
     <RootNavigator />
   </NavigationContainer>
 );

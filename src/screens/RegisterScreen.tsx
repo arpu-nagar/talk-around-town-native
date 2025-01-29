@@ -20,14 +20,14 @@ import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplet
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import Spinner from 'react-native-loading-spinner-overlay';
 import { Picker } from '@react-native-picker/picker';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
+import ChildrenDetailsStep from './ChildrenDetailsStep';
+
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.015;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
-
-
 
 const HomeAddress: React.FC<{onLocationChange: (location: any) => void}> = ({
   onLocationChange,
@@ -265,27 +265,6 @@ const RegisterScreen = ({navigation}: any) => {
     birthMonth: string;
   }>>([]);
 
-  // Add these helper arrays for the pickers
-  const currentYear = new Date().getFullYear();
-const years = Array.from(
-  { length: 12 }, 
-  (_, i) => String(currentYear - i)
-);
-  
-  const months = [
-    {label: 'January', value: '01'},
-    {label: 'February', value: '02'},
-    {label: 'March', value: '03'},
-    {label: 'April', value: '04'},
-    {label: 'May', value: '05'},
-    {label: 'June', value: '06'},
-    {label: 'July', value: '07'},
-    {label: 'August', value: '08'},
-    {label: 'September', value: '09'},
-    {label: 'October', value: '10'},
-    {label: 'November', value: '11'},
-    {label: 'December', value: '12'},
-  ];
 
   // Update the number of children handler
   const handleNumberOfChildrenChange = (text: string) => {
@@ -447,72 +426,14 @@ const years = Array.from(
             </View>
           );
   
-        case 5:
-          return (
-            <View style={styles.stepContainer}>
-              <Text style={styles.stepTitle}>Children Details</Text>
-              <Text style={styles.stepDescription}>Tell us about your children</Text>
-              <ScrollView 
-                style={styles.childrenScrollView}
-                contentContainerStyle={styles.scrollContentContainer}
-                showsVerticalScrollIndicator={false}>
-                {Array.from({length: parseInt(numberOfChildren)}).map((_, index) => (
-                  <View key={index} style={styles.childDetailCard}>
-                    <Text style={styles.childNumber}>Child {index + 1}</Text>
-                    
-                    <TextInput
-                      style={styles.childInput}
-                      placeholder="Nickname (optional)"
-                      value={childrenDetails[index]?.nickname || ''}
-                      onChangeText={(text) => handleChildDetailChange(index, 'nickname', text)}
-                      maxLength={50}
-                      placeholderTextColor="#A0A0A0"
-                    />
-  
-                    <View style={styles.dateSelectionContainer}>
-                      <View style={styles.pickerWrapper}>
-                        <Text style={styles.pickerLabel}>Birth Month</Text>
-                        <View style={styles.pickerContainer}>
-                          <Picker
-                            selectedValue={childrenDetails[index]?.birthMonth || '01'}
-                            style={styles.picker}
-                            onValueChange={(value) => handleChildDetailChange(index, 'birthMonth', value)}>
-                            {months.map((month) => (
-                              <Picker.Item 
-                                key={month.value} 
-                                label={month.label} 
-                                value={month.value}
-                                color="#333333"
-                              />
-                            ))}
-                          </Picker>
-                        </View>
-                      </View>
-  
-                      <View style={styles.pickerWrapper}>
-                        <Text style={styles.pickerLabel}>Birth Year</Text>
-                        <View style={styles.pickerContainer}>
-                          <Picker
-                            selectedValue={childrenDetails[index]?.birthYear || currentYear.toString()}
-                            style={styles.picker}
-                            onValueChange={(value) => handleChildDetailChange(index, 'birthYear', value)}>
-                            {years.map((year) => (
-                              <Picker.Item 
-                                key={year} 
-                                label={year} 
-                                value={year}
-                                color="#333333"
-                              />
-                            ))}
-                          </Picker>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          );
+          case 5:
+            return (
+              <ChildrenDetailsStep
+                numberOfChildren={numberOfChildren}
+                childrenDetails={childrenDetails}
+                onChildDetailChange={handleChildDetailChange}
+              />
+            );
   
         case 6:
           return (
