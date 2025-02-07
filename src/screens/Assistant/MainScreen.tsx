@@ -22,6 +22,39 @@ interface Tip {
   details: string;
   audioUrl: string;
 }
+
+interface NameMatchResult {
+  query: string;
+  child?: Child;
+}
+
+class QueryProcessor {
+  constructor(private children: Child[]) {}
+
+  private normalizeText(text: string): string {
+    return text.toLowerCase().trim();
+  }
+
+  private findChildByName(query: string): Child | undefined {
+    const normalizedQuery = this.normalizeText(query);
+    
+    return this.children.find(child => {
+      const nickname = child.nickname ? this.normalizeText(child.nickname) : '';
+      return normalizedQuery.includes(nickname);
+    });
+  }
+
+  processQuery(query: string): NameMatchResult {
+    const child = this.findChildByName(query);
+    return { query, child };
+  }
+
+  appendAgeToQuery(query: string, child: Child): string {
+    const age = calculateAge(child.date_of_birth);
+    return `${query} for ${age} year old`;
+  }
+}
+
 const calculateAge = (dateOfBirth: string): number => {
   const today = new Date();
   const birthDate = new Date(dateOfBirth);
@@ -53,6 +86,9 @@ const MainScreen: React.FC = () => {
   const lastResult = useRef<string>('');
   const [showChildInfo, setShowChildInfo] = useState(false);
 const [childrenInfo, setChildrenInfo] = useState<Child[]>([]);
+const queryProcessor = useRef<QueryProcessor | null>(null);
+const [recognizedChild, setRecognizedChild] = useState<Child | null>(null);
+const [feedbackMessage, setFeedbackMessage] = useState('');
 
 const fetchChildrenInfo = async () => {
   if (!userInfo?.access_token) {
@@ -153,10 +189,22 @@ useEffect(() => {
       if (newResult !== lastResult.current) {
         lastResult.current = newResult;
         setSearchText(newResult);
+        
+        // Process for child name in real-time
+        if (queryProcessor.current) {
+          const { child } = queryProcessor.current.processQuery(newResult);
+          if (child) {
+            setRecognizedChild(child);
+            const age = calculateAge(child.date_of_birth);
+            setFeedbackMessage(`Recognized ${child.nickname} (${age} years old)`);
+          } else {
+            setRecognizedChild(null);
+            setFeedbackMessage('Listening...');
+          }
+        }
       }
     }
   };
-
   const onSpeechError = (e: any) => {
     console.error('Speech recognition error:', e);
     if (isListening) {
@@ -173,15 +221,30 @@ useEffect(() => {
       if (isListening) {
         await Voice.stop();
         setIsListening(false);
+        setFeedbackMessage('');
+        
         if (searchText.trim()) {
-          await getTips(searchText);
+          // Use the recognized child if available
+          if (recognizedChild) {
+            const processedQuery = queryProcessor.current?.appendAgeToQuery(searchText, recognizedChild);
+            await getTips(processedQuery);
+          } else {
+            await getTips(searchText);
+          }
         }
+        
+        // Reset states
         lastResult.current = '';
+        setRecognizedChild(null);
       } else {
         const isAvailable = await Voice.isAvailable();
         if (isAvailable) {
+          // Clear states
           setSearchText('');
           lastResult.current = '';
+          setRecognizedChild(null);
+          setFeedbackMessage('Listening...');
+          
           await Voice.start('en-US');
           setIsListening(true);
         } else {
@@ -192,6 +255,7 @@ useEffect(() => {
       console.error('Voice toggle error:', error);
       Alert.alert('Error', 'Failed to toggle voice recognition');
       setIsListening(false);
+      setFeedbackMessage('');
     }
   };
 
@@ -257,6 +321,9 @@ useEffect(() => {
       </View>
     </View>
   );
+  useEffect(() => {
+    queryProcessor.current = new QueryProcessor(childrenInfo);
+  }, [childrenInfo]);
 
   const getTips = async (query: string = searchText) => {
     if (!query.trim()) {
@@ -266,17 +333,28 @@ useEffect(() => {
 
     setIsLoading(true);
     try {
+      // Process query with QueryProcessor
+      let processedQuery = query;
+      if (queryProcessor.current) {
+        const result = queryProcessor.current.processQuery(query);
+        if (result.child) {
+          // Child name found in query, append age automatically
+          processedQuery = queryProcessor.current.appendAgeToQuery(query, result.child);
+        }
+      }
+
       const response = await fetch(`${API_BASE_URL}/generate-tips`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: query }),
+        body: JSON.stringify({ prompt: processedQuery }),
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        if (errorData.error === 'age_required') {
+        if (errorData.error === 'age_required' && !processedQuery.includes('year old')) {
+          // Only show age prompt if no child name was found
           setLastQuery(query);
           setShowAgePrompt(true);
           return;
@@ -346,8 +424,9 @@ useEffect(() => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.searchContainer}>
+    <View style={styles.container}>
+      <View style={styles.searchContainer}>
+        <View style={styles.inputWrapper}>
           <TextInput
             style={styles.searchInput}
             value={searchText}
@@ -357,17 +436,27 @@ useEffect(() => {
             onSubmitEditing={() => getTips()}
             editable={!isListening}
           />
-          <TouchableOpacity
-            style={[styles.micButton, isListening && styles.micButtonActive]}
-            onPress={toggleListening}
-          >
-            <Icon 
-              name={isListening ? 'mic-off' : 'mic'} 
-              size={24} 
-              color="white" 
-            />
-          </TouchableOpacity>
+          {feedbackMessage ? (
+            <Text style={styles.feedbackText}>
+              {feedbackMessage}
+            </Text>
+          ) : null}
         </View>
+        <TouchableOpacity
+          style={[
+            styles.micButton,
+            isListening && styles.micButtonActive,
+            recognizedChild && styles.micButtonSuccess
+          ]}
+          onPress={toggleListening}
+        >
+          <Icon 
+            name={isListening ? 'mic-off' : 'mic'} 
+            size={24} 
+            color="white" 
+          />
+        </TouchableOpacity>
+      </View>
         
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -469,6 +558,18 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  inputWrapper: {
+    flex: 1,
+  },
+  feedbackText: {
+    fontSize: 12,
+    color: '#007AFF',
+    marginTop: 4,
+    marginLeft: 16,
+  },
+  micButtonSuccess: {
+    backgroundColor: '#34C759', // Green color when child is recognized
   },
   searchInput: {
     flex: 1,
