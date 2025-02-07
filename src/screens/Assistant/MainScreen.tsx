@@ -35,7 +35,7 @@ const calculateAge = (dateOfBirth: string): number => {
 };
 
 
-const API_BASE_URL = 'http://68.183.102.75:4000';
+const API_BASE_URL = 'http://localhost:4000';
 
 const MainScreen: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
@@ -62,7 +62,7 @@ const fetchChildrenInfo = async () => {
 
   try {
     setIsLoading(true); // Add loading state
-    const response = await fetch('http://68.183.102.75:1337/endpoint/children', {
+    const response = await fetch('http://localhost:1337/endpoint/children', {
       headers: {
         'Authorization': `Bearer ${userInfo.access_token}`
       }

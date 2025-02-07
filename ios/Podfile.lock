@@ -50,6 +50,9 @@ PODS:
   - FBLazyVector (0.75.4)
   - Firebase (11.5.0):
     - Firebase/Core (= 11.5.0)
+  - Firebase/Auth (11.5.0):
+    - Firebase/CoreOnly
+    - FirebaseAuth (~> 11.5.0)
   - Firebase/Core (11.5.0):
     - Firebase/CoreOnly
     - FirebaseAnalytics (~> 11.5.0)
@@ -76,6 +79,17 @@ PODS:
     - GoogleUtilities/Network (~> 8.0)
     - "GoogleUtilities/NSData+zlib (~> 8.0)"
     - nanopb (~> 3.30910.0)
+  - FirebaseAppCheckInterop (11.7.0)
+  - FirebaseAuth (11.5.0):
+    - FirebaseAppCheckInterop (~> 11.0)
+    - FirebaseAuthInterop (~> 11.0)
+    - FirebaseCore (= 11.5)
+    - FirebaseCoreExtension (= 11.5)
+    - GoogleUtilities/AppDelegateSwizzler (~> 8.0)
+    - GoogleUtilities/Environment (~> 8.0)
+    - GTMSessionFetcher/Core (< 5.0, >= 3.4)
+    - RecaptchaInterop (~> 100.0)
+  - FirebaseAuthInterop (11.7.0)
   - FirebaseCore (11.5.0):
     - FirebaseCoreInternal (= 11.5)
     - GoogleUtilities/Environment (~> 8.0)
@@ -187,6 +201,7 @@ PODS:
   - GoogleUtilities/UserDefaults (8.0.2):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
+  - GTMSessionFetcher/Core (4.3.0)
   - hermes-engine (0.75.4):
     - hermes-engine/Pre-built (= 0.75.4)
   - hermes-engine/Pre-built (0.75.4)
@@ -1725,6 +1740,7 @@ PODS:
     - React-utils (= 0.75.4)
   - ReactNativeGetLocation (4.0.1):
     - React-Core
+  - RecaptchaInterop (100.0.0)
   - RNBackgroundFetch (4.2.6):
     - React-Core
   - RNCAsyncStorage (1.24.0):
@@ -1736,6 +1752,10 @@ PODS:
   - RNFBApp (21.6.1):
     - Firebase/CoreOnly (= 11.5.0)
     - React-Core
+  - RNFBAuth (21.6.1):
+    - Firebase/Auth (= 11.5.0)
+    - React-Core
+    - RNFBApp
   - RNFBMessaging (21.6.1):
     - Firebase/Messaging (= 11.5.0)
     - FirebaseCoreExtension
@@ -1819,8 +1839,13 @@ DEPENDENCIES:
   - EXTaskManager (from `../node_modules/expo-task-manager/ios`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - Firebase
+  - FirebaseAppCheckInterop
+  - FirebaseAuth
+  - FirebaseAuthInterop
   - FirebaseCore
+  - FirebaseCoreExtension
   - FirebaseCoreInternal
+  - FirebaseInstallations
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - Google-Maps-iOS-Utils
@@ -1893,11 +1918,13 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeGetLocation (from `../node_modules/react-native-get-location`)
+  - RecaptchaInterop
   - RNBackgroundFetch (from `../node_modules/react-native-background-fetch`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNCPicker (from `../node_modules/@react-native-picker/picker`)"
   - "RNCPushNotificationIOS (from `../node_modules/@react-native-community/push-notification-ios`)"
   - "RNFBApp (from `../node_modules/@react-native-firebase/app`)"
+  - "RNFBAuth (from `../node_modules/@react-native-firebase/auth`)"
   - "RNFBMessaging (from `../node_modules/@react-native-firebase/messaging`)"
   - "RNNotifee (from `../node_modules/@notifee/react-native`)"
   - RNPermissions (from `../node_modules/react-native-permissions`)
@@ -1912,6 +1939,9 @@ SPEC REPOS:
   trunk:
     - Firebase
     - FirebaseAnalytics
+    - FirebaseAppCheckInterop
+    - FirebaseAuth
+    - FirebaseAuthInterop
     - FirebaseCore
     - FirebaseCoreExtension
     - FirebaseCoreInternal
@@ -1922,8 +1952,10 @@ SPEC REPOS:
     - GoogleDataTransport
     - GoogleMaps
     - GoogleUtilities
+    - GTMSessionFetcher
     - nanopb
     - PromisesObjC
+    - RecaptchaInterop
     - SocketRocket
 
 EXTERNAL SOURCES:
@@ -2102,6 +2134,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-community/push-notification-ios"
   RNFBApp:
     :path: "../node_modules/@react-native-firebase/app"
+  RNFBAuth:
+    :path: "../node_modules/@react-native-firebase/auth"
   RNFBMessaging:
     :path: "../node_modules/@react-native-firebase/messaging"
   RNNotifee:
@@ -2139,6 +2173,9 @@ SPEC CHECKSUMS:
   FBLazyVector: 430e10366de01d1e3d57374500b1b150fe482e6d
   Firebase: 7a56fe4f56b5ab81b86a6822f5b8f909ae6fc7e2
   FirebaseAnalytics: 2f4a11eeb7a0e9c6fcf642d4e6aaca7fa4d38c28
+  FirebaseAppCheckInterop: 2376d3ec5cb4267facad4fe754ab4f301a5a519b
+  FirebaseAuth: d8ad770642af39d1be932094be5f5230efb0ea74
+  FirebaseAuthInterop: a6973d72aa242ea88ffb6be9c9b06c65455071da
   FirebaseCore: 93abc05437f8064cd2bc0a53b768fb0bc5a1d006
   FirebaseCoreExtension: ddb2eb987f736b714d30f6386795b52c4670439e
   FirebaseCoreInternal: f47dd28ae7782e6a4738aad3106071a8fe0af604
@@ -2151,6 +2188,7 @@ SPEC CHECKSUMS:
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleMaps: 032f676450ba0779bd8ce16840690915f84e57ac
   GoogleUtilities: 26a3abef001b6533cf678d3eb38fd3f614b7872d
+  GTMSessionFetcher: 257ead9ba8e15a2d389d79496e02b9cc5dd0c62c
   hermes-engine: ea92f60f37dba025e293cbe4b4a548fd26b610a0
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
@@ -2218,11 +2256,13 @@ SPEC CHECKSUMS:
   ReactCodegen: 4bcb34e6b5ebf6eef5cee34f55aa39991ea1c1f1
   ReactCommon: 6a952e50c2a4b694731d7682aaa6c79bc156e4ad
   ReactNativeGetLocation: b4379a01dff72507d9abce5f4d569b98abef7761
+  RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
   RNBackgroundFetch: 3a45a819bafb71ce405ae3899714bbac0972f1d2
   RNCAsyncStorage: ec53e44dc3e75b44aa2a9f37618a49c3bc080a7a
   RNCPicker: d162737e03e48797110dbb60e5ddc03012e87e0b
   RNCPushNotificationIOS: 64218f3c776c03d7408284a819b2abfda1834bc8
   RNFBApp: 1de631bffe154f4f8b56f8dbfb13d6305d658e97
+  RNFBAuth: aa53108a283606c560e4380d75d093c35a13d8dd
   RNFBMessaging: 3b6af169c3caf08af40ca79fa4bdc422c3f1a10c
   RNNotifee: 522276e0be010e98173175fb838514b69f18cbe0
   RNPermissions: bd4e8932db57d658a7fd0395bc0ea8a344e28405
@@ -2234,6 +2274,6 @@ SPEC CHECKSUMS:
   UMAppLoader: f17a5ee8e85b536ace0fc254b447a37ed198d57e
   Yoga: 055f92ad73f8c8600a93f0e25ac0b2344c3b07e6
 
-PODFILE CHECKSUM: 75a597204ee1dde8bd0c5ada81c2d0ffc3993951
+PODFILE CHECKSUM: 399bc0e5f36ceef1d800097b6d11f6fa5b952154
 
-COCOAPODS: 1.16.2
+COCOAPODS: 1.15.2

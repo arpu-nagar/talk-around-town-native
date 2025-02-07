@@ -332,7 +332,7 @@ const App: React.FC = () => {
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://68.183.102.75:1337/endpoint/locations', {
+      const response = await fetch('http://localhost:1337/endpoint/locations', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -408,13 +408,13 @@ const App: React.FC = () => {
       return;
     }
     if (newLocation) {
-      // make an HTTP POST request to endpoint: http://68.183.102.75:1337/endpoint/addLocation
+      // make an HTTP POST request to endpoint: http://localhost:1337/endpoint/addLocation
       // with the following data: {latitude: newLocation.latitude, longitude: newLocation.longitude, name, description}
 
       try {
         setLoading(true);
         const response = await fetch(
-          'http://68.183.102.75:1337/endpoint/addLocation',
+          'http://localhost:1337/endpoint/addLocation',
           {
             method: 'POST',
             headers: {
@@ -491,7 +491,7 @@ const App: React.FC = () => {
         if (loading) setLoading(false);
         // Now send the location data to your server
         try {
-          const response = await fetch('http://68.183.102.75:1337/endpoint', {
+          const response = await fetch('http://localhost:1337/endpoint', {
             method: 'POST',
             headers: {
               Accept: 'application/json',
@@ -1355,7 +1355,7 @@ const fetchLocationAndSendData = async () => {
         const {latitude, longitude} = position.coords;
         console.log(latitude, longitude);
         try {
-          const response = await fetch('http://68.183.102.75:1337/endpoint', {
+          const response = await fetch('http://localhost:1337/endpoint', {
             method: 'POST',
             headers: {
               Accept: 'application/json',
@@ -1374,7 +1374,7 @@ const fetchLocationAndSendData = async () => {
         }
       },
       error => {
-        Alert.alert('Error', 'http://68.183.102.75:1337 location');
+        Alert.alert('Error', 'http://localhost:1337 location');
         console.log(error);
       },
       {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},
@@ -1404,7 +1404,7 @@ const HomeScreen = ({route}: {route: any}) => {
     const fetchData = async () => {
       try {
         const response = await fetch(
-          'http://68.183.102.75:1337/api/tips/get-tips',
+          'http://localhost:1337/api/tips/get-tips',
           {
             method: 'POST',
             headers: {
@@ -1656,7 +1656,7 @@ export default LoginScreen;// import AsyncStorage from '@react-native-async-stor
 //         const userInfo = JSON.parse(jwt || '{}');
 //         console.log('JWT:', userInfo.access_token);
 //         // send access token to server
-//         fetch('http://68.183.102.75:1337/api/auth/token', {
+//         fetch('http://localhost:1337/api/auth/token', {
 //           method: 'POST',
 //           headers: {
 //             Accept: 'application/json',
@@ -1782,7 +1782,7 @@ const RemoteNotification = () => {
         const jwt = await AsyncStorage.getItem('userInfo');
         const userInfo = JSON.parse(jwt || '{}');
         console.log('JWT:', userInfo.access_token);
-        fetch('http://68.183.102.75:1337/api/auth/token', {
+        fetch('http://localhost:1337/api/auth/token', {
           method: 'POST',
           headers: {
             Accept: 'application/json',
@@ -1911,7 +1911,7 @@ const fetchLocationAndSendData = async () => {
         const {latitude, longitude} = position.coords;
         console.log(latitude, longitude);
         try {
-          const response = await fetch('http://68.183.102.75:1337/endpoint', {
+          const response = await fetch('http://localhost:1337/endpoint', {
             method: 'POST',
             headers: {
               Accept: 'application/json',
@@ -2003,4 +2003,4 @@ const Navigation = () => {
 };
 
 export default Navigation;
-export const BASE_URL = 'http://68.183.102.75:1337/api/auth';
+export const BASE_URL = 'http://localhost:1337/api/auth';

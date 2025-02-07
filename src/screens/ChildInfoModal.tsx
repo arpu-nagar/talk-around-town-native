@@ -91,7 +91,7 @@ const [error, setError] = useState<string | null>(null);
       // Log the request data for debugging
       console.log('Updating child with data:', editingChild);
   
-      const response = await fetch(`http://68.183.102.75:1337/endpoint/updateChildren`, {
+      const response = await fetch(`http://localhost:1337/endpoint/updateChildren`, {
         method: 'POST', // Changed from PUT to POST based on your router setup
         headers: {
           'Content-Type': 'application/json',
@@ -144,7 +144,7 @@ const [error, setError] = useState<string | null>(null);
       
       console.log('Adding child with data:', childData);
   
-      const response = await fetch('http://68.183.102.75:1337/endpoint/children', {
+      const response = await fetch('http://localhost:1337/endpoint/children', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

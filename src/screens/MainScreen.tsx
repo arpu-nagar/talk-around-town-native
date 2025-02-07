@@ -94,7 +94,7 @@ const App: React.FC = () => {
   const handleUpdateChildren = async (updatedChildren: any[]) => {
     try {
       const response = await fetch(
-        'http://68.183.102.75:1337/endpoint/updateChildren',
+        'http://localhost:1337/endpoint/updateChildren',
         {
           method: 'POST',
           headers: {
@@ -148,7 +148,7 @@ const App: React.FC = () => {
     const checkChildrenInfo = async () => {
       try {
         const response = await fetch(
-          'http://68.183.102.75:1337/endpoint/children',
+          'http://localhost:1337/endpoint/children',
           {
             headers: {
               Authorization: `Bearer ${userInfo.access_token}`,
@@ -178,7 +178,7 @@ const App: React.FC = () => {
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://68.183.102.75:1337/endpoint/locations', {
+      const response = await fetch('http://localhost:1337/endpoint/locations', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -285,13 +285,13 @@ const App: React.FC = () => {
         );
         return;
       }
-      // make an HTTP POST request to endpoint: http://68.183.102.75:1337/endpoint/addLocation
+      // make an HTTP POST request to endpoint: http://localhost:1337/endpoint/addLocation
       // with the following data: {latitude: newLocation.latitude, longitude: newLocation.longitude, name, description}
 
       try {
         setLoading(true);
         const response = await fetch(
-          'http://68.183.102.75:1337/endpoint/addLocation',
+          'http://localhost:1337/endpoint/addLocation',
           {
             method: 'POST',
             headers: {
@@ -375,7 +375,7 @@ const App: React.FC = () => {
         if (loading) setLoading(false);
         // Now send the location data to your server
         try {
-          const response = await fetch('http://68.183.102.75:1337/endpoint', {
+          const response = await fetch('http://localhost:1337/endpoint', {
             method: 'POST',
             headers: {
               Accept: 'application/json',

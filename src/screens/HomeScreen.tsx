@@ -18,7 +18,7 @@ const HomeScreen = ({route}: {route: any}) => {
     const fetchData = async () => {
       try {
         const response = await fetch(
-          'http://68.183.102.75:1337/api/tips/get-tips',
+          'http://localhost:1337/api/tips/get-tips',
           {
             method: 'POST',
             headers: {

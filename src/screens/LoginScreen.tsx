@@ -40,7 +40,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   const updateServerToken = useCallback(async (fcmToken: string, accessToken: string) => {
     try {
-      const response = await fetch('http://68.183.102.75:1337/api/auth/token', {
+      const response = await fetch('http://localhost:1337/api/auth/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

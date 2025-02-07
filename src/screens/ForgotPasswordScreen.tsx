@@ -16,7 +16,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { NavigationProp } from '@react-navigation/native';
 
-const API_URL = 'http://68.183.102.75:1337/api';
+const API_URL = 'http://localhost:1337/api';
 
 interface ForgotPasswordScreenProps {
   navigation: NavigationProp<any>;
