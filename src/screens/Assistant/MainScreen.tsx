@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, TextInput, SafeAreaView, ActivityIndicator, Modal } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Voice from '@react-native-voice/voice';
 import Sound from 'react-native-sound';
 import { Platform, PermissionsAndroid } from 'react-native';
@@ -22,39 +23,6 @@ interface Tip {
   details: string;
   audioUrl: string;
 }
-
-interface NameMatchResult {
-  query: string;
-  child?: Child;
-}
-
-class QueryProcessor {
-  constructor(private children: Child[]) {}
-
-  private normalizeText(text: string): string {
-    return text.toLowerCase().trim();
-  }
-
-  private findChildByName(query: string): Child | undefined {
-    const normalizedQuery = this.normalizeText(query);
-    
-    return this.children.find(child => {
-      const nickname = child.nickname ? this.normalizeText(child.nickname) : '';
-      return normalizedQuery.includes(nickname);
-    });
-  }
-
-  processQuery(query: string): NameMatchResult {
-    const child = this.findChildByName(query);
-    return { query, child };
-  }
-
-  appendAgeToQuery(query: string, child: Child): string {
-    const age = calculateAge(child.date_of_birth);
-    return `${query} for ${age} year old`;
-  }
-}
-
 const calculateAge = (dateOfBirth: string): number => {
   const today = new Date();
   const birthDate = new Date(dateOfBirth);
@@ -68,7 +36,7 @@ const calculateAge = (dateOfBirth: string): number => {
 };
 
 
-const API_BASE_URL = 'http://68.183.102.75:4000';
+const API_BASE_URL = 'http://localhost:4000';
 
 const MainScreen: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
@@ -86,9 +54,6 @@ const MainScreen: React.FC = () => {
   const lastResult = useRef<string>('');
   const [showChildInfo, setShowChildInfo] = useState(false);
 const [childrenInfo, setChildrenInfo] = useState<Child[]>([]);
-const queryProcessor = useRef<QueryProcessor | null>(null);
-const [recognizedChild, setRecognizedChild] = useState<Child | null>(null);
-const [feedbackMessage, setFeedbackMessage] = useState('');
 
 const fetchChildrenInfo = async () => {
   if (!userInfo?.access_token) {
@@ -98,7 +63,7 @@ const fetchChildrenInfo = async () => {
 
   try {
     setIsLoading(true); // Add loading state
-    const response = await fetch('http://68.183.102.75:1337/endpoint/children', {
+    const response = await fetch('http://localhost:1337/endpoint/children', {
       headers: {
         'Authorization': `Bearer ${userInfo.access_token}`
       }
@@ -189,22 +154,10 @@ useEffect(() => {
       if (newResult !== lastResult.current) {
         lastResult.current = newResult;
         setSearchText(newResult);
-        
-        // Process for child name in real-time
-        if (queryProcessor.current) {
-          const { child } = queryProcessor.current.processQuery(newResult);
-          if (child) {
-            setRecognizedChild(child);
-            const age = calculateAge(child.date_of_birth);
-            setFeedbackMessage(`Recognized ${child.nickname} (${age} years old)`);
-          } else {
-            setRecognizedChild(null);
-            setFeedbackMessage('Listening...');
-          }
-        }
       }
     }
   };
+
   const onSpeechError = (e: any) => {
     console.error('Speech recognition error:', e);
     if (isListening) {
@@ -221,30 +174,15 @@ useEffect(() => {
       if (isListening) {
         await Voice.stop();
         setIsListening(false);
-        setFeedbackMessage('');
-        
         if (searchText.trim()) {
-          // Use the recognized child if available
-          if (recognizedChild) {
-            const processedQuery = queryProcessor.current?.appendAgeToQuery(searchText, recognizedChild);
-            await getTips(processedQuery);
-          } else {
-            await getTips(searchText);
-          }
+          await getTips(searchText);
         }
-        
-        // Reset states
         lastResult.current = '';
-        setRecognizedChild(null);
       } else {
         const isAvailable = await Voice.isAvailable();
         if (isAvailable) {
-          // Clear states
           setSearchText('');
           lastResult.current = '';
-          setRecognizedChild(null);
-          setFeedbackMessage('Listening...');
-          
           await Voice.start('en-US');
           setIsListening(true);
         } else {
@@ -255,7 +193,6 @@ useEffect(() => {
       console.error('Voice toggle error:', error);
       Alert.alert('Error', 'Failed to toggle voice recognition');
       setIsListening(false);
-      setFeedbackMessage('');
     }
   };
 
@@ -296,34 +233,42 @@ useEffect(() => {
 
   const renderTipItem = (tip: Tip, index: number) => (
     <View key={index} style={styles.tipItem}>
-      <Text style={styles.tipTitle}>{tip.title}</Text>
-      <Text style={styles.tipBody}>{tip.body}</Text>
-      <Text style={styles.tipDetails}>{tip.details}</Text>
-      <View style={styles.audioButtonsContainer}>
-        {isPlaying && activeAudioIndex === index ? (
-          <TouchableOpacity
-            style={[styles.playButton, styles.stopButton]}
-            onPress={cleanupSound}
-          >
-            <Text style={styles.buttonText}>Stop</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.playButton}
-            onPress={() => speakTip(tip.audioUrl, index)}
-            disabled={isPlaying}
-          >
-            <Text style={styles.buttonText}>
-              {isPlaying ? 'Playing...' : 'Play'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <LinearGradient
+        colors={['#ffffff', '#f8f9fa']}
+        style={styles.tipGradient}
+      >
+        <View style={styles.tipHeader}>
+          <Icon name="lightbulb" size={24} color="#FFA726" style={styles.tipIcon} />
+          <Text style={styles.tipTitle}>{tip.title}</Text>
+        </View>
+        <Text style={styles.tipBody}>{tip.body}</Text>
+        <Text style={styles.tipDetails}>{tip.details}</Text>
+        <View style={styles.audioButtonsContainer}>
+          {isPlaying && activeAudioIndex === index ? (
+            <TouchableOpacity
+              style={[styles.playButton, styles.stopButton]}
+              onPress={cleanupSound}
+            >
+              <Icon name="stop" size={20} color="white" />
+              <Text style={styles.buttonText}>Stop</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.playButton}
+              onPress={() => speakTip(tip.audioUrl, index)}
+              disabled={isPlaying}
+            >
+              <Icon name="play-arrow" size={20} color="white" />
+              <Text style={styles.buttonText}>
+                {isPlaying ? 'Playing...' : 'Play'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </LinearGradient>
     </View>
   );
-  useEffect(() => {
-    queryProcessor.current = new QueryProcessor(childrenInfo);
-  }, [childrenInfo]);
+
 
   const getTips = async (query: string = searchText) => {
     if (!query.trim()) {
@@ -333,28 +278,17 @@ useEffect(() => {
 
     setIsLoading(true);
     try {
-      // Process query with QueryProcessor
-      let processedQuery = query;
-      if (queryProcessor.current) {
-        const result = queryProcessor.current.processQuery(query);
-        if (result.child) {
-          // Child name found in query, append age automatically
-          processedQuery = queryProcessor.current.appendAgeToQuery(query, result.child);
-        }
-      }
-
       const response = await fetch(`${API_BASE_URL}/generate-tips`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: processedQuery }),
+        body: JSON.stringify({ prompt: query }),
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        if (errorData.error === 'age_required' && !processedQuery.includes('year old')) {
-          // Only show age prompt if no child name was found
+        if (errorData.error === 'age_required') {
           setLastQuery(query);
           setShowAgePrompt(true);
           return;
@@ -424,39 +358,40 @@ useEffect(() => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.searchInput}
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder={isListening ? "Listening..." : "Ask a parenting question..."}
-            returnKeyType="search"
-            onSubmitEditing={() => getTips()}
-            editable={!isListening}
-          />
-          {feedbackMessage ? (
-            <Text style={styles.feedbackText}>
-              {feedbackMessage}
-            </Text>
-          ) : null}
+      <LinearGradient
+        colors={['#f0f2f5', '#ffffff']}
+        style={styles.container}
+      >
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerTitle}>Parenting Assistant</Text>
+          <Text style={styles.headerSubtitle}>Ask any parenting question</Text>
         </View>
-        <TouchableOpacity
-          style={[
-            styles.micButton,
-            isListening && styles.micButtonActive,
-            recognizedChild && styles.micButtonSuccess
-          ]}
-          onPress={toggleListening}
-        >
-          <Icon 
-            name={isListening ? 'mic-off' : 'mic'} 
-            size={24} 
-            color="white" 
-          />
-        </TouchableOpacity>
-      </View>
+
+        <View style={styles.searchContainer}>
+          <View style={styles.searchWrapper}>
+            <Icon name="search" size={20} color="#666" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholder={isListening ? "Listening..." : "Ask a parenting question..."}
+              returnKeyType="search"
+              onSubmitEditing={() => getTips()}
+              editable={!isListening}
+              placeholderTextColor="#999"
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.micButton, isListening && styles.micButtonActive]}
+            onPress={toggleListening}
+          >
+            <Icon 
+              name={isListening ? 'mic-off' : 'mic'} 
+              size={24} 
+              color="white" 
+            />
+          </TouchableOpacity>
+        </View>
         
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -467,7 +402,10 @@ useEffect(() => {
             {isLoading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.buttonText}>Get Parenting Tips</Text>
+              <>
+                <Icon name="psychology" size={20} color="white" />
+                <Text style={styles.buttonText}>Get Parenting Tips</Text>
+              </>
             )}
           </TouchableOpacity>
   
@@ -477,7 +415,8 @@ useEffect(() => {
               onPress={handleRetry}
               disabled={isLoading || isListening}
             >
-              <Text style={styles.buttonText}>Try Another Response</Text>
+              <Icon name="refresh" size={20} color="white" />
+              <Text style={styles.buttonText}>Try Again</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -485,20 +424,19 @@ useEffect(() => {
         <ScrollView 
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
           {tips.map((tip, index) => renderTipItem(tip, index))}
-          
-          {/* Add some padding at the bottom of ScrollView for the button */}
-          <View style={{ height: 70 }} />
+          <View style={{ height: 90 }} />
         </ScrollView>
   
-        {/* Position the button at the bottom */}
         <View style={styles.bottomButtonContainer}>
           <TouchableOpacity 
             style={styles.childInfoButton}
             onPress={() => setShowChildInfo(true)}
           >
-            <Text style={styles.childInfoButtonText}>View Children Information</Text>
+            <Icon name="child-care" size={20} color="white" style={styles.buttonIcon} />
+            <Text style={styles.childInfoButtonText}>Children Information</Text>
           </TouchableOpacity>
         </View>
   
@@ -534,7 +472,7 @@ useEffect(() => {
         
         <Loader isLoading={isLoading} />
         <AgePromptModal />
-      </View>
+        </LinearGradient> 
     </SafeAreaView>
   );
 };
@@ -542,16 +480,200 @@ useEffect(() => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f0f2f5',
   },
   container: {
     flex: 1,
     padding: 16,
   },
+  headerContainer: {
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
   searchContainer: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 16,
     alignItems: 'center',
+  },
+  searchWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    height: 50,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    height: '100%',
+  },
+  micButton: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    marginLeft: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  micButtonActive: {
+    backgroundColor: '#FF3B30',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    marginBottom: 24,
+    gap: 12,
+  },
+  buttonFlex: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  searchButton: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  retryButton: {
+    backgroundColor: '#34C759',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  tipItem: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tipGradient: {
+    padding: 20,
+  },
+  tipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  tipIcon: {
+    marginRight: 8,
+  },
+  tipTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    flex: 1,
+  },
+  tipBody: {
+    fontSize: 16,
+    marginBottom: 12,
+    color: '#333',
+    lineHeight: 24,
+  },
+  tipDetails: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    marginBottom: 16,
+    color: '#666',
+  },
+  audioButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  playButton: {
+    backgroundColor: '#34C759',
+    padding: 12,
+    borderRadius: 12,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  stopButton: {
+    backgroundColor: '#FF3B30',
+  },
+  bottomButtonContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: 'transparent',
+  },
+  childInfoButton: {
+    backgroundColor: '#5856D6',
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  childInfoButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   testButton: {
     backgroundColor: '#FF9500', // Orange color to distinguish it
@@ -559,43 +681,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
-  inputWrapper: {
-    flex: 1,
-  },
-  feedbackText: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginTop: 4,
-    marginLeft: 16,
-  },
-  micButtonSuccess: {
-    backgroundColor: '#34C759', // Green color when child is recognized
-  },
-  searchInput: {
-    flex: 1,
-    height: 48,
-    borderColor: '#E0E0E0',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  micButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    marginLeft: 12,
-  },
-  childInfoButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
+  
   childItem: {
     backgroundColor: '#F8F9FA',
     padding: 16,
@@ -635,87 +721,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
-  bottomButtonContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: 'transparent',
-  },
-  childInfoButton: {
-    backgroundColor: '#5856D6',
-    padding: 14,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  micButtonActive: {
-    backgroundColor: '#FF3B30',
-  },
-  searchButton: {
-    backgroundColor: '#007AFF',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  tipItem: {
-    marginBottom: 16,
-    padding: 16,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  tipTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#1C1C1E',
-  },
-  tipBody: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#3A3A3C',
-    lineHeight: 24,
-  },
-  tipDetails: {
-    fontSize: 14,
-    fontStyle: 'italic',
-    marginBottom: 16,
-    color: '#636366',
-  },
-  audioButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  playButton: {
-    backgroundColor: '#34C759',
-    padding: 12,
-    borderRadius: 8,
-    flex: 1,
-    alignItems: 'center',
-  },
-  stopButton: {
-    backgroundColor: '#FF3B30',
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -740,20 +745,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
     textAlign: 'center',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    gap: 12,
-  },
-  buttonFlex: {
-    flex: 1,
-  },
-  retryButton: {
-    backgroundColor: '#34C759',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
   },
   ageButton: {
     backgroundColor: '#007AFF',
