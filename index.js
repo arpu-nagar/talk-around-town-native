@@ -6,7 +6,6 @@ import {AppRegistry} from 'react-native';
 import App from './App';
 import {name as appName} from './app.json';
 import 'react-native-get-random-values';
-import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import PushNotification from 'react-native-push-notification';
 
 PushNotification.getChannels(function (channel_ids) {
@@ -14,39 +13,50 @@ PushNotification.getChannels(function (channel_ids) {
     PushNotification.deleteChannel(id);
   });
 });
+
 PushNotification.configure({
   onRegister: function (token) {
     console.log('TOKEN --:', token);
   },
   onNotification: function (notification) {
-    console.log('LOCAL NOTIFICATION ==>', notification);
-    const {message, channelId} = notification;
-    let notificationId = notification.data.notificationId;
-    let title = 'REMOTE NOTIFICATION';
-    let strTitle = JSON.stringify(title).split('"').join('');
-    let strBody = JSON.stringify(message).split('"').join('');
-    const key = JSON.stringify(notificationId).split('"').join('');
-    // console.log('REMOTE NOTIFICATION ==>', title, strTitle, key);
+    // @ts-ignore
+    const {message, id, title} = notification;
+
+    const safeTitle = title || 'New Notification';
+    const safeMessage = message || 'You have a new notification';
+    const safeId = id || Date.now().toString();
+
+    let strTitle = safeTitle.toString();
+    let strBody = safeMessage.toString();
+    let typeMatch = strBody.match(/^(.*?):/);
+    // let type = typeMatch ? typeMatch[1].trim() : 'notification';
+
+    console.log('NOTIFICATION RECEIVED:', {
+      title: strTitle,
+      body: strBody,
+      //   type: type
+    });
+    // App received notification while in foreground or background
     PushNotification.createChannel(
       {
-        channelId: channelId, // (required & must be unique)
-        channelName: 'remote messasge', // (required)
-        channelDescription: 'Notification for remote message', // (optional) default: undefined.
-        // (optional) default: true. Creates the default vibration patten if true.
+        channelId: safeId,
+        channelName: 'Remote Message',
+        channelDescription: 'Notification for remote message',
+        importance: 4,
+        vibrate: true,
       },
-      created => console.log(`createChannel returned '${created}'`), // (optional) callback returns whether the channel was created, false means it already existed.
+      created => console.log(`createChannel returned '${created}'`),
     );
+
     PushNotification.localNotification({
-      channelId: channelId, //this must be same with channelId in createchannel
+      channelId: safeId,
       title: strTitle,
       message: strBody,
+      //   userInfo: {type: type}, // Pass additional data
     });
-    // console.log('REMOTE NOTIFICATION ==>', title, message, id, notification);
   },
-  senderID: '96534916371',
   popInitialNotification: true,
   requestPermissions: true,
 });
-
 
 AppRegistry.registerComponent(appName, () => App);
