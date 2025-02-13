@@ -32,7 +32,7 @@ type ResetPasswordScreenProps = NativeStackScreenProps<
   'ResetPassword'
 >;
 
-const API_URL = 'http://localhost:1337/api';
+const API_URL = 'http://68.183.102.75:1337/api';
 
 const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({ 
   navigation, 

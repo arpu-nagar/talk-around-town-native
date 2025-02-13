@@ -17,7 +17,7 @@ const RemoteNotification: React.FC = () => {
 
   const verifyAuth = async (token: string) => {
     try {
-      const response = await fetch('http://localhost:1337/api/auth/verify', {
+      const response = await fetch('http://68.183.102.75:1337/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ headers: { authorization: `Bearer ${token}` } }),
@@ -37,7 +37,7 @@ const RemoteNotification: React.FC = () => {
       if (userInfo?.access_token && token) {
         console.log('FCM token:', token);
         console.log('User token:', userInfo.access_token);
-        const response = await fetch('http://localhost:1337/api/auth/token', {
+        const response = await fetch('http://68.183.102.75:1337/api/auth/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -81,7 +81,7 @@ const RemoteNotification: React.FC = () => {
 
       lastLocationRef.current = { latitude, longitude };
 
-      const response = await fetch('http://localhost:1337/endpoint', {
+      const response = await fetch('http://68.183.102.75:1337/endpoint', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,7 +95,7 @@ const RemoteNotification: React.FC = () => {
       const result = await response.json();
       
       if (result.status === 'success' && result.location) {
-        const tipsResponse = await fetch('http://localhost:1337/api/tips/get-tips', {
+        const tipsResponse = await fetch('http://68.183.102.75:1337/api/tips/get-tips', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

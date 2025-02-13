@@ -52,7 +52,7 @@ const fetchLocationAndSendData = async () => {
         const {latitude, longitude} = position.coords;
         console.log(latitude, longitude);
         try {
-          const response = await fetch('http://localhost:1337/endpoint', {
+          const response = await fetch('http://68.183.102.75:1337/endpoint', {
             method: 'POST',
             headers: {
               Accept: 'application/json',
@@ -71,7 +71,7 @@ const fetchLocationAndSendData = async () => {
         }
       },
       error => {
-        Alert.alert('Error', 'http://localhost:1337 location');
+        Alert.alert('Error', 'http://68.183.102.75:1337 location');
         console.log(error);
       },
       {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},
