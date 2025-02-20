@@ -3,7 +3,7 @@ import Geolocation from '@react-native-community/geolocation';
 import messaging from '@react-native-firebase/messaging';
 import notifee, { AndroidImportance, AndroidStyle, EventType } from '@notifee/react-native';
 import { AuthContext, AuthContextType } from '../context/AuthContext';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 const RemoteNotification: React.FC = () => {
   const { userInfo } = useContext<AuthContextType>(AuthContext);
@@ -35,13 +35,15 @@ const RemoteNotification: React.FC = () => {
     try {
       const token = await messaging().getToken();
       if (userInfo?.access_token && token) {
+        console.log('FCM token:', token);
+        console.log('User token:', userInfo.access_token);
         const response = await fetch('http://68.183.102.75:1337/api/auth/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${userInfo.access_token}`,
           },
-          body: JSON.stringify({ token, platform: 'ios' }),
+          body: JSON.stringify({ token, platform: Platform.OS }),
         });
         if (!response.ok) throw new Error('Failed to update token on server');
       }
@@ -142,6 +144,7 @@ const RemoteNotification: React.FC = () => {
         if (!isValid) return;
 
         const authStatus = await messaging().requestPermission();
+        // console.log('FCM Auth Status:', authStatus);
         if (authStatus !== messaging.AuthorizationStatus.AUTHORIZED) return;
 
         await setupFCM();
@@ -188,7 +191,6 @@ const RemoteNotification: React.FC = () => {
         name: 'Location Tips',
         importance: AndroidImportance.HIGH,
       });
-
       const notificationData = {
         notificationId: String(data.notificationId || ''),
         locationType: String(data.locationType || ''),
@@ -202,7 +204,7 @@ const RemoteNotification: React.FC = () => {
         body,
         data: notificationData,
         android: {
-          channelId,
+           channelId,
           importance: AndroidImportance.HIGH,
           style: { type: AndroidStyle.BIGTEXT, text: body },
           pressAction: { id: 'default' },

@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "850502751044",
-    "project_id": "talk-around-town-423916",
-    "storage_bucket": "talk-around-town-423916.appspot.com"
+    "project_number": "96534916371",
+    "project_id": "talk-around-town-423916-ec889",
+    "storage_bucket": "talk-around-town-423916-ec889.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:850502751044:android:a4e50f4af3b35208d4bd11",
+        "mobilesdk_app_id": "1:96534916371:android:9de26ff9db83dc02b6bee6",
         "android_client_info": {
           "package_name": "com.talk_around_town_trail"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDd8qasAv1q0_y1qrNlCQV8YuYcZh82lnk"
+          "current_key": "AIzaSyDCQ5FKEmRdjopvTruLWRqkQyY7ATJIPzs"
         }
       ],
       "services": {

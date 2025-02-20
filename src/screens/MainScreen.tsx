@@ -10,22 +10,26 @@ import {
   TextInput,
   Pressable,
   SafeAreaView,
-  StatusBar,
 } from 'react-native';
-import MapView, {PROVIDER_GOOGLE, Marker, Circle, PROVIDER_DEFAULT} from 'react-native-maps';
+import MapView, {
+  PROVIDER_GOOGLE,
+  Marker,
+  Circle,
+  PROVIDER_DEFAULT,
+} from 'react-native-maps';
 import {Dropdown} from 'react-native-element-dropdown';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Geolocation from '@react-native-community/geolocation';
-
 import {
   GooglePlacesAutocomplete,
   GooglePlacesAutocompleteRef,
 } from 'react-native-google-places-autocomplete';
 import {Icon} from 'react-native-elements';
+
 import Spinner from 'react-native-loading-spinner-overlay';
 import {AuthContext} from '../context/AuthContext';
-import RemoteNotification from '../components/RemoteNotification';
-import LinearGradient from 'react-native-linear-gradient';
+// import RemoteNotification from '../components/RemoteNotification';
+import Notification from '../components/Notification';
 
 interface Location {
   latitude: number;
@@ -40,7 +44,6 @@ interface Child {
   date_of_birth?: string;
 }
 const App: React.FC = () => {
-
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [userChildren, setUserChildren] = useState<Child[]>([]);
 
@@ -51,13 +54,13 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   // const [pinged, SetPinged] = useState<boolean>(false);
   const [newLocation, setNewLocation] = useState<Location | null>(null);
-  
+
   // a state variable for name and description
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
-  const { aiTips, setAITips } = useContext<any>(AuthContext);
+  const {aiTips, setAITips} = useContext<any>(AuthContext);
   const [details, setDetails] = useState<
     Array<{title: string; desription: string; pinColor: string}>
   >([]);
@@ -90,7 +93,7 @@ const App: React.FC = () => {
         Alert.alert('Error', 'Unable to fetch current location');
         setLoading(false);
       },
-      {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000}
+      {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
     );
   };
 
@@ -105,14 +108,14 @@ const App: React.FC = () => {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${userInfo.access_token}`,
           },
-          body: JSON.stringify({ children: updatedChildren }),
+          body: JSON.stringify({children: updatedChildren}),
         },
       );
-      
+
       if (!response.ok) {
         throw new Error('Failed to update children');
       }
-      
+
       // Optionally refresh user data here
       Alert.alert('Success', 'Children information updated successfully');
     } catch (error) {
@@ -159,10 +162,12 @@ const App: React.FC = () => {
           },
         );
         const data = await response.json();
-        
-        if (data.children.some(
-          (child: any) => !child.nickname || !child.date_of_birth
-        )) {
+
+        if (
+          data.children.some(
+            (child: any) => !child.nickname || !child.date_of_birth,
+          )
+        ) {
           setUserChildren(data.children);
           setShowUpdateModal(true);
         }
@@ -170,11 +175,11 @@ const App: React.FC = () => {
         console.error('Error checking children info:', error);
       }
     };
-  
+
     checkChildrenInfo();
     setupLocation();
     fetchLocations();
-    
+
     const intervalId = setInterval(fetchLocationAndSendData, 30000);
     return () => clearInterval(intervalId);
   }, []);
@@ -191,14 +196,14 @@ const App: React.FC = () => {
       });
       const jsonResponse = await response.json();
       console.log(jsonResponse);
-      
+
       if (Array.isArray(jsonResponse.locations)) {
         setLocations(jsonResponse.locations);
       } else {
         console.error('Locations is not an array:', jsonResponse.locations);
         setLocations([]);
       }
-      
+
       if (Array.isArray(jsonResponse.details)) {
         setDetails(jsonResponse.details);
       } else {
@@ -209,7 +214,7 @@ const App: React.FC = () => {
       // Request location permission and fetch current location
       if (Platform.OS === 'android') {
         const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         );
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
           Alert.alert('Location permission denied');
@@ -234,7 +239,7 @@ const App: React.FC = () => {
           Alert.alert('Error', 'Unable to fetch location');
           setLoading(false);
         },
-        {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000}
+        {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
       );
     } catch (error) {
       setLoading(false);
@@ -243,7 +248,12 @@ const App: React.FC = () => {
     }
   };
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) => {
     const R = 6371e3; // Earth's radius in meters
     const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
@@ -266,12 +276,11 @@ const App: React.FC = () => {
         newLat,
         newLon,
         loc.latitude,
-        loc.longitude
+        loc.longitude,
       );
       return distance <= threshold;
     });
   };
-
 
   const addLocation = async () => {
     console.log('Add location');
@@ -284,7 +293,7 @@ const App: React.FC = () => {
       if (isLocationNearby(newLocation.latitude, newLocation.longitude)) {
         Alert.alert(
           'Duplicate Location',
-          'A location already exists within 100 meters of this point. Please choose a different location.'
+          'A location already exists within 100 meters of this point. Please choose a different location.',
         );
         return;
       }
@@ -320,8 +329,7 @@ const App: React.FC = () => {
         setName('');
         setDescription('');
         setSelectedOption(null);
-      } 
-      catch (error) {
+      } catch (error) {
         console.error('Error adding location:', error);
         Alert.alert('Error', 'Failed to add location. Please try again.');
       }
@@ -415,39 +423,43 @@ const App: React.FC = () => {
     return (
       <View>
         <Spinner visible={loading} />
-        <RemoteNotification />
+        <Notification />
       </View>
     );
   }
 
-  
   return (
     <>
-      <RemoteNotification />
+      <Notification />
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Location Finder</Text>
-            <Text style={styles.headerSubtitle}>Discover and add places of interest</Text>
-          </View>
-
-          {/* Search Bar */}
           <View style={styles.searchContainer}>
             <GooglePlacesAutocomplete
-              placeholder="Search locations..."
+              placeholder="Search"
               fetchDetails={true}
               styles={{
-                container: styles.searchBarContainer,
-                textInputContainer: styles.searchInputContainer,
-                textInput: styles.searchInput,
-                listView: styles.searchListView,
-                row: styles.searchRow,
-                description: styles.searchDescription,
+                container: {
+                  flex: 0,
+                },
+                textInputContainer: {
+                  backgroundColor: 'white',
+                  borderRadius: 5,
+                  borderWidth: 1,
+                  borderColor: '#ddd',
+                },
+                textInput: {
+                  height: 38,
+                  color: '#5d5d5d',
+                  fontSize: 16,
+                },
+                listView: {
+                  backgroundColor: 'white',
+                },
               }}
               onPress={(data, details = null) => {
+                console.log('Search pressed', data);
                 if (details) {
+                  console.log('Location details:', details);
                   const latitude = details.geometry.location.lat;
                   const longitude = details.geometry.location.lng;
                   setNewLocation({
@@ -464,151 +476,130 @@ const App: React.FC = () => {
               }}
               renderRightButton={() => (
                 <TouchableOpacity
-                  style={styles.clearButton}
+                  style={styles1.clearButton}
                   onPress={() => {
+                    console.log('Clear button pressed');
                     ref.current?.clear();
                     setName('');
                     setDescription('');
                     setNewLocation(null);
                   }}>
-                  <Icon name="close" size={20} color="#666" />
+                  <Icon name="close" size={25} color="black" />
                 </TouchableOpacity>
               )}
               ref={ref}
             />
           </View>
 
-          {/* Content Container */}
-          <View style={styles.contentContainer}>
-            {/* Map */}
+          <View style={styles.mapContainer}>
             {location && (
               <MapView
-                provider={Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
+                provider={
+                  Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE
+                }
                 style={styles.map}
                 initialRegion={location}
                 region={newLocation || location}
                 showsUserLocation
                 mapType="standard"
-                userInterfaceStyle="light"
-              >
+                userInterfaceStyle="light">
                 {locations.map((loc, index) => (
                   <React.Fragment key={index}>
                     <Marker
                       coordinate={loc}
                       title={details[index]?.title || `Location ${index + 1}`}
                       description={details[index]?.desription || ''}
-                      pinColor={details[index]?.pinColor || '#FF3B30'}
+                      pinColor={details[index]?.pinColor || 'red'}
                     />
                     <Circle
                       center={loc}
                       radius={100}
-                      strokeColor="rgba(0, 122, 255, 0.5)"
-                      fillColor="rgba(0, 122, 255, 0.1)"
+                      strokeColor="rgba(0,0,255,0.5)"
+                      fillColor="rgba(0,0,255,0.1)"
                       zIndex={2}
                     />
                   </React.Fragment>
                 ))}
               </MapView>
             )}
-
-            {/* Bottom Panel - Form or Welcome */}
-            <View style={styles.bottomPanel}>
-              {newLocation ? (
-                <LinearGradient
-                  colors={['#FFFFFF', '#F8F9FF']}
-                  style={styles.formContainer}>
-                  <Text style={styles.formTitle}>Add New Location</Text>
-                  
-                  <Dropdown
-                    style={styles.dropdown}
-                    placeholderStyle={styles.dropdownPlaceholder}
-                    selectedTextStyle={styles.dropdownSelectedText}
-                    inputSearchStyle={styles.dropdownSearch}
-                    iconStyle={styles.dropdownIcon}
-                    data={options}
-                    maxHeight={300}
-                    labelField="label"
-                    valueField="value"
-                    placeholder="Select location type"
-                    searchPlaceholder="Search..."
-                    value={selectedOption}
-                    onChange={item => setSelectedOption(item.value)}
-                    renderLeftIcon={() => (
-                      <AntDesign style={styles.dropdownLeftIcon} name="enviromento" size={20} color="#007AFF" />
-                    )}
-                  />
-
-                  <TextInput
-                    placeholder="Location name"
-                    style={styles.input}
-                    value={name}
-                    onChange={e => setName(e.nativeEvent.text)}
-                    placeholderTextColor="#8E8E93"
-                  />
-
-                  <TextInput
-                    placeholder="Description"
-                    style={[styles.input, styles.textArea]}
-                    value={description}
-                    onChange={e => setDescription(e.nativeEvent.text)}
-                    placeholderTextColor="#8E8E93"
-                    multiline
-                    numberOfLines={3}
-                  />
-
-                  <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={addLocation}>
-                    <LinearGradient
-                      colors={['#007AFF', '#5856D6']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.gradientButton}>
-                      <Icon name="add-location" size={20} color="white" />
-                      <Text style={styles.buttonText}>Add Location</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </LinearGradient>
-              ) : (
-                <LinearGradient
-                  colors={['#FFFFFF', '#F8F9FF']}
-                  style={styles.welcomeContainer}>
-                  <View style={styles.welcomeContent}>
-                    <Text style={styles.welcomeTitle}>Welcome, {userInfo.user.name}</Text>
-                    <Text style={styles.welcomeText}>
-                      Search for a location on the map and follow the instructions to add your points of interest.
-                    </Text>
-                  </View>
-
-                  <View style={styles.buttonGroup}>
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.aiButton]}
-                      onPress={() => setAITips(!aiTips)}>
-                      <LinearGradient
-                        colors={aiTips ? ['#34C759', '#30B350'] : ['#8E8E93', '#636366']}
-                        style={styles.gradientButton}>
-                        <Icon name="psychology" size={20} color="white" />
-                        <Text style={styles.buttonText}>
-                          {aiTips ? 'Disable AI Tips' : 'Enable AI Tips'}
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.logoutButton]}
-                      onPress={logout}>
-                      <LinearGradient
-                        colors={['#FF3B30', '#FF2D55']}
-                        style={styles.gradientButton}>
-                        <Icon name="logout" size={20} color="white" />
-                        <Text style={styles.buttonText}>Logout</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
-                </LinearGradient>
-              )}
-            </View>
           </View>
+
+          {newLocation && (
+            <View style={styles.formContainer}>
+              <Text>Please fill out everything:</Text>
+              <Dropdown
+                style={drop.dropdown}
+                placeholderStyle={drop.placeholderStyle}
+                selectedTextStyle={drop.selectedTextStyle}
+                inputSearchStyle={drop.inputSearchStyle}
+                iconStyle={drop.iconStyle}
+                data={options}
+                maxHeight={300}
+                labelField="label"
+                valueField="value"
+                placeholder="Select an option"
+                searchPlaceholder="Search..."
+                value={selectedOption}
+                onChange={item => setSelectedOption(item.value)}
+                renderLeftIcon={() => (
+                  <AntDesign
+                    style={drop.icon}
+                    color="black"
+                    name="Safety"
+                    size={20}
+                  />
+                )}
+              />
+              <TextInput
+                placeholder="Title"
+                style={[drop.input, drop.placeholderStyle]}
+                value={name}
+                onChange={e => setName(e.nativeEvent.text)}
+                placeholderTextColor={drop.placeholderStyle.color}
+              />
+              <TextInput
+                placeholder="Description"
+                style={[drop.input, drop.placeholderStyle]}
+                value={description}
+                onChange={e => setDescription(e.nativeEvent.text)}
+                placeholderTextColor={drop.placeholderStyle.color}
+              />
+              <View style={{flexDirection: 'row', justifyContent: 'flex-end'}}>
+                <Pressable style={styles1.button} onPress={addLocation}>
+                  <Text style={styles1.buttonText}>Add location</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {!newLocation && (
+            <View style={styles.welcomeContainer}>
+              <View style={styles.tile}>
+                <Text style={styles.heading}>
+                  Welcome, {userInfo.user.name}
+                </Text>
+                <Text style={styles.body_text}>
+                  Please search for a location on the map, and follow
+                  instructions to add a location of interest.
+                </Text>
+              </View>
+              <View
+                style={{flexDirection: 'row', justifyContent: 'space-around'}}>
+                <Pressable
+                  style={styles1.button_ai}
+                  onPress={() => {
+                    setAITips(!aiTips);
+                  }}>
+                  <Text style={styles1.buttonText}>
+                    {aiTips ? 'Disable AI Tips' : 'Enable AI Tips'}
+                  </Text>
+                </Pressable>
+                <Pressable style={styles1.button_logout} onPress={logout}>
+                  <Text style={styles1.buttonText}>Logout</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
         </View>
       </SafeAreaView>
     </>
@@ -618,68 +609,17 @@ const App: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'white',
   },
   container: {
     flex: 1,
   },
-  header: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#8E8E93',
-  },
   searchContainer: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: 'white',
     zIndex: 10,
     elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  searchBarContainer: {
-    flex: 0,
-  },
-  searchInputContainer: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    borderWidth: 0,
-    paddingHorizontal: 12,
-  },
-  searchInput: {
-    height: 44,
-    color: '#1C1C1E',
-    fontSize: 16,
-    backgroundColor: 'transparent',
-  },
-  searchListView: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  searchRow: {
-    padding: 12,
-  },
-  searchDescription: {
-    color: '#1C1C1E',
-  },
-  clearButton: {
-    padding: 12,
-  },
-  mapWrapper: {
-    flex: 1,
   },
   mapContainer: {
     flex: 1,
@@ -690,137 +630,108 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  formTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 16,
-  },
-  dropdown: {
-    height: 44,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  dropdownPlaceholder: {
-    fontSize: 16,
-    color: '#8E8E93',
-  },
-  dropdownSelectedText: {
-    fontSize: 16,
-    color: '#1C1C1E',
-  },
-  dropdownSearch: {
-    height: 40,
-    fontSize: 16,
-    borderRadius: 8,
-  },
-  dropdownIcon: {
-    width: 20,
-    height: 20,
-  },
-  dropdownLeftIcon: {
-    marginRight: 8,
-  },
-  input: {
-    height: 44,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  textArea: {
-    height: 80,
-    paddingTop: 12,
-    textAlignVertical: 'top',
-  },
-  addButton: {
-    marginTop: 8,
-    borderRadius: 12,
-    overflow: 'hidden',
+    bottom: 10,
+    left: 10,
+    right: 10,
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 5,
+    zIndex: 5,
+    elevation: 2,
   },
   welcomeContainer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    bottom: 10,
+    left: 10,
+    right: 10,
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 5,
+    zIndex: 5,
+    elevation: 2,
   },
-  welcomeContent: {
-    marginBottom: 20,
+  tile: {
+    marginBottom: 10,
   },
-  welcomeTitle: {
+  heading: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 8,
+    fontWeight: 'bold',
+    color: 'black',
+    marginBottom: 5,
   },
-  welcomeText: {
-    fontSize: 16,
-    color: '#3A3A3C',
-    lineHeight: 22,
+  body_text: {
+    fontSize: 14,
+    color: 'black',
   },
-  buttonGroup: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  gradientButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+});
+
+const styles1 = StyleSheet.create({
+  clearButton: {
     justifyContent: 'center',
-    padding: 12,
-    gap: 8,
+    alignItems: 'center',
+    paddingRight: 10,
   },
-  contentContainer: {
-    flex: 1,
-    position: 'relative',
+  button: {
+    backgroundColor: 'blue',
+    padding: 5,
+    width: 120,
+    margin: 10,
+    borderRadius: 5,
+    alignItems: 'center',
   },
-  bottomPanel: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 3,
+  button_logout: {
+    backgroundColor: 'red',
+    padding: 5,
+    width: 120,
+    margin: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  button_ai: {
+    backgroundColor: 'green',
+    padding: 5,
+    width: 120,
+    margin: 10,
+    borderRadius: 5,
+    alignItems: 'center',
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: 'white',
+  },
+});
+
+const drop = StyleSheet.create({
+  placeholderStyle: {
     fontSize: 16,
-    fontWeight: '600',
+    color: 'gray',
   },
-  aiButton: {
-    backgroundColor: '#34C759',
+  input: {
+    height: 50,
+    borderColor: 'gray',
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingHorizontal: 8,
   },
-  logoutButton: {
-    backgroundColor: '#FF3B30',
+  dropdown: {
+    margin: 16,
+    height: 50,
+    borderBottomColor: 'gray',
+    borderBottomWidth: 1,
+  },
+  selectedTextStyle: {
+    fontSize: 16,
+    color: 'black',
+  },
+  inputSearchStyle: {
+    height: 40,
+    fontSize: 16,
+  },
+  iconStyle: {
+    width: 20,
+    height: 20,
+  },
+  icon: {
+    marginRight: 5,
   },
 });
 

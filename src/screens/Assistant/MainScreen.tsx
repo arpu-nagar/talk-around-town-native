@@ -35,8 +35,7 @@ const calculateAge = (dateOfBirth: string): number => {
   return age;
 };
 
-
-const API_BASE_URL = 'http://localhost:4000';
+const API_BASE_URL = 'http://68.183.102.75:1337';
 
 const MainScreen: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
