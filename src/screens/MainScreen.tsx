@@ -30,6 +30,22 @@ import Spinner from 'react-native-loading-spinner-overlay';
 import {AuthContext} from '../context/AuthContext';
 // import RemoteNotification from '../components/RemoteNotification';
 import Notification from '../components/Notification';
+type MainTabParamList = {
+  Home: undefined;
+  Assistant: undefined;
+  LocationList: LocationListProps;
+};
+
+interface LocationListProps {
+  locations: any;
+  details: any;
+  navigation?: any;
+}
+
+// Update the component props interface
+interface Props {
+  navigation: NativeStackNavigationProp<MainTabParamList>;
+}
 
 interface Location {
   latitude: number;
@@ -43,7 +59,10 @@ interface Child {
   nickname?: string;
   date_of_birth?: string;
 }
-const App: React.FC = () => {
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+
+const App: React.FC<Props> = ({navigation}) => {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [userChildren, setUserChildren] = useState<Child[]>([]);
 
@@ -90,7 +109,7 @@ const App: React.FC = () => {
       },
       error => {
         console.error('Error getting current position:', error);
-        Alert.alert('Error', 'Unable to fetch current location');
+        // Alert.alert('Error', 'Unable to fetch current location');
         setLoading(false);
       },
       {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
@@ -186,14 +205,17 @@ const App: React.FC = () => {
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://68.183.102.75:1337/endpoint/locations', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userInfo.access_token}`,
+      const response = await fetch(
+        'http://68.183.102.75:1337/endpoint/locations',
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
         },
-      });
+      );
       const jsonResponse = await response.json();
       console.log(jsonResponse);
 
@@ -588,11 +610,13 @@ const App: React.FC = () => {
                 <Pressable
                   style={styles1.button_ai}
                   onPress={() => {
-                    setAITips(!aiTips);
+                    console.log(location, details);
+                    navigation.navigate('LocationList', {
+                      locations: locations,
+                      details: details,
+                    });
                   }}>
-                  <Text style={styles1.buttonText}>
-                    {aiTips ? 'Disable AI Tips' : 'Enable AI Tips'}
-                  </Text>
+                  <Text style={styles1.buttonText}>Show locations</Text>
                 </Pressable>
                 <Pressable style={styles1.button_logout} onPress={logout}>
                   <Text style={styles1.buttonText}>Logout</Text>

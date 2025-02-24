@@ -35,7 +35,47 @@ const calculateAge = (dateOfBirth: string): number => {
   return age;
 };
 
-const API_BASE_URL = 'http://68.183.102.75:1337';
+const API_BASE_URL = 'http://68.183.102.75:4000';
+
+const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
+  const [rating, setRating] = useState<'up' | 'down' | null>(null);
+
+  const handleRating = async (type: 'up' | 'down') => {
+    try {
+      const response = await fetch('http://68.183.102.75:1337/endpoint/rate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          tipId,
+          rating: type
+        })
+      });
+      
+      if (response.ok) {
+        setRating(type);
+      }
+    } catch (error) {
+      console.error('Error sending rating:', error);
+    }
+  };
+
+  return (
+    <View style={styles.ratingContainer}>
+      <TouchableOpacity 
+        style={[styles.ratingButton, rating === 'up' && styles.ratingActive]}
+        onPress={() => handleRating('up')}>
+        <Icon name="thumb-up" size={20} color={rating === 'up' ? '#007AFF' : '#666'} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.ratingButton, rating === 'down' && styles.ratingActive]}
+        onPress={() => handleRating('down')}>
+        <Icon name="thumb-down" size={20} color={rating === 'down' ? '#FF3B30' : '#666'} />
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const MainScreen: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
@@ -62,7 +102,7 @@ const fetchChildrenInfo = async () => {
 
   try {
     setIsLoading(true); // Add loading state
-    const response = await fetch('http://localhost:1337/endpoint/children', {
+    const response = await fetch('http://68.183.102.75:1337/endpoint/children', {
       headers: {
         'Authorization': `Bearer ${userInfo.access_token}`
       }
@@ -230,43 +270,26 @@ useEffect(() => {
 
   
 
-  const renderTipItem = (tip: Tip, index: number) => (
-    <View key={index} style={styles.tipItem}>
-      <LinearGradient
-        colors={['#ffffff', '#f8f9fa']}
-        style={styles.tipGradient}
-      >
-        <View style={styles.tipHeader}>
-          <Icon name="lightbulb" size={24} color="#FFA726" style={styles.tipIcon} />
-          <Text style={styles.tipTitle}>{tip.title}</Text>
-        </View>
-        <Text style={styles.tipBody}>{tip.body}</Text>
-        <Text style={styles.tipDetails}>{tip.details}</Text>
+ const renderTipItem = (tip: Tip, index: number) => (
+  <View key={index} style={styles.tipItem}>
+    <LinearGradient
+      colors={['#ffffff', '#f8f9fa']}
+      style={styles.tipGradient}>
+      <View style={styles.tipHeader}>
+        <Icon name="lightbulb" size={24} color="#FFA726" style={styles.tipIcon} />
+        <Text style={styles.tipTitle}>{tip.title}</Text>
+      </View>
+      <Text style={styles.tipBody}>{tip.body}</Text>
+      <Text style={styles.tipDetails}>{tip.details}</Text>
+      <View style={styles.buttonContainerGap}>
         <View style={styles.audioButtonsContainer}>
-          {isPlaying && activeAudioIndex === index ? (
-            <TouchableOpacity
-              style={[styles.playButton, styles.stopButton]}
-              onPress={cleanupSound}
-            >
-              <Icon name="stop" size={20} color="white" />
-              <Text style={styles.buttonText}>Stop</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.playButton}
-              onPress={() => speakTip(tip.audioUrl, index)}
-              disabled={isPlaying}
-            >
-              <Icon name="play-arrow" size={20} color="white" />
-              <Text style={styles.buttonText}>
-                {isPlaying ? 'Playing...' : 'Play'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          {/* Existing audio buttons */}
         </View>
-      </LinearGradient>
-    </View>
-  );
+        <RatingButtons tipId={index} />
+      </View>
+    </LinearGradient>
+  </View>
+);
 
 
   const getTips = async (query: string = searchText) => {
@@ -767,6 +790,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
+  ratingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 8,
+    gap: 16
+  },
+  ratingButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0'
+  },
+  ratingActive: {
+    backgroundColor: '#e0e0e0'
+  },
+  buttonContainerGap: {
+    flexDirection: 'column',
+    gap: 8
+  }
 });
 
 export default MainScreen;
