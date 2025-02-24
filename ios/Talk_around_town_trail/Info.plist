@@ -1,53 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
+  <dict>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+      <string>com.yourdomain.Talk_around_town_trail.backgroundtask</string>
+    </array>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
-    <key>CFBundleIconName</key>
-    <string>AppIcon</string>
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>ENACT uses your location to provide relevant tips and suggestions, even when the app is not actively in use.</string>
-    <key>NSLocationAlwaysUsageDescription</key>
-    <string>ENACT uses your location in the background to provide timely notifications and tips based on your surroundings.</string>
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>ENACT needs access to your location to provide relevant tips and suggestions for your current surroundings.</string>
-    <key>NSRemoteNotificationUsageDescription</key>
-    <string>ENACT sends notifications to provide timely tips and engagement suggestions based on your location.</string>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Talk Around Town Trail needs access to your photo library to allow you to choose and share images of points of interest along the trail.</string>
     <key>CFBundleDisplayName</key>
     <string>ENACT</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
     <string>$(PRODUCT_NAME)</string>
-    <key>NSAppleMusicUsageDescription</key>
-    <string>ENACT needs access to your music library to enhance your experience with background audio features.</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
     <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
     <key>CFBundleURLTypes</key>
-<array>
-    <dict>
+    <array>
+      <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-            <string>talkaroundtown</string>
+          <string>talkaroundtown</string>
         </array>
         <key>CFBundleURLName</key>
         <string>com.talk_around_town_trail</string>
-    </dict>
-</array>
-    <key>CFBundleSignature</key>
-    <string>????</string>
-    <key>BGTaskSchedulerPermittedIdentifiers</key>
-    <array>
-        <string>com.yourdomain.Talk_around_town_trail.backgroundtask</string>
+      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>$(CURRENT_PROJECT_VERSION)</string>
@@ -55,63 +43,75 @@
     <true/>
     <key>NSAppTransportSecurity</key>
     <dict>
-        <key>NSExceptionDomains</key>
+      <key>NSExceptionDomains</key>
+      <dict>
+        <key>68.183.102.75</key>
         <dict>
-            <key>68.183.102.75</key>
-            <dict>
-                <key>NSExceptionAllowsInsecureHTTPLoads</key>
-                <true/>
-                <key>NSIncludesSubdomains</key>
-                <true/>
-            </dict>
+          <key>NSExceptionAllowsInsecureHTTPLoads</key>
+          <true/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
         </dict>
+      </dict>
     </dict>
+    <key>NSAppleMusicUsageDescription</key>
+    <string>ENACT needs access to your music library to enhance your experience with background audio features.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Allow Talk Around Town to use your location.</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>ENACT uses your location in the background to provide timely notifications and tips based on your surroundings.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>ENACT needs access to your location to provide relevant tips and suggestions for your current surroundings.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>This app needs access to your microphone for speech recognition.</string>
+    <string>Allow Talk Around Town to access the microphone</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Talk Around Town Trail needs access to your photo library to allow you to choose and share images of points of interest along the trail.</string>
+    <key>NSRemoteNotificationUsageDescription</key>
+    <string>ENACT sends notifications to provide timely tips and engagement suggestions based on your location.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>This app needs access to speech recognition to transcribe your voice input.</string>
+    <string>Allow Talk Around Town to securely recognize user speech</string>
     <key>UIAppFonts</key>
     <array>
-        <string>AntDesign.ttf</string>
-        <string>Entypo.ttf</string>
-        <string>EvilIcons.ttf</string>
-        <string>Feather.ttf</string>
-        <string>FontAwesome.ttf</string>
-        <string>FontAwesome5_Brands.ttf</string>
-        <string>FontAwesome5_Regular.ttf</string>
-        <string>FontAwesome5_Solid.ttf</string>
-        <string>Fontisto.ttf</string>
-        <string>Foundation.ttf</string>
-        <string>Ionicons.ttf</string>
-        <string>MaterialCommunityIcons.ttf</string>
-        <string>MaterialIcons.ttf</string>
-        <string>Octicons.ttf</string>
-        <string>SimpleLineIcons.ttf</string>
-        <string>Zocial.ttf</string>
+      <string>AntDesign.ttf</string>
+      <string>Entypo.ttf</string>
+      <string>EvilIcons.ttf</string>
+      <string>Feather.ttf</string>
+      <string>FontAwesome.ttf</string>
+      <string>FontAwesome5_Brands.ttf</string>
+      <string>FontAwesome5_Regular.ttf</string>
+      <string>FontAwesome5_Solid.ttf</string>
+      <string>Fontisto.ttf</string>
+      <string>Foundation.ttf</string>
+      <string>Ionicons.ttf</string>
+      <string>MaterialCommunityIcons.ttf</string>
+      <string>MaterialIcons.ttf</string>
+      <string>Octicons.ttf</string>
+      <string>SimpleLineIcons.ttf</string>
+      <string>Zocial.ttf</string>
     </array>
     <key>UIBackgroundModes</key>
     <array>
-        <string>audio</string>
-        <string>remote-notification</string>
-        <string>fetch</string>
-        <string>processing</string>
-        <string>voip</string>
-        <string>push-to-talk</string>
-        <string>location</string>
+      <string>audio</string>
+      <string>remote-notification</string>
+      <string>fetch</string>
+      <string>processing</string>
+      <string>voip</string>
+      <string>push-to-talk</string>
+      <string>location</string>
     </array>
     <key>UILaunchStoryboardName</key>
     <string>LaunchScreen</string>
     <key>UIRequiredDeviceCapabilities</key>
     <array>
-        <string>arm64</string>
+      <string>arm64</string>
     </array>
     <key>UISupportedInterfaceOrientations</key>
     <array>
-        <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
+      <string>UIInterfaceOrientationPortrait</string>
+      <string>UIInterfaceOrientationLandscapeLeft</string>
+      <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
-</dict>
+  </dict>
 </plist>
