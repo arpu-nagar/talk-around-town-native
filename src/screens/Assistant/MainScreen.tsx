@@ -56,6 +56,40 @@ const calculateAge = (dateOfBirth: string): number => {
   return age;
 };
 
+const detectChildNameInQuery = (query: string, childrenInfo: Child[]) => {
+  if (!childrenInfo || childrenInfo.length === 0) {
+    return null;
+  }
+  
+  // Normalize the query (lowercase for case-insensitive matching)
+  const normalizedQuery = query.toLowerCase();
+  
+  // Check for each child's name in the query
+  for (const child of childrenInfo) {
+    const nickname = child.nickname?.toLowerCase();
+    
+    // Skip if no nickname is available
+    if (!nickname) continue;
+    
+    // Simple check if the nickname appears in the query
+    // We can look for variants like "for [name]" or "[name]'s" or just the name itself
+    const patterns = [
+      ` for ${nickname}`,
+      ` ${nickname}'s `,
+      ` ${nickname} `,
+      `^${nickname} `,       // At the beginning of the query
+      ` ${nickname}$`,       // At the end of the query
+      `^${nickname}$`        // Query is just the name
+    ];
+    
+    if (patterns.some(pattern => normalizedQuery.match(pattern))) {
+      return child;
+    }
+  }
+  
+  return null;
+};
+
 const API_BASE_URL = 'http://68.183.102.75:4000';
 const CRUD_API_BASE_URL = 'http://68.183.102.75:1337';
 
@@ -369,9 +403,9 @@ const MainScreen: React.FC = () => {
             color="#FFA726"
             style={styles.tipIcon}
           />
-          <Text style={styles.tipTitle}>{tip.body}</Text>
+          <Text style={styles.tipTitle}>{tip.title}</Text>
         </View>
-        {/* <Text style={styles.tipBody}>{tip.body}</Text> */}
+        <Text style={styles.tipBody}>{tip.body}</Text>
         <Text style={styles.tipDetails}>{tip.details}</Text>
         <View style={styles.buttonContainerGap}>
           <TouchableOpacity
@@ -403,15 +437,25 @@ const MainScreen: React.FC = () => {
     </View>
   );
 
-  const getTips = async (query: string = searchText) => {
+  const getTips = async (query = searchText) => {
     if (!query.trim()) {
       Alert.alert(
         'Input Required',
-        'Please enter a question or use voice input',
+        'Please enter a question or use voice input'
       );
       return;
     }
-
+  
+    // Attempt to detect a child's name in the query
+    const detectedChild = detectChildNameInQuery(query, childrenInfo);
+    
+    // If we detected a child, automatically include their age
+    if (detectedChild) {
+      const age = calculateAge(detectedChild.date_of_birth);
+      // Modify the query to include the age information
+      query = `${query} for ${age} year old`;
+    }
+  
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/generate-tips`, {
@@ -419,9 +463,9 @@ const MainScreen: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({prompt: query}),
+        body: JSON.stringify({ prompt: query }),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         if (errorData.error === 'age_required') {
@@ -431,7 +475,7 @@ const MainScreen: React.FC = () => {
         }
         throw new Error(`Server responded with ${response.status}`);
       }
-
+  
       const data = await response.json();
       setTips(data.tips);
       setHasSearched(true);
@@ -439,7 +483,7 @@ const MainScreen: React.FC = () => {
       console.error('Error fetching tips:', error);
       Alert.alert(
         'Error',
-        'Failed to fetch tips. Please check your connection and try again.',
+        'Failed to fetch tips. Please check your connection and try again.'
       );
     } finally {
       setIsLoading(false);
