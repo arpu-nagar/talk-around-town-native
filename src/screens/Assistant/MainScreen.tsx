@@ -93,16 +93,19 @@ const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
 
   const handleRepeatPreference = async (shouldRepeat: boolean) => {
     try {
-      const response = await fetch(`${CRUD_API_BASE_URL}/set-repeat-preference`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${CRUD_API_BASE_URL}/set-repeat-preference`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tipId,
+            shouldRepeat,
+          }),
         },
-        body: JSON.stringify({
-          tipId,
-          shouldRepeat,
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error('Failed to set repeat preference');
@@ -114,42 +117,41 @@ const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
   };
 
   return (
-  <View style={styles.ratingContainer}>
-    <TouchableOpacity
-      style={[styles.ratingButton, rating === 'up' && styles.ratingActive]}
-      onPress={() => handleRating('up')}>
-      <Icon
-        name="thumb-up"
-        size={20}
-        color={rating === 'up' ? '#007AFF' : '#666'}
-      />
-      <Text
-        style={[
-          styles.ratingText,
-          rating === 'up' && styles.ratingTextActive,
-        ]}>
-        Liked it!
-      </Text>
-    </TouchableOpacity>
-    <TouchableOpacity
-      style={[styles.ratingButton, rating === 'down' && styles.ratingActive]}
-      onPress={() => handleRating('down')}>
-      <Icon
-        name="thumb-down"
-        size={20}
-        color={rating === 'down' ? '#FF3B30' : '#666'}
-      />
-      <Text
-        style={[
-          styles.ratingText,
-          rating === 'down' && styles.ratingTextActive,
-        ]}>
-        Not Helpful
-      </Text>
-    </TouchableOpacity>
-  </View>
-);
-
+    <View style={styles.ratingContainer}>
+      <TouchableOpacity
+        style={[styles.ratingButton, rating === 'up' && styles.ratingActive]}
+        onPress={() => handleRating('up')}>
+        <Icon
+          name="thumb-up"
+          size={20}
+          color={rating === 'up' ? '#007AFF' : '#666'}
+        />
+        <Text
+          style={[
+            styles.ratingText,
+            rating === 'up' && styles.ratingTextActive,
+          ]}>
+          Liked it!
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.ratingButton, rating === 'down' && styles.ratingActive]}
+        onPress={() => handleRating('down')}>
+        <Icon
+          name="thumb-down"
+          size={20}
+          color={rating === 'down' ? '#FF3B30' : '#666'}
+        />
+        <Text
+          style={[
+            styles.ratingText,
+            rating === 'down' && styles.ratingTextActive,
+          ]}>
+          Not Helpful
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
 };
 
 const MainScreen: React.FC = () => {
@@ -176,17 +178,19 @@ const MainScreen: React.FC = () => {
       return;
     }
 
-  try {
-    setIsLoading(true); // Add loading state
-    const response = await fetch('http://68.183.102.75:1337/endpoint/children', {
-      headers: {
-        'Authorization': `Bearer ${userInfo.access_token}`
+    try {
+      setIsLoading(true); // Add loading state
+      const response = await fetch(
+        'http://68.183.102.75:1337/endpoint/children',
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
 
       const data = await response.json();
       if (data && data.children) {
