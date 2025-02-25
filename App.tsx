@@ -6,7 +6,7 @@ import {AuthProvider} from './src/context/AuthContext';
 import {LocationProvider} from './src/context/LocationContext';
 // import RemoteNotification from './src/components/RemoteNotification';
 import messaging from '@react-native-firebase/messaging';
-
+import AppStateTracker from './src/components/AppStateTracker';
 const App = () => {
   useEffect(() => {
     const showWelcomeMessage = () => {
@@ -84,6 +84,7 @@ const App = () => {
     <AuthProvider>
       <LocationProvider>
         <StatusBar backgroundColor="#06bcee" />
+        <AppStateTracker />
         {/* <RemoteNotification /> */}
         <Navigation />
       </LocationProvider>

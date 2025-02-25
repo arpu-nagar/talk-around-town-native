@@ -62,7 +62,7 @@ const fetchChildrenInfo = async () => {
 
   try {
     setIsLoading(true); // Add loading state
-    const response = await fetch('http://localhost:1337/endpoint/children', {
+    const response = await fetch('http://68.183.102.75:1337/endpoint/children', {
       headers: {
         'Authorization': `Bearer ${userInfo.access_token}`
       }
