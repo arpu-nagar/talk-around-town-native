@@ -56,7 +56,7 @@ const calculateAge = (dateOfBirth: string): number => {
   return age;
 };
 
-const API_BASE_URL = 'http://localhost:4000';
+const API_BASE_URL = 'http://68.183.102.75:4000';
 const CRUD_API_BASE_URL = 'http://68.183.102.75:1337';
 
 const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
