@@ -11,8 +11,7 @@ use_frameworks! :linkage => :static
 $RNFirebaseAsStaticFramework = true
 
 prepare_react_native_project!
-
-
+use_modular_headers!
 target 'Talk_around_town_trail' do
   use_expo_modules!
   post_integrate do |installer|
