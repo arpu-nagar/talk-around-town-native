@@ -30,6 +30,22 @@ import {Icon} from 'react-native-elements';
 import Spinner from 'react-native-loading-spinner-overlay';
 import {AuthContext} from '../context/AuthContext';
 import Notification from '../components/Notification';
+type MainTabParamList = {
+  Home: undefined;
+  Assistant: undefined;
+  LocationList: LocationListProps;
+};
+
+interface LocationListProps {
+  locations: any;
+  details: any;
+  navigation?: any;
+}
+
+// Update the component props interface
+interface Props {
+  navigation: NativeStackNavigationProp<MainTabParamList>;
+}
 import LinearGradient from 'react-native-linear-gradient';
 
 const {width, height} = Dimensions.get('window');
@@ -46,7 +62,10 @@ interface Child {
   nickname?: string;
   date_of_birth?: string;
 }
-const App: React.FC = () => {
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+
+const App: React.FC<Props> = ({navigation}) => {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [userChildren, setUserChildren] = useState<Child[]>([]);
 
@@ -93,7 +112,7 @@ const App: React.FC = () => {
       },
       error => {
         console.error('Error getting current position:', error);
-        Alert.alert('Error', 'Unable to fetch current location');
+        // Alert.alert('Error', 'Unable to fetch current location');
         setLoading(false);
       },
       {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
@@ -189,14 +208,17 @@ const App: React.FC = () => {
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://68.183.102.75:1337/endpoint/locations', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userInfo.access_token}`,
+      const response = await fetch(
+        'http://68.183.102.75:1337/endpoint/locations',
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
         },
-      });
+      );
       const jsonResponse = await response.json();
       console.log(jsonResponse);
 
@@ -433,7 +455,11 @@ const App: React.FC = () => {
 
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent
+      />
       <Notification />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
@@ -506,7 +532,9 @@ const App: React.FC = () => {
           <View style={styles.mapContainer}>
             {location && (
               <MapView
-                provider={Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
+                provider={
+                  Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE
+                }
                 style={styles.map}
                 initialRegion={location}
                 region={newLocation || location}
@@ -555,7 +583,12 @@ const App: React.FC = () => {
                 value={selectedOption}
                 onChange={item => setSelectedOption(item.value)}
                 renderLeftIcon={() => (
-                  <AntDesign style={styles.dropdownLeftIcon} color="#333" name="Safety" size={20} />
+                  <AntDesign
+                    style={styles.dropdownLeftIcon}
+                    color="#333"
+                    name="Safety"
+                    size={20}
+                  />
                 )}
               />
               <TextInput
@@ -586,17 +619,24 @@ const App: React.FC = () => {
               colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
               style={styles.welcomeContainer}>
               <View style={styles.welcomeContent}>
-                <Text style={styles.welcomeTitle}>Welcome, {userInfo.user.name}</Text>
+                <Text style={styles.welcomeTitle}>
+                  Welcome, {userInfo.user.name}
+                </Text>
                 <Text style={styles.welcomeText}>
-                  Search for a location on the map and follow the instructions to add a point of interest.
+                  Search for a location on the map and follow the instructions
+                  to add a point of interest.
                 </Text>
                 <View style={styles.buttonContainer}>
                   <TouchableOpacity
                     style={[styles.button, styles.aiButton]}
-                    onPress={() => setAITips(!aiTips)}>
-                    <Text style={styles.buttonText}>
-                      {aiTips ? 'Disable AI Tips' : 'Enable AI Tips'}
-                    </Text>
+                    onPress={() => {
+                      console.log(location, details);
+                      navigation.navigate('LocationList', {
+                        locations: locations,
+                        details: details,
+                      });
+                    }}>
+                    <Text style={styles.buttonText}>Show locations</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.button, styles.logoutButton]}

@@ -58,7 +58,6 @@ target 'Talk_around_town_trail' do
   target 'Talk_around_town_trailTests' do
     inherit! :complete
   end
-
   post_install do |installer|
     react_native_post_install(
       installer,

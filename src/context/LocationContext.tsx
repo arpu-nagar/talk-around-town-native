@@ -70,8 +70,8 @@ export const LocationProvider: React.FC<{children: React.ReactNode}> = ({
           setLoading(false);
         },
         error => {
-          Alert.alert('Error', 'Unable to fetch location in Context');
-          console.error(error);
+          // Alert.alert('Error', 'Unable to fetch location in Context');
+          console.log('err in location context fetch', error);
         },
         {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},
       );
