@@ -1,14 +1,30 @@
-import React, { useState, useCallback, useEffect, useRef, useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, TextInput, SafeAreaView, ActivityIndicator, Modal } from 'react-native';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useContext,
+} from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  TextInput,
+  SafeAreaView,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Voice from '@react-native-voice/voice';
 import Sound from 'react-native-sound';
-import { Platform, PermissionsAndroid } from 'react-native';
+import {Platform, PermissionsAndroid} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Loader from './Loader';
-import messaging from '@react-native-firebase/messaging';
 import ChildInfoModal from '../ChildInfoModal';
-import { AuthContext, AuthContextType } from '../../context/AuthContext';
+import {AuthContext, AuthContextType} from '../../context/AuthContext';
 
 interface Child {
   id: number;
@@ -18,63 +34,122 @@ interface Child {
 }
 
 interface Tip {
+  id: number;
   title: string;
   body: string;
   details: string;
   audioUrl: string;
 }
+
 const calculateAge = (dateOfBirth: string): number => {
   const today = new Date();
   const birthDate = new Date(dateOfBirth);
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
-  
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
     age--;
   }
   return age;
 };
 
-const API_BASE_URL = 'http://68.183.102.75:4000';
+const API_BASE_URL = 'http://localhost:4000';
+const CRUD_API_BASE_URL = 'http://68.183.102.75:1337';
 
 const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
   const [rating, setRating] = useState<'up' | 'down' | null>(null);
+  const [repeatPreference, setRepeatPreference] = useState<boolean | null>(
+    null,
+  );
 
   const handleRating = async (type: 'up' | 'down') => {
     try {
-      const response = await fetch('http://68.183.102.75:1337/endpoint/rate', {
+      const response = await fetch(`${CRUD_API_BASE_URL}/rate`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           tipId,
-          rating: type
-        })
+          rating: type,
+        }),
       });
-      
+
       if (response.ok) {
         setRating(type);
+        // Automatically set repeat preference based on rating
+        const shouldRepeat = type === 'up';
+        setRepeatPreference(shouldRepeat);
+        handleRepeatPreference(shouldRepeat);
       }
     } catch (error) {
       console.error('Error sending rating:', error);
+      Alert.alert('Error', 'Failed to submit rating. Please try again.');
+    }
+  };
+
+  const handleRepeatPreference = async (shouldRepeat: boolean) => {
+    try {
+      const response = await fetch(`${CRUD_API_BASE_URL}/set-repeat-preference`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tipId,
+          shouldRepeat,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to set repeat preference');
+      }
+    } catch (error) {
+      console.error('Error setting repeat preference:', error);
+      Alert.alert('Error', 'Failed to save preference. Please try again.');
     }
   };
 
   return (
-    <View style={styles.ratingContainer}>
-      <TouchableOpacity 
-        style={[styles.ratingButton, rating === 'up' && styles.ratingActive]}
-        onPress={() => handleRating('up')}>
-        <Icon name="thumb-up" size={20} color={rating === 'up' ? '#007AFF' : '#666'} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.ratingButton, rating === 'down' && styles.ratingActive]}
-        onPress={() => handleRating('down')}>
-        <Icon name="thumb-down" size={20} color={rating === 'down' ? '#FF3B30' : '#666'} />
-      </TouchableOpacity>
-    </View>
-  );
+  <View style={styles.ratingContainer}>
+    <TouchableOpacity
+      style={[styles.ratingButton, rating === 'up' && styles.ratingActive]}
+      onPress={() => handleRating('up')}>
+      <Icon
+        name="thumb-up"
+        size={20}
+        color={rating === 'up' ? '#007AFF' : '#666'}
+      />
+      <Text
+        style={[
+          styles.ratingText,
+          rating === 'up' && styles.ratingTextActive,
+        ]}>
+        Liked it!
+      </Text>
+    </TouchableOpacity>
+    <TouchableOpacity
+      style={[styles.ratingButton, rating === 'down' && styles.ratingActive]}
+      onPress={() => handleRating('down')}>
+      <Icon
+        name="thumb-down"
+        size={20}
+        color={rating === 'down' ? '#FF3B30' : '#666'}
+      />
+      <Text
+        style={[
+          styles.ratingText,
+          rating === 'down' && styles.ratingTextActive,
+        ]}>
+        Not Helpful
+      </Text>
+    </TouchableOpacity>
+  </View>
+);
+
 };
 
 const MainScreen: React.FC = () => {
@@ -87,53 +162,55 @@ const MainScreen: React.FC = () => {
   const [showAgePrompt, setShowAgePrompt] = useState(false);
   const [lastQuery, setLastQuery] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
-  const { userInfo, isLoading: contextLoading } = useContext<AuthContextType>(AuthContext);
-  
+  const {userInfo, isLoading: contextLoading} =
+    useContext<AuthContextType>(AuthContext);
+
   const currentSound = useRef<Sound | null>(null);
   const lastResult = useRef<string>('');
   const [showChildInfo, setShowChildInfo] = useState(false);
-const [childrenInfo, setChildrenInfo] = useState<Child[]>([]);
+  const [childrenInfo, setChildrenInfo] = useState<Child[]>([]);
 
-const fetchChildrenInfo = async () => {
-  if (!userInfo?.access_token) {
-    console.error('No access token available');
-    return;
-  }
+  const fetchChildrenInfo = async () => {
+    if (!userInfo?.access_token) {
+      console.error('No access token available');
+      return;
+    }
 
-  try {
-    setIsLoading(true); // Add loading state
-    const response = await fetch('http://68.183.102.75:1337/endpoint/children', {
-      headers: {
-        'Authorization': `Bearer ${userInfo.access_token}`
+    try {
+      setIsLoading(true); // Add loading state
+      const response = await fetch(
+        'http://68.183.102.75:1337/endpoint/children',
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (data && data.children) {
-      setChildrenInfo(data.children);
-    } else {
+      const data = await response.json();
+      if (data && data.children) {
+        setChildrenInfo(data.children);
+      } else {
+        setChildrenInfo([]);
+      }
+    } catch (error) {
+      console.error('Error fetching children info:', error);
+      Alert.alert(
+        'Error',
+        'Failed to fetch children information. Please try again later.',
+      );
       setChildrenInfo([]);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching children info:', error);
-    Alert.alert(
-      'Error',
-      'Failed to fetch children information. Please try again later.'
-    );
-    setChildrenInfo([]);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
-useEffect(() => {
-  fetchChildrenInfo();
-}, [userInfo.access_token]); // Add dependency to refresh when token changes
-
+  useEffect(() => {
+    fetchChildrenInfo();
+  }, [userInfo.access_token]); // Add dependency to refresh when token changes
 
   const initializeVoice = async () => {
     try {
@@ -170,15 +247,19 @@ useEffect(() => {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
           {
-            title: "Microphone Permission",
-            message: "This app needs access to your microphone for voice recognition.",
-            buttonNeutral: "Ask Me Later",
-            buttonNegative: "Cancel",
-            buttonPositive: "OK"
-          }
+            title: 'Microphone Permission',
+            message:
+              'This app needs access to your microphone for voice recognition.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
         );
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          Alert.alert('Permission Denied', 'Voice recognition requires microphone access');
+          Alert.alert(
+            'Permission Denied',
+            'Voice recognition requires microphone access',
+          );
         }
       } catch (err) {
         Alert.alert('Error', 'Failed to request microphone permission');
@@ -203,7 +284,10 @@ useEffect(() => {
       Voice.start('en-US').catch(error => {
         console.error('Failed to restart voice recognition:', error);
         setIsListening(false);
-        Alert.alert('Error', 'Failed to restart voice recognition. Please try again.');
+        Alert.alert(
+          'Error',
+          'Failed to restart voice recognition. Please try again.',
+        );
       });
     }
   };
@@ -225,7 +309,10 @@ useEffect(() => {
           await Voice.start('en-US');
           setIsListening(true);
         } else {
-          Alert.alert('Error', 'Voice recognition is not available on this device.');
+          Alert.alert(
+            'Error',
+            'Voice recognition is not available on this device.',
+          );
         }
       }
     } catch (error) {
@@ -245,13 +332,13 @@ useEffect(() => {
 
   const speakTip = useCallback(async (audioUrl: string, index: number) => {
     cleanupSound();
-    
+
     setIsPlaying(true);
     setActiveAudioIndex(index);
-    
+
     const fullAudioUrl = `${API_BASE_URL}/audio${audioUrl}`;
-    
-    currentSound.current = new Sound(fullAudioUrl, '', (error) => {
+
+    currentSound.current = new Sound(fullAudioUrl, '', error => {
       if (error) {
         console.error('Failed to load sound:', error);
         Alert.alert('Error', 'Failed to play audio. Please try again.');
@@ -259,7 +346,7 @@ useEffect(() => {
         return;
       }
 
-      currentSound.current?.play((success) => {
+      currentSound.current?.play(success => {
         if (!success) {
           Alert.alert('Error', 'Audio playback failed. Please try again.');
         }
@@ -268,33 +355,58 @@ useEffect(() => {
     });
   }, []);
 
-  
-
- const renderTipItem = (tip: Tip, index: number) => (
-  <View key={index} style={styles.tipItem}>
-    <LinearGradient
-      colors={['#ffffff', '#f8f9fa']}
-      style={styles.tipGradient}>
-      <View style={styles.tipHeader}>
-        <Icon name="lightbulb" size={24} color="#FFA726" style={styles.tipIcon} />
-        <Text style={styles.tipTitle}>{tip.title}</Text>
-      </View>
-      <Text style={styles.tipBody}>{tip.body}</Text>
-      <Text style={styles.tipDetails}>{tip.details}</Text>
-      <View style={styles.buttonContainerGap}>
-        <View style={styles.audioButtonsContainer}>
-          {/* Existing audio buttons */}
+  const renderTipItem = (tip: Tip, index: number) => (
+    <View key={index} style={styles.tipItem}>
+      <LinearGradient
+        colors={['#ffffff', '#f8f9fa']}
+        style={styles.tipGradient}>
+        <View style={styles.tipHeader}>
+          <Icon
+            name="lightbulb"
+            size={24}
+            color="#FFA726"
+            style={styles.tipIcon}
+          />
+          <Text style={styles.tipTitle}>{tip.body}</Text>
         </View>
-        <RatingButtons tipId={index} />
-      </View>
-    </LinearGradient>
-  </View>
-);
-
+        {/* <Text style={styles.tipBody}>{tip.body}</Text> */}
+        <Text style={styles.tipDetails}>{tip.details}</Text>
+        <View style={styles.buttonContainerGap}>
+          <TouchableOpacity
+            style={[
+              styles.playButton,
+              activeAudioIndex === index && isPlaying && styles.stopButton,
+            ]}
+            onPress={() => {
+              if (activeAudioIndex === index && isPlaying) {
+                cleanupSound();
+              } else {
+                speakTip(tip.audioUrl, index);
+              }
+            }}>
+            <Icon
+              name={
+                activeAudioIndex === index && isPlaying ? 'stop' : 'play-arrow'
+              }
+              size={20}
+              color="white"
+            />
+            <Text style={styles.buttonText}>
+              {activeAudioIndex === index && isPlaying ? 'Stop' : 'Play Audio'}
+            </Text>
+          </TouchableOpacity>
+          <RatingButtons tipId={tip.id} />
+        </View>
+      </LinearGradient>
+    </View>
+  );
 
   const getTips = async (query: string = searchText) => {
     if (!query.trim()) {
-      Alert.alert('Input Required', 'Please enter a question or use voice input');
+      Alert.alert(
+        'Input Required',
+        'Please enter a question or use voice input',
+      );
       return;
     }
 
@@ -305,9 +417,9 @@ useEffect(() => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: query }),
+        body: JSON.stringify({prompt: query}),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         if (errorData.error === 'age_required') {
@@ -317,13 +429,16 @@ useEffect(() => {
         }
         throw new Error(`Server responded with ${response.status}`);
       }
-      
+
       const data = await response.json();
       setTips(data.tips);
       setHasSearched(true);
     } catch (error) {
       console.error('Error fetching tips:', error);
-      Alert.alert('Error', 'Failed to fetch tips. Please check your connection and try again.');
+      Alert.alert(
+        'Error',
+        'Failed to fetch tips. Please check your connection and try again.',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -335,7 +450,6 @@ useEffect(() => {
     }
   };
 
-
   const handleAgeSubmit = (age: string) => {
     setShowAgePrompt(false);
     const queryWithAge = `${lastQuery} for ${age} year old`;
@@ -344,33 +458,30 @@ useEffect(() => {
   };
 
   const AgePromptModal = () => (
-    <Modal
-      visible={showAgePrompt}
-      transparent={true}
-      animationType="slide"
-    >
+    <Modal visible={showAgePrompt} transparent={true} animationType="slide">
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Select Child</Text>
-          <Text style={styles.modalText}>Please select which child you're asking about:</Text>
-          {childrenInfo.map((child) => {
+          <Text style={styles.modalText}>
+            Please select which child you're asking about:
+          </Text>
+          {childrenInfo.map(child => {
             const age = calculateAge(child.date_of_birth);
             return (
               <TouchableOpacity
                 key={child.id}
                 style={styles.ageButton}
-                onPress={() => handleAgeSubmit(age.toString())}
-              >
+                onPress={() => handleAgeSubmit(age.toString())}>
                 <Text style={styles.ageButtonText}>
-                  {child.nickname || `Child ${child.id}`} ({age} year{age !== 1 ? 's' : ''} old)
+                  {child.nickname || `Child ${child.id}`} ({age} year
+                  {age !== 1 ? 's' : ''} old)
                 </Text>
               </TouchableOpacity>
             );
           })}
           <TouchableOpacity
             style={styles.cancelButton}
-            onPress={() => setShowAgePrompt(false)}
-          >
+            onPress={() => setShowAgePrompt(false)}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -380,10 +491,7 @@ useEffect(() => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <LinearGradient
-        colors={['#f0f2f5', '#ffffff']}
-        style={styles.container}
-      >
+      <LinearGradient colors={['#f0f2f5', '#ffffff']} style={styles.container}>
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle}>Parenting Assistant</Text>
           <Text style={styles.headerSubtitle}>Ask any parenting question</Text>
@@ -391,12 +499,19 @@ useEffect(() => {
 
         <View style={styles.searchContainer}>
           <View style={styles.searchWrapper}>
-            <Icon name="search" size={20} color="#666" style={styles.searchIcon} />
+            <Icon
+              name="search"
+              size={20}
+              color="#666"
+              style={styles.searchIcon}
+            />
             <TextInput
               style={styles.searchInput}
               value={searchText}
               onChangeText={setSearchText}
-              placeholder={isListening ? "Listening..." : "Ask a parenting question..."}
+              placeholder={
+                isListening ? 'Listening...' : 'Ask a parenting question...'
+              }
               returnKeyType="search"
               onSubmitEditing={() => getTips()}
               editable={!isListening}
@@ -405,22 +520,20 @@ useEffect(() => {
           </View>
           <TouchableOpacity
             style={[styles.micButton, isListening && styles.micButtonActive]}
-            onPress={toggleListening}
-          >
-            <Icon 
-              name={isListening ? 'mic-off' : 'mic'} 
-              size={24} 
-              color="white" 
+            onPress={toggleListening}>
+            <Icon
+              name={isListening ? 'mic-off' : 'mic'}
+              size={24}
+              color="white"
             />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.searchButton, styles.buttonFlex]}
             onPress={() => getTips()}
-            disabled={isLoading || isListening}
-          >
+            disabled={isLoading || isListening}>
             {isLoading ? (
               <ActivityIndicator color="white" />
             ) : (
@@ -430,71 +543,75 @@ useEffect(() => {
               </>
             )}
           </TouchableOpacity>
-  
+
           {hasSearched && (
             <TouchableOpacity
               style={[styles.retryButton, styles.buttonFlex]}
               onPress={handleRetry}
-              disabled={isLoading || isListening}
-            >
+              disabled={isLoading || isListening}>
               <Icon name="refresh" size={20} color="white" />
               <Text style={styles.buttonText}>Try Again</Text>
             </TouchableOpacity>
           )}
         </View>
-  
-        <ScrollView 
+
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+          showsVerticalScrollIndicator={false}>
           {tips.map((tip, index) => renderTipItem(tip, index))}
-          <View style={{ height: 90 }} />
+          <View style={{height: 90}} />
         </ScrollView>
-  
+
         <View style={styles.bottomButtonContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.childInfoButton}
-            onPress={() => setShowChildInfo(true)}
-          >
-            <Icon name="child-care" size={20} color="white" style={styles.buttonIcon} />
+            onPress={() => setShowChildInfo(true)}>
+            <Icon
+              name="child-care"
+              size={20}
+              color="white"
+              style={styles.buttonIcon}
+            />
             <Text style={styles.childInfoButtonText}>Children Information</Text>
           </TouchableOpacity>
         </View>
-  
+
         {userInfo.access_token ? (
-  <ChildInfoModal
-    visible={showChildInfo}
-    onClose={() => setShowChildInfo(false)}
-    children={childrenInfo}
-    userToken={userInfo.access_token}
-    onChildrenUpdate={fetchChildrenInfo}
-  />
-) : showChildInfo && (
-  <Modal
-    visible={true}
-    transparent={true}
-    animationType="slide"
-    onRequestClose={() => setShowChildInfo(false)}
-  >
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>Not Logged In</Text>
-        <Text style={styles.modalText}>Please log in to view and manage children information.</Text>
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={() => setShowChildInfo(false)}
-        >
-          <Text style={styles.closeButtonText}>Close</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </Modal>
-)}
-        
+          <ChildInfoModal
+            visible={showChildInfo}
+            onClose={() => setShowChildInfo(false)}
+            children={childrenInfo}
+            userToken={userInfo.access_token}
+            onChildrenUpdate={fetchChildrenInfo}
+          />
+        ) : (
+          showChildInfo && (
+            <Modal
+              visible={true}
+              transparent={true}
+              animationType="slide"
+              onRequestClose={() => setShowChildInfo(false)}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>Not Logged In</Text>
+                  <Text style={styles.modalText}>
+                    Please log in to view and manage children information.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setShowChildInfo(false)}>
+                    <Text style={styles.closeButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+          )
+        )}
+
         <Loader isLoading={isLoading} />
         <AgePromptModal />
-        </LinearGradient> 
+      </LinearGradient>
     </SafeAreaView>
   );
 };
@@ -539,7 +656,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     height: 50,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -562,7 +679,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginLeft: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
@@ -587,7 +704,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
@@ -597,7 +714,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
@@ -621,7 +738,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -687,7 +804,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
@@ -703,7 +820,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
-  
+
   childItem: {
     backgroundColor: '#F8F9FA',
     padding: 16,
@@ -792,22 +909,34 @@ const styles = StyleSheet.create({
   },
   ratingContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 8,
-    gap: 16
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 10,
+    gap: 10,
   },
   ratingButton: {
-    padding: 8,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
     borderRadius: 8,
-    backgroundColor: '#f0f0f0'
+    backgroundColor: '#f0f0f0',
   },
   ratingActive: {
-    backgroundColor: '#e0e0e0'
+    backgroundColor: '#e6f7ff',
+  },
+  ratingText: {
+    marginLeft: 5,
+    color: '#666',
+  },
+  ratingTextActive: {
+    color: '#007AFF',
   },
   buttonContainerGap: {
     flexDirection: 'column',
-    gap: 8
-  }
+    gap: 8,
+  },
 });
 
 export default MainScreen;

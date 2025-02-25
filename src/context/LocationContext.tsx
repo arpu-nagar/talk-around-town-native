@@ -71,7 +71,7 @@ export const LocationProvider: React.FC<{children: React.ReactNode}> = ({
         },
         error => {
           // Alert.alert('Error', 'Unable to fetch location in Context');
-          console.error(error);
+          console.log('err in location context fetch', error);
         },
         {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},
       );

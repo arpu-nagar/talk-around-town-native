@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, StyleSheet, Dimensions} from 'react-native';
+import {View, Text, StyleSheet, Dimensions, ActivityIndicator} from 'react-native';
 
 const {width} = Dimensions.get('window');
 
@@ -7,28 +7,26 @@ const facts = [
   'Did you know? Babies can distinguish between languages from birth.',
   'Fun fact: Children learn 5-10 new words per day between ages 2-5.',
   'Interesting: Bilingual children often have better problem-solving skills.',
-  'Did you know? Babies can distinguish between languages from birth.',
-  'Fun fact: Children learn 5-10 new words per day between ages 2-5.',
-  'Interesting: Bilingual children often have better problem-solving skills.',
-  'Did you know? Babies can distinguish between languages from birth.',
-  'Fun fact: Children learn 5-10 new words per day between ages 2-5.',
+  'Tip: Reading to your child for just 15 minutes daily significantly boosts vocabulary.',
+  'Note: Children learn language best through back-and-forth conversations.',
+  'Research shows: Music and singing help children develop language skills faster.',
+  'Did you know? Children understand words long before they can speak them.',
+  'Fun fact: Gestures are an important precursor to verbal language development.',
 ];
+
 // @ts-ignore
 const Loader = ({isLoading}) => {
-  const [progress, setProgress] = useState(0);
   const [currentFact, setCurrentFact] = useState('');
 
   useEffect(() => {
     if (isLoading) {
+      // Set initial fact immediately when loading starts
+      setCurrentFact(facts[Math.floor(Math.random() * facts.length)]);
+      
+      // Change fact every 5 seconds
       const interval = setInterval(() => {
-        setProgress(prev => {
-          const newProgress = Math.min(prev + 100 /4.5, 100);
-          //   if (Math.floor(newProgress) % 20 === 0) {
-          setCurrentFact(facts[Math.floor(Math.random() * facts.length)]);
-          //   }
-          return newProgress;
-        });
-      }, 3000);
+        setCurrentFact(facts[Math.floor(Math.random() * facts.length)]);
+      }, 5000);
 
       return () => clearInterval(interval);
     }
@@ -38,10 +36,11 @@ const Loader = ({isLoading}) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBar, {width: `${progress}%`}]} />
+      <View style={styles.loaderBox}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={styles.loadingText}>Generating tips for you...</Text>
+        <Text style={styles.factText}>{currentFact}</Text>
       </View>
-      <Text style={styles.factText}>{currentFact}</Text>
     </View>
   );
 };
@@ -55,24 +54,37 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    zIndex: 1000,
   },
-  progressBarContainer: {
-    width: width * 0.8,
-    height: 20,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 10,
-    overflow: 'hidden',
+  loaderBox: {
+    width: width * 0.85,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#4CAF50',
+  loadingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 16,
+    marginBottom: 16,
   },
   factText: {
-    marginTop: 20,
-    color: 'white',
+    fontSize: 16,
+    color: '#666',
     textAlign: 'center',
-    paddingHorizontal: 20,
+    fontStyle: 'italic',
+    lineHeight: 22,
   },
 });
 

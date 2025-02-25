@@ -10,6 +10,8 @@ import {
   TextInput,
   Pressable,
   SafeAreaView,
+  StatusBar,
+  Dimensions,
 } from 'react-native';
 import MapView, {
   PROVIDER_GOOGLE,
@@ -25,10 +27,8 @@ import {
   GooglePlacesAutocompleteRef,
 } from 'react-native-google-places-autocomplete';
 import {Icon} from 'react-native-elements';
-
 import Spinner from 'react-native-loading-spinner-overlay';
 import {AuthContext} from '../context/AuthContext';
-// import RemoteNotification from '../components/RemoteNotification';
 import Notification from '../components/Notification';
 type MainTabParamList = {
   Home: undefined;
@@ -46,6 +46,9 @@ interface LocationListProps {
 interface Props {
   navigation: NativeStackNavigationProp<MainTabParamList>;
 }
+import LinearGradient from 'react-native-linear-gradient';
+
+const {width, height} = Dimensions.get('window');
 
 interface Location {
   latitude: number;
@@ -452,67 +455,80 @@ const App: React.FC<Props> = ({navigation}) => {
 
   return (
     <>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent
+      />
       <Notification />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          <View style={styles.searchContainer}>
-            <GooglePlacesAutocomplete
-              placeholder="Search"
-              fetchDetails={true}
-              styles={{
-                container: {
-                  flex: 0,
-                },
-                textInputContainer: {
-                  backgroundColor: 'white',
-                  borderRadius: 5,
-                  borderWidth: 1,
-                  borderColor: '#ddd',
-                },
-                textInput: {
-                  height: 38,
-                  color: '#5d5d5d',
-                  fontSize: 16,
-                },
-                listView: {
-                  backgroundColor: 'white',
-                },
-              }}
-              onPress={(data, details = null) => {
-                console.log('Search pressed', data);
-                if (details) {
-                  console.log('Location details:', details);
-                  const latitude = details.geometry.location.lat;
-                  const longitude = details.geometry.location.lng;
-                  setNewLocation({
-                    latitude,
-                    longitude,
-                    latitudeDelta: 0.015,
-                    longitudeDelta: 0.0121,
-                  });
-                }
-              }}
-              query={{
-                key: 'AIzaSyDBAL_WlpNc9Jvmtx6OPszKr30cJe3Kwew',
-                language: 'en',
-              }}
-              renderRightButton={() => (
-                <TouchableOpacity
-                  style={styles1.clearButton}
-                  onPress={() => {
-                    console.log('Clear button pressed');
-                    ref.current?.clear();
-                    setName('');
-                    setDescription('');
-                    setNewLocation(null);
-                  }}>
-                  <Icon name="close" size={25} color="black" />
-                </TouchableOpacity>
-              )}
-              ref={ref}
-            />
+          {/* Search Bar with Shadow */}
+          <View style={styles.searchWrapper}>
+            <View style={styles.searchContainer}>
+              <GooglePlacesAutocomplete
+                placeholder="Search location..."
+                fetchDetails={true}
+                styles={{
+                  container: {
+                    flex: 0,
+                  },
+                  textInputContainer: {
+                    backgroundColor: 'white',
+                    borderRadius: 12,
+                    borderWidth: 0,
+                  },
+                  textInput: {
+                    height: 45,
+                    color: '#333',
+                    fontSize: 16,
+                    borderRadius: 12,
+                    paddingHorizontal: 15,
+                  },
+                  listView: {
+                    backgroundColor: 'white',
+                    borderRadius: 12,
+                    marginTop: 5,
+                  },
+                  row: {
+                    padding: 13,
+                    height: 50,
+                  },
+                }}
+                onPress={(data, details = null) => {
+                  if (details) {
+                    const latitude = details.geometry.location.lat;
+                    const longitude = details.geometry.location.lng;
+                    setNewLocation({
+                      latitude,
+                      longitude,
+                      latitudeDelta: 0.015,
+                      longitudeDelta: 0.0121,
+                    });
+                  }
+                }}
+                query={{
+                  key: 'AIzaSyDBAL_WlpNc9Jvmtx6OPszKr30cJe3Kwew',
+                  language: 'en',
+                }}
+                renderRightButton={() => (
+                  <TouchableOpacity
+                    style={styles.clearButton}
+                    onPress={() => {
+                      ref.current?.clear();
+                      setName('');
+                      setDescription('');
+                      setNewLocation(null);
+                    }}>
+                    <Icon name="close" size={20} color="#666" />
+                  </TouchableOpacity>
+                )}
+                ref={ref}
+              />
+            </View>
           </View>
 
+          {/* Map Container */}
           <View style={styles.mapContainer}>
             {location && (
               <MapView
@@ -531,13 +547,13 @@ const App: React.FC<Props> = ({navigation}) => {
                       coordinate={loc}
                       title={details[index]?.title || `Location ${index + 1}`}
                       description={details[index]?.desription || ''}
-                      pinColor={details[index]?.pinColor || 'red'}
+                      pinColor={details[index]?.pinColor || '#FF4B4B'}
                     />
                     <Circle
                       center={loc}
                       radius={100}
-                      strokeColor="rgba(0,0,255,0.5)"
-                      fillColor="rgba(0,0,255,0.1)"
+                      strokeColor="rgba(65, 105, 225, 0.5)"
+                      fillColor="rgba(65, 105, 225, 0.1)"
                       zIndex={2}
                     />
                   </React.Fragment>
@@ -546,83 +562,90 @@ const App: React.FC<Props> = ({navigation}) => {
             )}
           </View>
 
+          {/* Location Form */}
           {newLocation && (
-            <View style={styles.formContainer}>
-              <Text>Please fill out everything:</Text>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
+              style={styles.formContainer}>
+              <Text style={styles.formTitle}>Add New Location</Text>
               <Dropdown
-                style={drop.dropdown}
-                placeholderStyle={drop.placeholderStyle}
-                selectedTextStyle={drop.selectedTextStyle}
-                inputSearchStyle={drop.inputSearchStyle}
-                iconStyle={drop.iconStyle}
+                style={styles.dropdown}
+                placeholderStyle={styles.dropdownPlaceholder}
+                selectedTextStyle={styles.dropdownSelected}
+                inputSearchStyle={styles.dropdownSearch}
+                iconStyle={styles.dropdownIcon}
                 data={options}
                 maxHeight={300}
                 labelField="label"
                 valueField="value"
-                placeholder="Select an option"
+                placeholder="Select location type"
                 searchPlaceholder="Search..."
                 value={selectedOption}
                 onChange={item => setSelectedOption(item.value)}
                 renderLeftIcon={() => (
                   <AntDesign
-                    style={drop.icon}
-                    color="black"
+                    style={styles.dropdownLeftIcon}
+                    color="#333"
                     name="Safety"
                     size={20}
                   />
                 )}
               />
               <TextInput
-                placeholder="Title"
-                style={[drop.input, drop.placeholderStyle]}
+                placeholder="Location name"
+                style={styles.input}
                 value={name}
                 onChange={e => setName(e.nativeEvent.text)}
-                placeholderTextColor={drop.placeholderStyle.color}
+                placeholderTextColor="#666"
               />
               <TextInput
                 placeholder="Description"
-                style={[drop.input, drop.placeholderStyle]}
+                style={[styles.input, styles.textArea]}
                 value={description}
                 onChange={e => setDescription(e.nativeEvent.text)}
-                placeholderTextColor={drop.placeholderStyle.color}
+                placeholderTextColor="#666"
+                multiline
+                numberOfLines={3}
               />
-              <View style={{flexDirection: 'row', justifyContent: 'flex-end'}}>
-                <Pressable style={styles1.button} onPress={addLocation}>
-                  <Text style={styles1.buttonText}>Add location</Text>
-                </Pressable>
-              </View>
-            </View>
+              <TouchableOpacity style={styles.addButton} onPress={addLocation}>
+                <Text style={styles.addButtonText}>Add Location</Text>
+              </TouchableOpacity>
+            </LinearGradient>
           )}
 
+          {/* Welcome Card */}
           {!newLocation && (
-            <View style={styles.welcomeContainer}>
-              <View style={styles.tile}>
-                <Text style={styles.heading}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
+              style={styles.welcomeContainer}>
+              <View style={styles.welcomeContent}>
+                <Text style={styles.welcomeTitle}>
                   Welcome, {userInfo.user.name}
                 </Text>
-                <Text style={styles.body_text}>
-                  Please search for a location on the map, and follow
-                  instructions to add a location of interest.
+                <Text style={styles.welcomeText}>
+                  Search for a location on the map and follow the instructions
+                  to add a point of interest.
                 </Text>
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={[styles.button, styles.aiButton]}
+                    onPress={() => {
+                      console.log(location, details);
+                      navigation.navigate('LocationList', {
+                        locations: locations,
+                        details: details,
+                      });
+                    }}>
+                    <Text style={styles.buttonText}>Show locations</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, styles.logoutButton]}
+                    onPress={logout}>
+                    <Text style={styles.buttonText}>Logout</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View
-                style={{flexDirection: 'row', justifyContent: 'space-around'}}>
-                <Pressable
-                  style={styles1.button_ai}
-                  onPress={() => {
-                    console.log(location, details);
-                    navigation.navigate('LocationList', {
-                      locations: locations,
-                      details: details,
-                    });
-                  }}>
-                  <Text style={styles1.buttonText}>Show locations</Text>
-                </Pressable>
-                <Pressable style={styles1.button_logout} onPress={logout}>
-                  <Text style={styles1.buttonText}>Logout</Text>
-                </Pressable>
-              </View>
-            </View>
+            </LinearGradient>
           )}
         </View>
       </SafeAreaView>
@@ -633,129 +656,164 @@ const App: React.FC<Props> = ({navigation}) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1,
   },
-  searchContainer: {
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: 'white',
+  searchWrapper: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 40,
+    left: 0,
+    right: 0,
     zIndex: 10,
-    elevation: 3,
+    paddingHorizontal: 16,
+  },
+  searchContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  clearButton: {
+    padding: 12,
   },
   mapContainer: {
     flex: 1,
-    zIndex: 1,
   },
   map: {
     ...StyleSheet.absoluteFillObject,
   },
   formContainer: {
     position: 'absolute',
-    bottom: 10,
-    left: 10,
-    right: 10,
+    bottom: 20,
+    left: 16,
+    right: 16,
     backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 5,
-    zIndex: 5,
-    elevation: 2,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  welcomeContainer: {
-    position: 'absolute',
-    bottom: 10,
-    left: 10,
-    right: 10,
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 5,
-    zIndex: 5,
-    elevation: 2,
-  },
-  tile: {
-    marginBottom: 10,
-  },
-  heading: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'black',
-    marginBottom: 5,
-  },
-  body_text: {
-    fontSize: 14,
-    color: 'black',
-  },
-});
-
-const styles1 = StyleSheet.create({
-  clearButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingRight: 10,
-  },
-  button: {
-    backgroundColor: 'blue',
-    padding: 5,
-    width: 120,
-    margin: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  button_logout: {
-    backgroundColor: 'red',
-    padding: 5,
-    width: 120,
-    margin: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  button_ai: {
-    backgroundColor: 'green',
-    padding: 5,
-    width: 120,
-    margin: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
-  },
-});
-
-const drop = StyleSheet.create({
-  placeholderStyle: {
-    fontSize: 16,
-    color: 'gray',
-  },
-  input: {
-    height: 50,
-    borderColor: 'gray',
-    borderWidth: 1,
-    marginBottom: 12,
-    paddingHorizontal: 8,
+  formTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
   },
   dropdown: {
-    margin: 16,
     height: 50,
-    borderBottomColor: 'gray',
-    borderBottomWidth: 1,
+    borderColor: '#E8E8E8',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 16,
   },
-  selectedTextStyle: {
+  dropdownPlaceholder: {
     fontSize: 16,
-    color: 'black',
+    color: '#666',
   },
-  inputSearchStyle: {
+  dropdownSelected: {
+    fontSize: 16,
+    color: '#333',
+  },
+  dropdownSearch: {
     height: 40,
     fontSize: 16,
+    borderRadius: 8,
   },
-  iconStyle: {
+  dropdownIcon: {
     width: 20,
     height: 20,
   },
-  icon: {
-    marginRight: 5,
+  dropdownLeftIcon: {
+    marginRight: 8,
+  },
+  input: {
+    height: 50,
+    borderColor: '#E8E8E8',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#333',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 16,
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+    paddingTop: 12,
+  },
+  addButton: {
+    backgroundColor: '#4A90E2',
+    borderRadius: 12,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  welcomeContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  welcomeContent: {
+    padding: 20,
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  welcomeText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  button: {
+    flex: 1,
+    height: 45,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 6,
+  },
+  aiButton: {
+    backgroundColor: '#34C759',
+  },
+  logoutButton: {
+    backgroundColor: '#FF3B30',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
