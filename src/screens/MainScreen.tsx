@@ -12,6 +12,9 @@ import {
   SafeAreaView,
   StatusBar,
   Dimensions,
+  TouchableWithoutFeedback,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
 import MapView, {
   PROVIDER_GOOGLE,
@@ -461,6 +464,11 @@ const App: React.FC<Props> = ({navigation}) => {
         translucent
       />
       <Notification />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           {/* Search Bar with Shadow */}
@@ -649,6 +657,8 @@ const App: React.FC<Props> = ({navigation}) => {
           )}
         </View>
       </SafeAreaView>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
     </>
   );
 };
