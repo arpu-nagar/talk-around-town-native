@@ -136,12 +136,25 @@ const RegisterScreen = ({navigation}: any) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [password, setPassword] = useState('');
+  // const [password, setPassword] = useState('');
   const [location, setLocation] = useState<{ latitude?: number; longitude?: number }>({});
-  const [showPassword, setShowPassword] = useState(false);
+  // const [showPassword, setShowPassword] = useState(false);
   const [numberOfChildren, setNumberOfChildren] = useState('');
   const [childrenAges, setChildrenAges] = useState<string[]>([]);
   const {isLoading, register} = useContext<any>(AuthContext);
+  const [password, setPassword] = useState('');
+const [showPassword, setShowPassword] = useState(false);
+const [passwordError, setPasswordError] = useState('');
+
+const handlePasswordChange = (text: string) => {
+  setPassword(text);
+  
+  if (text.length > 0 && text.length < 8) {
+    setPasswordError('Password must be at least 8 characters long');
+  } else {
+    setPasswordError('');
+  }
+};
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -176,9 +189,15 @@ const RegisterScreen = ({navigation}: any) => {
       return;
     }
   
-    if (step === 3 && !password.trim()) {
-      Alert.alert('Invalid Password', 'Please enter a password');
-      return;
+    if (step === 3) {
+      if (!password.trim()) {
+        Alert.alert('Invalid Password', 'Please enter a password');
+        return;
+      }
+      if (password.length < 8) {
+        Alert.alert('Invalid Password', 'Password must be at least 8 characters long');
+        return;
+      }
     }
   
     if (step === 4 && !numberOfChildren.trim()) {
@@ -378,34 +397,57 @@ const RegisterScreen = ({navigation}: any) => {
             {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
           </View>
         );
-        case 3:
-          return (
-            <View style={styles.stepContainer}>
-              <Text style={styles.stepTitle}>Create Password</Text>
-              <Text style={styles.stepDescription}>Choose a secure password for your account</Text>
-              <View style={styles.passwordContainer}>
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  placeholderTextColor="#A0A0A0"
-                />
-                <TouchableOpacity
-                  onPress={togglePasswordVisibility}
-                  style={styles.eyeButton}>
-                  <Ionicons
-                    name={showPassword ? 'eye-off' : 'eye'}
-                    size={24}
-                    color="#666666"
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
+          case 3:
+  return (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Create Password</Text>
+      <Text style={styles.stepDescription}>Choose a secure password for your account</Text>
+      <View style={[
+        styles.passwordContainer, 
+        passwordError ? styles.inputError : null
+      ]}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Enter your password"
+          value={password}
+          onChangeText={handlePasswordChange}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholderTextColor="#A0A0A0"
+        />
+        <TouchableOpacity
+          onPress={togglePasswordVisibility}
+          style={styles.eyeButton}>
+          <Ionicons
+            name={showPassword ? 'eye-off' : 'eye'}
+            size={24}
+            color="#666666"
+          />
+        </TouchableOpacity>
+      </View>
+      {passwordError ? (
+        <Text style={styles.errorText}>{passwordError}</Text>
+      ) : (
+        password.length >= 8 && (
+          <Text style={styles.successText}>Password meets requirements ✓</Text>
+        )
+      )}
+      
+      <View style={styles.passwordRequirements}>
+        <Text style={styles.requirementLabel}>Your password must:</Text>
+        <View style={styles.requirementItem}>
+          <View style={[
+            styles.requirementDot,
+            password.length >= 8 ? styles.requirementMet : styles.requirementNotMet
+          ]} />
+          <Text style={styles.requirementText}>
+            Be at least 8 characters long
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
   
         case 4:
           return (
@@ -429,7 +471,7 @@ const RegisterScreen = ({navigation}: any) => {
           case 5:
             return (
               <ChildrenDetailsStep
-                numberOfChildren={numberOfChildren}
+                numberOfChildren={parseInt(numberOfChildren, 10)}
                 childrenDetails={childrenDetails}
                 onChildDetailChange={handleChildDetailChange}
               />
@@ -508,6 +550,45 @@ const RegisterScreen = ({navigation}: any) => {
     );
   };
   
+  const additionalStyles = StyleSheet.create({
+    passwordRequirements: {
+      marginTop: 16,
+      width: '100%', // This is now properly typed through StyleSheet.create
+    },
+    requirementLabel: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: '#666666',
+      marginBottom: 8,
+    },
+    requirementItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    requirementDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginRight: 8,
+    },
+    requirementMet: {
+      backgroundColor: '#34C759',
+    },
+    requirementNotMet: {
+      backgroundColor: '#FF3B30',
+    },
+    requirementText: {
+      fontSize: 14,
+      color: '#333333',
+    },
+    successText: {
+      color: '#34C759',
+      fontSize: 14,
+      marginTop: 8,
+    },
+  });
+  
 
 const styles = StyleSheet.create({
   // Password input styles
@@ -549,6 +630,14 @@ const styles = StyleSheet.create({
   scrollContentContainer: {
     paddingVertical: 8,
   },
+  passwordRequirements: additionalStyles.passwordRequirements,
+  requirementLabel: additionalStyles.requirementLabel,
+  requirementItem: additionalStyles.requirementItem,
+  requirementDot: additionalStyles.requirementDot,
+  requirementMet: additionalStyles.requirementMet,
+  requirementNotMet: additionalStyles.requirementNotMet,
+  requirementText: additionalStyles.requirementText,
+  successText: additionalStyles.successText,
   childDetailCard: {
     backgroundColor: '#F8F9FA',
     borderRadius: 16,

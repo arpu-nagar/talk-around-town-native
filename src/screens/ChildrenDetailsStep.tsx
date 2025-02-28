@@ -1,4 +1,3 @@
-// ChildrenDetailsStep.tsx
 import React from 'react';
 import {
   View,
@@ -6,108 +5,145 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
-  Dimensions,
+  Platform
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
 interface ChildDetail {
   nickname: string;
-  birthYear: string;
   birthMonth: string;
+  birthYear: string;
 }
 
-interface Props {
-  numberOfChildren: string;
+interface ChildrenDetailsStepProps {
+  numberOfChildren: number;
   childrenDetails: ChildDetail[];
   onChildDetailChange: (index: number, field: string, value: string) => void;
 }
 
-const { height } = Dimensions.get('window');
-
-const ChildrenDetailsStep: React.FC<Props> = ({
-  numberOfChildren,
-  childrenDetails,
-  onChildDetailChange,
+const ChildrenDetailsStep: React.FC<ChildrenDetailsStepProps> = ({ 
+  numberOfChildren, 
+  childrenDetails, 
+  onChildDetailChange 
 }) => {
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 12 }, (_, i) => String(currentYear - i));
-  
+  const years = Array.from({ length: 18 }, (_, i) => (currentYear - i).toString());
   const months = [
-    {label: 'January', value: '01'},
-    {label: 'February', value: '02'},
-    {label: 'March', value: '03'},
-    {label: 'April', value: '04'},
-    {label: 'May', value: '05'},
-    {label: 'June', value: '06'},
-    {label: 'July', value: '07'},
-    {label: 'August', value: '08'},
-    {label: 'September', value: '09'},
-    {label: 'October', value: '10'},
-    {label: 'November', value: '11'},
-    {label: 'December', value: '12'},
+    { value: '01', label: 'January' },
+    { value: '02', label: 'February' },
+    { value: '03', label: 'March' },
+    { value: '04', label: 'April' },
+    { value: '05', label: 'May' },
+    { value: '06', label: 'June' },
+    { value: '07', label: 'July' },
+    { value: '08', label: 'August' },
+    { value: '09', label: 'September' },
+    { value: '10', label: 'October' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'December' }
   ];
 
   return (
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Children Details</Text>
-      <Text style={styles.stepDescription}>Tell us about your children</Text>
+      <Text style={styles.stepDescription}>
+        Enter details for each child
+      </Text>
+
       <ScrollView 
         style={styles.childrenScrollView}
         contentContainerStyle={styles.scrollContentContainer}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
-        {Array.from({ length: parseInt(numberOfChildren) || 0 }).map((_, index) => (
+        {childrenDetails.map((child, index) => (
           <View key={index} style={styles.childDetailCard}>
-            <Text style={styles.childNumber}>Child {index + 1}</Text>
+            <Text style={styles.childNumber}>
+              Child {index + 1}
+            </Text>
             
             <TextInput
               style={styles.childInput}
               placeholder="Nickname (optional)"
-              value={childrenDetails[index]?.nickname || ''}
-              onChangeText={(text) => onChildDetailChange(index, 'nickname', text)}
-              maxLength={50}
+              value={child.nickname}
+              onChangeText={(value) => onChildDetailChange(index, 'nickname', value)}
               placeholderTextColor="#A0A0A0"
             />
-
+            
             <View style={styles.dateSelectionContainer}>
               <View style={styles.pickerWrapper}>
                 <Text style={styles.pickerLabel}>Birth Month</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={childrenDetails[index]?.birthMonth || '01'}
-                    style={styles.picker}
-                    onValueChange={(value) => onChildDetailChange(index, 'birthMonth', value)}
-                  >
-                    {months.map((month) => (
-                      <Picker.Item 
-                        key={month.value} 
-                        label={month.label} 
-                        value={month.value}
-                        color="#333333"
-                      />
-                    ))}
-                  </Picker>
-                </View>
+                {Platform.OS === 'ios' ? (
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={child.birthMonth}
+                      onValueChange={(value) => onChildDetailChange(index, 'birthMonth', value)}
+                      style={[styles.picker, styles.iosPicker]}
+                      itemStyle={styles.iosPickerItem}
+                    >
+                      {months.map((month) => (
+                        <Picker.Item 
+                          key={month.value} 
+                          label={month.label} 
+                          value={month.value} 
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                ) : (
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={child.birthMonth}
+                      onValueChange={(value) => onChildDetailChange(index, 'birthMonth', value)}
+                      style={styles.picker}
+                    >
+                      {months.map((month) => (
+                        <Picker.Item 
+                          key={month.value} 
+                          label={month.label} 
+                          value={month.value} 
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                )}
               </View>
-
+              
               <View style={styles.pickerWrapper}>
                 <Text style={styles.pickerLabel}>Birth Year</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={childrenDetails[index]?.birthYear || currentYear.toString()}
-                    style={styles.picker}
-                    onValueChange={(value) => onChildDetailChange(index, 'birthYear', value)}
-                  >
-                    {years.map((year) => (
-                      <Picker.Item 
-                        key={year} 
-                        label={year} 
-                        value={year}
-                        color="#333333"
-                      />
-                    ))}
-                  </Picker>
-                </View>
+                {Platform.OS === 'ios' ? (
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={child.birthYear}
+                      onValueChange={(value) => onChildDetailChange(index, 'birthYear', value)}
+                      style={[styles.picker, styles.iosPicker]}
+                      itemStyle={styles.iosPickerItem}
+                    >
+                      {years.map((year) => (
+                        <Picker.Item 
+                          key={year} 
+                          label={year} 
+                          value={year} 
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                ) : (
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={child.birthYear}
+                      onValueChange={(value) => onChildDetailChange(index, 'birthYear', value)}
+                      style={styles.picker}
+                    >
+                      {years.map((year) => (
+                        <Picker.Item 
+                          key={year} 
+                          label={year} 
+                          value={year} 
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -134,8 +170,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   childrenScrollView: {
-    maxHeight: height * 0.5,
     width: '100%',
+    maxHeight: 400,
   },
   scrollContentContainer: {
     paddingVertical: 8,
@@ -187,6 +223,13 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: '#FFFFFF',
   },
+  iosPicker: {
+    height: 200, // Increased height for iOS
+  },
+  iosPickerItem: {
+    fontSize: 16,
+    height: 120 // Taller items for better scrolling
+  }
 });
 
 export default ChildrenDetailsStep;
