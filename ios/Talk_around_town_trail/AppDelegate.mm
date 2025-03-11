@@ -4,11 +4,11 @@
 #import <GoogleMaps/GoogleMaps.h>
 #import <UserNotifications/UserNotifications.h>
 #import <RNCPushNotificationIOS/RNCPushNotificationIOS.h>
-#import <Firebase.h>  // Add this
-#import <FirebaseMessaging.h>  // Add this
+#import <Firebase.h>
+#import <FirebaseMessaging.h>
 #import <FirebaseCore.h>
 
-@interface AppDelegate () <UNUserNotificationCenterDelegate, FIRMessagingDelegate>  // Add FIRMessagingDelegate
+@interface AppDelegate () <UNUserNotificationCenterDelegate, FIRMessagingDelegate>
 @end
 
 @implementation AppDelegate
@@ -149,7 +149,7 @@ didReceiveNotificationResponse:(UNNotificationResponse *)response
 #if DEBUG
   return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@".expo/.virtual-metro-entry"];
 #else
-  return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
+  return [CodePush bundleURL]; // Modified to use CodePush
 #endif
 }
 

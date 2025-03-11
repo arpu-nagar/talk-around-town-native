@@ -40,6 +40,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   const updateServerToken = useCallback(async (fcmToken: string, accessToken: string) => {
     try {
+      console.log('SENDING TO SERVER - Token:', fcmToken, 'Platform:', Platform.OS);
+      
       const response = await fetch('http://68.183.102.75:1337/api/auth/token', {
         method: 'POST',
         headers: {
@@ -51,6 +53,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           platform: Platform.OS,
         }),
       });
+      
+      const responseData = await response.json();
+      console.log('SERVER RESPONSE:', responseData);
       
       if (!response.ok) throw new Error('Failed to update token on server');
     } catch (error) {
@@ -64,20 +69,24 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       const enabled = 
         authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
         authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
+  
       if (!enabled) return;
-
+  
       const fcmToken = await messaging().getToken();
+      console.log('ACTUAL FCM TOKEN RECEIVED:', fcmToken); // Add this log
+      
       const tokenData: TokenData = {
         os: Platform.OS,
         token: fcmToken,
       };
       
       await AsyncStorage.setItem('deviceToken', JSON.stringify(tokenData));
+      console.log('TOKEN SAVED TO ASYNC STORAGE:', JSON.stringify(tokenData)); // Add this log
       
       const userInfo = await AsyncStorage.getItem('userInfo');
       if (userInfo) {
         const { access_token } = JSON.parse(userInfo);
+        console.log('SENDING TOKEN TO SERVER:', fcmToken); // Add this log
         await updateServerToken(fcmToken, access_token);
       }
     } catch (error) {

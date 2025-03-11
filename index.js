@@ -7,8 +7,25 @@ import {name as appName} from './app.json';
 import 'react-native-get-random-values';
 import PushNotification from 'react-native-push-notification';
 import { navigationRef } from './src/ref/NavigationRef';
+import {Platform} from 'react-native';
+import messaging from '@react-native-firebase/messaging';
 
 // Clear existing channels and create main channel
+if (Platform.OS === 'ios') {
+  messaging().onMessage(async remoteMessage => {
+    console.log('Foreground message received on iOS:', remoteMessage);
+    
+    // Create a local notification to be displayed immediately
+    PushNotification.localNotification({
+      channelId: 'location-tips',
+      title: remoteMessage.notification?.title || 'New notification',
+      message: remoteMessage.notification?.body || 'You have a new notification',
+      userInfo: remoteMessage.data || {},
+      playSound: true,
+      soundName: 'default',
+    });
+  });
+}
 PushNotification.getChannels(function (channel_ids) {
   channel_ids.forEach(id => {
     PushNotification.deleteChannel(id);
