@@ -1,13 +1,25 @@
 'use strict';
 import React, {useEffect} from 'react';
-import {StatusBar, Platform, Alert} from 'react-native';
+import {StatusBar, Platform, Alert, PermissionsAndroid} from 'react-native';
 import Navigation from './src/components/Navigation';
 import {AuthProvider} from './src/context/AuthContext';
 import {LocationProvider} from './src/context/LocationContext';
 // import RemoteNotification from './src/components/RemoteNotification';
 import messaging from '@react-native-firebase/messaging';
 import AppStateTracker from './src/components/AppStateTracker';
+
 const App = () => {
+  const checkApplicationPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  };
   useEffect(() => {
     const showWelcomeMessage = () => {
       const message = Platform.select({
@@ -27,7 +39,10 @@ const App = () => {
       Alert.alert('Welcome!', message, [
         {
           text: 'OK',
-          onPress: () => console.log('User acknowledged permissions'),
+          onPress: () => {
+            checkApplicationPermission();
+            console.log('User clicked OK for the welcome message');
+          },
         },
       ]);
     };

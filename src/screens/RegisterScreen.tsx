@@ -80,7 +80,7 @@ const HomeAddress: React.FC<{onLocationChange: (location: any) => void}> = ({
             }
           }}
           query={{
-            key: 'AIzaSyDBAL_WlpNc9Jvmtx6OPszKr30cJe3Kwew',
+            key: 'AIzaSyANQA8EalOcyL2W8xSz_UsK-2A0MZW_xfM',
             language: 'en',
           }}
           enablePoweredByContainer={false}

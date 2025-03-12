@@ -504,6 +504,7 @@ const App: React.FC<Props> = ({navigation}) => {
                   },
                 }}
                 onPress={(data, details = null) => {
+                  console.log(data);
                   if (details) {
                     const latitude = details.geometry.location.lat;
                     const longitude = details.geometry.location.lng;
@@ -516,7 +517,7 @@ const App: React.FC<Props> = ({navigation}) => {
                   }
                 }}
                 query={{
-                  key: 'AIzaSyDBAL_WlpNc9Jvmtx6OPszKr30cJe3Kwew',
+                  key: 'AIzaSyANQA8EalOcyL2W8xSz_UsK-2A0MZW_xfM',
                   language: 'en',
                 }}
                 renderRightButton={() => (
