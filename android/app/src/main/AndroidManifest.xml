@@ -27,7 +27,7 @@
       android:supportsRtl="true">
       <meta-data
         android:name="com.google.android.geo.API_KEY" 
-        android:value="AIzaSyANQA8EalOcyL2W8xSz_UsK-2A0MZW_xfM"/>
+        android:value="AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps"/>
       <meta-data android:name="com.dieam.reactnativepushnotification.notification_foreground"
       android:value="true" />
     <meta-data android:name="com.dieam.reactnativepushnotification.channel_create_default"

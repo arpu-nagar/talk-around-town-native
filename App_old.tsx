@@ -206,7 +206,7 @@ const App: React.FC = () => {
             }
           }}
           query={{
-            key: 'AIzaSyANQA8EalOcyL2W8xSz_UsK-2A0MZW_xfM',
+            key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps',
             language: 'en',
           }}
           renderRightButton={() => (

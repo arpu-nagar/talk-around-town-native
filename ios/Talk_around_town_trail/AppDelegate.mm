@@ -20,7 +20,7 @@
   [FIRMessaging messaging].delegate = self;
 
   // Configure Google Maps with correct API key
-  [GMSServices provideAPIKey:@"AIzaSyANQA8EalOcyL2W8xSz_UsK-2A0MZW_xfM"];
+  [GMSServices provideAPIKey:@"AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps"];
 
   // Audio Session setup
   AVAudioSession *audioSession = [AVAudioSession sharedInstance];

@@ -8,7 +8,6 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
-  Pressable,
   SafeAreaView,
   StatusBar,
   Dimensions,
@@ -51,8 +50,6 @@ interface Props {
 }
 import LinearGradient from 'react-native-linear-gradient';
 
-const {width, height} = Dimensions.get('window');
-
 interface Location {
   latitude: number;
   longitude: number;
@@ -67,6 +64,7 @@ interface Child {
 }
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import { fetchWithAuth } from '../api/auth';
 
 const App: React.FC<Props> = ({navigation}) => {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -140,7 +138,6 @@ const App: React.FC<Props> = ({navigation}) => {
       if (!response.ok) {
         throw new Error('Failed to update children');
       }
-
       // Optionally refresh user data here
       Alert.alert('Success', 'Children information updated successfully');
     } catch (error) {
@@ -178,7 +175,7 @@ const App: React.FC<Props> = ({navigation}) => {
     };
     const checkChildrenInfo = async () => {
       try {
-        const response = await fetch(
+        const response = await fetchWithAuth(
           'http://68.183.102.75:1337/endpoint/children',
           {
             headers: {
@@ -211,7 +208,7 @@ const App: React.FC<Props> = ({navigation}) => {
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
+      const response = await fetchWithAuth(
         'http://68.183.102.75:1337/endpoint/locations',
         {
           method: 'POST',
@@ -330,7 +327,7 @@ const App: React.FC<Props> = ({navigation}) => {
 
       try {
         setLoading(true);
-        const response = await fetch(
+        const response = await fetchWithAuth(
           'http://68.183.102.75:1337/endpoint/addLocation',
           {
             method: 'POST',
@@ -414,7 +411,7 @@ const App: React.FC<Props> = ({navigation}) => {
         if (loading) setLoading(false);
         // Now send the location data to your server
         try {
-          const response = await fetch('http://68.183.102.75:1337/endpoint', {
+          const response = await fetchWithAuth('http://68.183.102.75:1337/endpoint', {
             method: 'POST',
             headers: {
               Accept: 'application/json',
@@ -516,8 +513,10 @@ const App: React.FC<Props> = ({navigation}) => {
                     });
                   }
                 }}
+                onFail={error => console.error('Error:', error)}
+                onNotFound={() => console.log('No results found')}
                 query={{
-                  key: 'AIzaSyANQA8EalOcyL2W8xSz_UsK-2A0MZW_xfM',
+                  key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps',
                   language: 'en',
                 }}
                 renderRightButton={() => (
