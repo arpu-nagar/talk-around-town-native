@@ -31,6 +31,7 @@ export interface AuthContextType {
   ) => Promise<boolean>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<boolean>; // Added deleteAccount function
   setAITips: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -194,6 +195,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Add the deleteAccount function
+  const deleteAccount = async (): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      if (!userInfo.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      await axiosInstance.delete('/delete-account');
+      
+      // Clear user data
+      await AsyncStorage.removeItem('userInfo');
+      setUserInfo({});
+      
+      return true;
+    } catch (e: any) {
+      console.error('Delete account error:', e.response?.data || e);
+      Alert.alert(
+        'Error', 
+        e.response?.data?.error || 'Failed to delete account. Please try again.'
+      );
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const isLoggedIn = async () => {
     try {
       setSplashLoading(true);
@@ -235,6 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         login,
         logout,
+        deleteAccount, // Added deleteAccount function to the context
         aiTips,
         setAITips,
       }}
