@@ -5,6 +5,7 @@ import React, {
   useRef,
   useContext,
 } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -189,6 +190,7 @@ const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
 };
 
 const MainScreen: React.FC = () => {
+  const navigation = useNavigation();
   const [isListening, setIsListening] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [tips, setTips] = useState<Tip[]>([]);
@@ -205,6 +207,12 @@ const MainScreen: React.FC = () => {
   const lastResult = useRef<string>('');
   const [showChildInfo, setShowChildInfo] = useState(false);
   const [childrenInfo, setChildrenInfo] = useState<Child[]>([]);
+
+  const navigateToSettings = () => {
+    // @ts-ignore - This tells TypeScript to ignore the type error for this line
+    navigation.navigate('Settings');
+  };
+
 
   const fetchChildrenInfo = async () => {
     if (!userInfo?.access_token) {
@@ -610,18 +618,31 @@ const MainScreen: React.FC = () => {
         </ScrollView>
 
         <View style={styles.bottomButtonContainer}>
-          <TouchableOpacity
-            style={styles.childInfoButton}
-            onPress={() => setShowChildInfo(true)}>
-            <Icon
-              name="child-care"
-              size={20}
-              color="white"
-              style={styles.buttonIcon}
-            />
-            <Text style={styles.childInfoButtonText}>Children Information</Text>
-          </TouchableOpacity>
-        </View>
+  <TouchableOpacity
+    style={styles.childInfoButton}
+    onPress={() => setShowChildInfo(true)}>
+    <Icon
+      name="child-care"
+      size={20}
+      color="white"
+      style={styles.buttonIcon}
+    />
+    <Text style={styles.childInfoButtonText}>Children Information</Text>
+  </TouchableOpacity>
+  
+  <TouchableOpacity
+    style={styles.settingsButton}
+    onPress={navigateToSettings}>
+    <Icon
+      name="settings"
+      size={20}
+      color="white"
+      style={styles.buttonIcon}
+    />
+    <Text style={styles.settingsButtonText}>Settings</Text>
+  </TouchableOpacity>
+
+</View>
 
         {userInfo.access_token ? (
           <ChildInfoModal
@@ -840,9 +861,12 @@ const styles = StyleSheet.create({
     bottom: 16,
     left: 16,
     right: 16,
-    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   childInfoButton: {
+    flex: 1,
     backgroundColor: '#5856D6',
     padding: 16,
     borderRadius: 12,
@@ -855,6 +879,38 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  settingsButton: {
+    flex: 1,
+    backgroundColor: '#FF9500',
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  settingsButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // childInfoButton: {
+  //   backgroundColor: '#5856D6',
+  //   padding: 16,
+  //   borderRadius: 12,
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  //   shadowColor: '#000',
+  //   shadowOffset: {width: 0, height: 2},
+  //   shadowOpacity: 0.25,
+  //   shadowRadius: 4,
+  //   elevation: 5,
+  // },
   childInfoButtonText: {
     color: 'white',
     fontSize: 16,

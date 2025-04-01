@@ -4,11 +4,9 @@ import {
   NavigationContainer,
   NavigationContainerRef,
   LinkingOptions,
-  RouteProp,
 } from '@react-navigation/native';
 import {
   createNativeStackNavigator,
-  NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -26,13 +24,17 @@ import MainScreen from '../screens/MainScreen';
 import AssistantScreen from '../screens/Assistant/MainScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import LocationListScreen from '../screens/LocationList';
+import SettingsScreen from '../screens/SettingsScreen'; // Import SettingsScreen
 import {Location} from 'react-native-get-location';
+import AboutScreen from '../screens/AboutScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 
 // Types
 export type RootStackParamList = {
   Splash: undefined;
-  Auth: undefined; // Corrected: No parameters as it's a navigator
-  Main: undefined; // Corrected: No parameters as it's a navigator
+  About: undefined;
+  Auth: undefined;
+  Main: undefined;
   LocationList: {
     locations: Location[];
     details: {
@@ -41,6 +43,8 @@ export type RootStackParamList = {
       pinColor: string;
     }[];
   };
+  Settings: undefined;
+  ChangePassword: undefined;
 };
 
 type AuthStackParamList = {
@@ -49,18 +53,19 @@ type AuthStackParamList = {
   ForgotPassword: undefined;
   ResetPassword: {token: string};
 };
+
 interface LocationListProps {
   locations: any;
   details: any;
   navigation: any;
 }
+
 type MainTabParamList = {
   Home: undefined;
   Assistant: undefined;
-  // LocationList: LocationListProps;
 };
 
-// Linking configuration with corrected types
+// Linking configuration
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: ['talkaroundtown://', 'https://talkaroundtown.com'],
   config: {
@@ -77,9 +82,12 @@ const linking: LinkingOptions<RootStackParamList> = {
         screens: {
           Home: 'home',
           Assistant: 'assistant',
-          LocationList: 'locations',
         },
       },
+      LocationList: 'locations',
+      Settings: 'settings',
+      About: 'about',
+      ChangePassword: 'change-password',
     },
   },
 };
@@ -89,7 +97,7 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 
-// Icon configuration remains unchanged
+// Icon configuration
 const getIconName = (routeName: string, focused: boolean): string => {
   switch (routeName) {
     case 'Home':
@@ -103,7 +111,7 @@ const getIconName = (routeName: string, focused: boolean): string => {
   }
 };
 
-// Wrapper component remains unchanged
+// Wrapper component
 const ScreenWithNotification: React.FC<{children: React.ReactNode}> = ({
   children,
 }) => (
@@ -113,7 +121,7 @@ const ScreenWithNotification: React.FC<{children: React.ReactNode}> = ({
   </View>
 );
 
-// Tab Navigator remains unchanged
+// Tab Navigator
 const TabNavigator = () => (
   <ScreenWithNotification>
     <MainTab.Navigator
@@ -132,24 +140,11 @@ const TabNavigator = () => (
       })}>
       <MainTab.Screen name="Home" component={MainScreen} />
       <MainTab.Screen name="Assistant" component={AssistantScreen} />
-      {/* <MainTab.Screen
-        name="LocationList"
-        component={LocationListScreen as React.ComponentType<any>}
-        options={{
-          tabBarIcon: ({focused, color, size}) => (
-            <Ionicons
-              name={focused ? 'list' : 'list-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      /> */}
     </MainTab.Navigator>
   </ScreenWithNotification>
 );
 
-// Auth Navigator remains unchanged
+// Auth Navigator
 const AuthNavigator = () => (
   <ScreenWithNotification>
     <AuthStack.Navigator screenOptions={{headerShown: false}}>
@@ -164,27 +159,39 @@ const AuthNavigator = () => (
   </ScreenWithNotification>
 );
 
-// Root Navigator remains unchanged
+// Root Navigator - Split the rendering logic to avoid whitespace issues
 const RootNavigator = () => {
   const {userInfo, splashLoading} = useContext<AuthContextType>(AuthContext);
 
+  // Render different navigator configurations based on app state
+  if (splashLoading) {
+    return (
+      <RootStack.Navigator screenOptions={{headerShown: false}}>
+        <RootStack.Screen name="Splash" component={SplashScreen} />
+      </RootStack.Navigator>
+    );
+  }
+
+  if (userInfo.access_token) {
+    return (
+      <RootStack.Navigator screenOptions={{headerShown: false}}>
+        <RootStack.Screen name="Main" component={TabNavigator} />
+        <RootStack.Screen name="LocationList" component={LocationListScreen} />
+        <RootStack.Screen name="Settings" component={SettingsScreen} />
+        <RootStack.Screen name="About" component={AboutScreen} />
+        <RootStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      </RootStack.Navigator>
+    );
+  }
+
   return (
     <RootStack.Navigator screenOptions={{headerShown: false}}>
-      {splashLoading ? (
-        <RootStack.Screen name="Splash" component={SplashScreen} />
-      ) : userInfo.access_token ? (
-        <>
-          <RootStack.Screen name="Main" component={TabNavigator} />
-          <RootStack.Screen name="LocationList" component={LocationListScreen} />
-        </>
-      ) : (
-        <RootStack.Screen name="Auth" component={AuthNavigator} />
-      )}
+      <RootStack.Screen name="Auth" component={AuthNavigator} />
     </RootStack.Navigator>
   );
 };
 
-// Main Navigation Component remains unchanged
+// Main Navigation Component
 const Navigation = () => (
   <NavigationContainer
     ref={
