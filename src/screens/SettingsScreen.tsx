@@ -20,7 +20,7 @@ interface SettingsScreenProps {
 }
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
-  const { userInfo, logout, deleteAccount } = useContext<AuthContextType>(AuthContext);
+  const { userInfo, logout, deleteAccount, isAdmin } = useContext<AuthContextType>(AuthContext);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const confirmDeleteAccount = () => {
@@ -57,8 +57,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       setIsDeleting(false);
     }
   };
-
   return (
+
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
       <LinearGradient colors={['#4A90E2', '#357ABD']} style={styles.gradientBackground}>
@@ -74,17 +74,51 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
         </View>
         
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          {/* Admin Section - Only visible to admins */}
+          {isAdmin && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Admin Settings</Text>
+              
+              <View style={styles.menuItem}>
+                <Icon name="verified-user" size={24} color="#4CAF50" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Admin Status</Text>
+                <View style={styles.adminBadge}>
+                  <Icon name="verified-user" size={16} color="#fff" />
+                  <Text style={styles.adminBadgeText}>Admin</Text>
+                </View>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => navigation.navigate('Dashboard')}
+              >
+                <Icon name="dashboard" size={24} color="#4A90E2" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Admin Dashboard</Text>
+                <Icon name="chevron-right" size={24} color="#ccc" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => Alert.alert('Feature Coming Soon', 'User management will be available in the next update.')}
+              >
+                <Icon name="people" size={24} color="#4A90E2" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Manage Users</Text>
+                <Icon name="chevron-right" size={24} color="#ccc" />
+              </TouchableOpacity>
+            </View>
+          )}
+          
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account</Text>
             
             <TouchableOpacity 
-  style={styles.menuItem}
-  onPress={() => navigation.navigate('ChangePassword')} // Change this from 'ForgotPassword' to 'ChangePassword'
->
-  <Icon name="lock" size={24} color="#4A90E2" style={styles.menuIcon} />
-  <Text style={styles.menuText}>Change Password</Text>
-  <Icon name="chevron-right" size={24} color="#ccc" />
-</TouchableOpacity>
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ChangePassword')}
+            >
+              <Icon name="lock" size={24} color="#4A90E2" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Change Password</Text>
+              <Icon name="chevron-right" size={24} color="#ccc" />
+            </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.dangerMenuItem}
@@ -107,13 +141,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
             <Text style={styles.sectionTitle}>App</Text>
             
             <TouchableOpacity 
-  style={styles.menuItem}
-  onPress={() => navigation.navigate('About')} // Add this onPress handler
->
-  <Icon name="info" size={24} color="#4A90E2" style={styles.menuIcon} />
-  <Text style={styles.menuText}>About ENACT</Text>
-  <Icon name="chevron-right" size={24} color="#ccc" />
-</TouchableOpacity>
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('About')}
+            >
+              <Icon name="info" size={24} color="#4A90E2" style={styles.menuIcon} />
+              <Text style={styles.menuText}>About ENACT</Text>
+              <Icon name="chevron-right" size={24} color="#ccc" />
+            </TouchableOpacity>
+            
             <TouchableOpacity 
               style={styles.menuItem}
               onPress={() => logout()}
@@ -221,6 +256,20 @@ const styles = StyleSheet.create({
   versionText: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 14,
+  },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+  },
+  adminBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 5,
   },
 });
 

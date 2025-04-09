@@ -9,6 +9,7 @@ export interface UserInfo {
   refresh_token?: string;
   number_of_children?: number;
   children?: number[];
+  isAdmin?: boolean;
 }
 
 export interface AuthContextType {
@@ -16,6 +17,7 @@ export interface AuthContextType {
   userInfo: UserInfo;
   splashLoading: boolean;
   aiTips: boolean;
+  isAdmin: boolean;
   register: (
     name: string, 
     email: string, 
@@ -42,6 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(false);
   const [splashLoading, setSplashLoading] = useState(false);
   const [aiTips, setAITips] = useState<boolean>(false);
+  const isAdmin = Boolean(userInfo?.isAdmin);
 
   // Create axios instance with interceptors
   const axiosInstance = axios.create({
@@ -266,6 +269,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteAccount, // Added deleteAccount function to the context
         aiTips,
         setAITips,
+        isAdmin,
       }}
     >
       {children}

@@ -26,7 +26,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Loader from './Loader';
 import ChildInfoModal from '../ChildInfoModal';
 import {AuthContext, AuthContextType} from '../../context/AuthContext';
-
+import DashboardScreen from './DashboardScreen';
+const { userInfo, isLoading: contextLoading, isAdmin } = useContext<AuthContextType>(AuthContext);
 interface Child {
   id: number;
   nickname?: string;
@@ -444,7 +445,10 @@ const MainScreen: React.FC = () => {
       </LinearGradient>
     </View>
   );
-
+  const navigateToDashboard = () => {
+    // @ts-ignore
+    navigation.navigate('Dashboard');
+  };
   const getTips = async (query = searchText) => {
     if (!query.trim()) {
       Alert.alert(
@@ -642,6 +646,20 @@ const MainScreen: React.FC = () => {
     <Text style={styles.settingsButtonText}>Settings</Text>
   </TouchableOpacity>
 
+  {/* Only show Dashboard button for admin users */}
+  {isAdmin && (
+    <TouchableOpacity
+      style={styles.dashboardButton}
+      onPress={navigateToDashboard}>
+      <Icon
+        name="dashboard"
+        size={20}
+        color="white"
+        style={styles.buttonIcon}
+      />
+      <Text style={styles.dashboardButtonText}>Dashboard</Text>
+    </TouchableOpacity>
+  )}
 </View>
 
         {userInfo.access_token ? (
@@ -838,6 +856,25 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: 16,
     color: '#666',
+  },
+  dashboardButton: {
+    flex: 1,
+    backgroundColor: '#8E44AD', // Purple color for dashboard
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  dashboardButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   audioButtonsContainer: {
     flexDirection: 'row',

@@ -14,7 +14,7 @@ import {AuthContext, AuthContextType} from '../context/AuthContext';
 import {navigationRef} from '../ref/NavigationRef';
 import RemoteNotification from '../components/RemoteNotification';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
-
+import DashboardScreen from '../screens/Assistant/DashboardScreen'
 // Screens
 import SplashScreen from '../screens/SplashScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -45,6 +45,7 @@ export type RootStackParamList = {
   };
   Settings: undefined;
   ChangePassword: undefined;
+  Dashboard: undefined;
 };
 
 type AuthStackParamList = {
@@ -88,6 +89,7 @@ const linking: LinkingOptions<RootStackParamList> = {
       Settings: 'settings',
       About: 'about',
       ChangePassword: 'change-password',
+      Dashboard: 'dashboard',
     },
   },
 };
@@ -161,12 +163,12 @@ const AuthNavigator = () => (
 
 // Root Navigator - Split the rendering logic to avoid whitespace issues
 const RootNavigator = () => {
-  const {userInfo, splashLoading} = useContext<AuthContextType>(AuthContext);
+  const {userInfo, splashLoading, isAdmin} = useContext<AuthContextType>(AuthContext);
 
   // Render different navigator configurations based on app state
   if (splashLoading) {
     return (
-      <RootStack.Navigator screenOptions={{headerShown: false}}>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Splash" component={SplashScreen} />
       </RootStack.Navigator>
     );
@@ -174,18 +176,22 @@ const RootNavigator = () => {
 
   if (userInfo.access_token) {
     return (
-      <RootStack.Navigator screenOptions={{headerShown: false}}>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={TabNavigator} />
         <RootStack.Screen name="LocationList" component={LocationListScreen} />
         <RootStack.Screen name="Settings" component={SettingsScreen} />
         <RootStack.Screen name="About" component={AboutScreen} />
         <RootStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+        {/* Only include Dashboard in routes if user is admin */}
+        {isAdmin && (
+          <RootStack.Screen name="Dashboard" component={DashboardScreen} />
+        )}
       </RootStack.Navigator>
     );
   }
 
   return (
-    <RootStack.Navigator screenOptions={{headerShown: false}}>
+    <RootStack.Navigator screenOptions={{ headerShown: false }}>
       <RootStack.Screen name="Auth" component={AuthNavigator} />
     </RootStack.Navigator>
   );
