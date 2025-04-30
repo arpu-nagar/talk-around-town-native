@@ -28,6 +28,7 @@ import SettingsScreen from '../screens/SettingsScreen'; // Import SettingsScreen
 import {Location} from 'react-native-get-location';
 import AboutScreen from '../screens/AboutScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import ReminderSettingsScreen from '../screens/ReminderSettingsScreen';
 
 // Types
 export type RootStackParamList = {
@@ -46,6 +47,7 @@ export type RootStackParamList = {
   Settings: undefined;
   ChangePassword: undefined;
   Dashboard: undefined;
+  ReminderSettings: undefined;
 };
 
 type AuthStackParamList = {
@@ -182,6 +184,14 @@ const RootNavigator = () => {
         <RootStack.Screen name="Settings" component={SettingsScreen} />
         <RootStack.Screen name="About" component={AboutScreen} />
         <RootStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+        {/* <RootStack.Screen name="ReminderSettings" component={ReminderSettingsScreen} /> */}
+        <RootStack.Screen 
+  name="ReminderSettings" 
+  component={ReminderSettingsScreen} 
+  options={{ 
+    headerShown: false
+  }} 
+/>
         {/* Only include Dashboard in routes if user is admin */}
         {isAdmin && (
           <RootStack.Screen name="Dashboard" component={DashboardScreen} />

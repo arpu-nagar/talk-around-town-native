@@ -44,6 +44,17 @@ PushNotification.createChannel(
   created => console.log(`Main channel created: ${created}`),
 );
 
+PushNotification.createChannel(
+  {
+    channelId: 'app-reminders',
+    channelName: 'App Reminders',
+    channelDescription: 'Reminders to open the app',
+    importance: 4,
+    vibrate: true,
+  },
+  created => console.log(`Reminders channel created: ${created}`),
+);
+
 // Navigation helper function
 const navigateToNotification = (title, message, data) => {
   if (navigationRef.current) {

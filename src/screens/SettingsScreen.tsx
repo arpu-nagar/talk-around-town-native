@@ -14,6 +14,7 @@ import { AuthContext, AuthContextType } from '../context/AuthContext';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { NavigationProp } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface SettingsScreenProps {
   navigation: NavigationProp<any>;
@@ -38,7 +39,23 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       { cancelable: true }
     );
   };
-
+  const debugStorage = async () => {
+    try {
+      const generalSetting = await AsyncStorage.getItem('generalRemindersEnabled');
+      const specificSetting = await AsyncStorage.getItem('specificReminders');
+      
+      console.log('General reminders enabled:', generalSetting);
+      console.log('Specific reminders:', specificSetting);
+      
+      Alert.alert(
+        'Stored Reminders',
+        `General: ${generalSetting}\n\nSpecific: ${JSON.stringify(JSON.parse(specificSetting || '{}'), null, 2)}`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error reading storage:', error);
+    }
+  };
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
@@ -135,7 +152,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
                 <Icon name="chevron-right" size={24} color="#FF3B30" />
               )}
             </TouchableOpacity>
+
           </View>
+      
+  
+  
           
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>App</Text>
@@ -148,7 +169,20 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               <Text style={styles.menuText}>About ENACT</Text>
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
-            
+            <TouchableOpacity 
+    style={styles.menuItem}
+    onPress={() => navigation.navigate('ReminderSettings')}
+  >
+    <Icon name="notifications" size={24} color="#4A90E2" style={styles.menuIcon} />
+    <Text style={styles.menuText}>Reminder Settings</Text>
+    <Icon name="chevron-right" size={24} color="#ccc" />
+    {/* <TouchableOpacity 
+  style={styles.debugButton}
+  onPress={debugStorage}
+>
+  <Text style={styles.debugButtonText}>Debug Storage</Text>
+</TouchableOpacity> */}
+  </TouchableOpacity>
             <TouchableOpacity 
               style={styles.menuItem}
               onPress={() => logout()}
@@ -270,6 +304,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     marginLeft: 5,
+  },
+  debugButton: {
+    backgroundColor: '#4A90E2',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  debugButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

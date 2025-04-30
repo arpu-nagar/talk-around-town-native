@@ -27,7 +27,6 @@ import Loader from './Loader';
 import ChildInfoModal from '../ChildInfoModal';
 import {AuthContext, AuthContextType} from '../../context/AuthContext';
 import DashboardScreen from './DashboardScreen';
-const { userInfo, isLoading: contextLoading, isAdmin } = useContext<AuthContextType>(AuthContext);
 interface Child {
   id: number;
   nickname?: string;
@@ -201,9 +200,9 @@ const MainScreen: React.FC = () => {
   const [showAgePrompt, setShowAgePrompt] = useState(false);
   const [lastQuery, setLastQuery] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
-  const {userInfo, isLoading: contextLoading} =
-    useContext<AuthContextType>(AuthContext);
-
+  // const {userInfo, isLoading: contextLoading} =
+  //   useContext<AuthContextType>(AuthContext);
+    const { userInfo, isLoading: contextLoading, isAdmin } = useContext<AuthContextType>(AuthContext);
   const currentSound = useRef<Sound | null>(null);
   const lastResult = useRef<string>('');
   const [showChildInfo, setShowChildInfo] = useState(false);
@@ -445,10 +444,10 @@ const MainScreen: React.FC = () => {
       </LinearGradient>
     </View>
   );
-  const navigateToDashboard = () => {
-    // @ts-ignore
-    navigation.navigate('Dashboard');
-  };
+  // const navigateToDashboard = () => {
+  //   // @ts-ignore
+  //   navigation.navigate('Dashboard');
+  // };
   const getTips = async (query = searchText) => {
     if (!query.trim()) {
       Alert.alert(
@@ -647,19 +646,6 @@ const MainScreen: React.FC = () => {
   </TouchableOpacity>
 
   {/* Only show Dashboard button for admin users */}
-  {isAdmin && (
-    <TouchableOpacity
-      style={styles.dashboardButton}
-      onPress={navigateToDashboard}>
-      <Icon
-        name="dashboard"
-        size={20}
-        color="white"
-        style={styles.buttonIcon}
-      />
-      <Text style={styles.dashboardButtonText}>Dashboard</Text>
-    </TouchableOpacity>
-  )}
 </View>
 
         {userInfo.access_token ? (

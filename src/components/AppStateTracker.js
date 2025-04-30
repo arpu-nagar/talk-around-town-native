@@ -8,7 +8,7 @@ const AppStateTracker = () => {
   const [sessionId, setSessionId] = useState(null);
   const { userInfo } = useContext(AuthContext);
   
-  const API_URL = 'http://68.183.102.75:1337'; // or your local URL when testing
+  const API_URL = 'http://68.183.102.75:1337'; 
   
   // Run this effect when userInfo changes (user logs in or out)
   useEffect(() => {
