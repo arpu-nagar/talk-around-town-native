@@ -10,6 +10,28 @@ import { navigationRef } from './src/ref/NavigationRef';
 import {Platform} from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 
+messaging().setBackgroundMessageHandler(async remoteMessage => {
+  console.log('Background message received:', remoteMessage);
+  
+  // Create a local notification from the background message
+  PushNotification.localNotification({
+    channelId: 'location-tips',
+    title: remoteMessage.data?.title || remoteMessage.notification?.title || 'New notification',
+    message: remoteMessage.data?.message || remoteMessage.notification?.body || 'You have a new notification',
+    userInfo: remoteMessage.data || {},
+    playSound: true,
+    soundName: 'default',
+    importance: 'high',
+    priority: 'high',
+    data: {
+      ...remoteMessage.data,
+      navigateOnClick: true,
+    }
+  });
+  
+  return Promise.resolve();
+});
+
 // Clear existing channels and create main channel
 if (Platform.OS === 'ios') {
   messaging().onMessage(async remoteMessage => {
@@ -56,28 +78,73 @@ PushNotification.createChannel(
 );
 
 // Navigation helper function
-const navigateToNotification = (title, message, data) => {
-  if (navigationRef.current) {
-    // First ensure we're in the Main navigator
-    if (navigationRef.current.getCurrentRoute()?.name !== 'Main') {
-      navigationRef.current.navigate('Main');
-    }
+// const navigateToNotification = (title, message, data) => {
+//   if (navigationRef.current) {
+//     // First ensure we're in the Main navigator
+//     if (navigationRef.current.getCurrentRoute()?.name !== 'Main') {
+//       navigationRef.current.navigate('Main');
+//     }
     
-    // Then navigate to the appropriate tab
-    // You can modify this to navigate to specific screens based on notification type
-    navigationRef.current.navigate('Main', {
-      screen: 'Home',
-      params: {
-        notificationData: {
-          title,
-          message,
-          ...data
-        }
+//     // Then navigate to the appropriate tab
+//     // You can modify this to navigate to specific screens based on notification type
+//     navigationRef.current.navigate('Main', {
+//       screen: 'Home',
+//       params: {
+//         notificationData: {
+//           title,
+//           message,
+//           ...data
+//         }
+//       }
+//     });
+//   }
+// };
+const navigateToNotification = (title, message, data) => {
+  console.log('Attempting to navigate with:', { title, message, data });
+  
+  // Add a small delay to ensure navigation is ready
+  setTimeout(() => {
+    if (navigationRef.current) {
+      console.log('Navigation ref is available');
+      
+      // First ensure we're in the Main navigator
+      if (navigationRef.current.getCurrentRoute()?.name !== 'Main') {
+        console.log('Navigating to Main first');
+        navigationRef.current.navigate('Main');
+        
+        // Add a small delay before navigating to the specific screen
+        setTimeout(() => {
+          console.log('Now navigating to Tips screen with notification data');
+          navigationRef.current.navigate('Main', {
+            screen: 'Tips', // Changed from 'Home' to 'Tips'
+            params: {
+              notificationData: {
+                title,
+                message,
+                ...data
+              }
+            }
+          });
+        }, 100);
+      } else {
+        // Already in Main, navigate directly
+        console.log('Already in Main, navigating to Tips');
+        navigationRef.current.navigate('Main', {
+          screen: 'Tips', // Changed from 'Home' to 'Tips'
+          params: {
+            notificationData: {
+              title,
+              message,
+              ...data
+            }
+          }
+        });
       }
-    });
-  }
+    } else {
+      console.log('Navigation ref not available');
+    }
+  }, 100);
 };
-
 PushNotification.configure({
   onRegister: function (token) {
     console.log('TOKEN:', token);

@@ -29,6 +29,7 @@ import {Location} from 'react-native-get-location';
 import AboutScreen from '../screens/AboutScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import ReminderSettingsScreen from '../screens/ReminderSettingsScreen';
+import Tips from '../screens/TipsScreen';
 
 // Types
 export type RootStackParamList = {
@@ -66,6 +67,8 @@ interface LocationListProps {
 type MainTabParamList = {
   Home: undefined;
   Assistant: undefined;
+  Tips: undefined;
+  Settings: undefined;
 };
 
 // Linking configuration
@@ -144,6 +147,8 @@ const TabNavigator = () => (
       })}>
       <MainTab.Screen name="Home" component={MainScreen} />
       <MainTab.Screen name="Assistant" component={AssistantScreen} />
+      <MainTab.Screen name="Tips" component={Tips} />
+      <MainTab.Screen name="Settings" component={SettingsScreen} />
     </MainTab.Navigator>
   </ScreenWithNotification>
 );

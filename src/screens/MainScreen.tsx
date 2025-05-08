@@ -14,6 +14,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   KeyboardAvoidingView,
+  AppState,
 } from 'react-native';
 import MapView, {
   PROVIDER_GOOGLE,
@@ -23,7 +24,11 @@ import MapView, {
 } from 'react-native-maps';
 import {Dropdown} from 'react-native-element-dropdown';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import Geolocation from '@react-native-community/geolocation';
+// import Geolocation from '@react-native-community/geolocation';
+import Geolocation, { 
+  GeolocationResponse, 
+  GeolocationError 
+} from '@react-native-community/geolocation';
 import {
   GooglePlacesAutocomplete,
   GooglePlacesAutocompleteRef,
@@ -97,9 +102,14 @@ const App: React.FC<Props> = ({navigation}) => {
     {label: "Other's Home", value: "Other's Home"},
   ];
 
-  const fetchCurrentLocation = () => {
+  const fetchCurrentLocation = (fromBackground = false) => {
+    // Increase timeout when resuming from background
+    const timeoutValue = fromBackground ? 60000 : 15000; 
+    
+    console.log(`Fetching location with timeout: ${timeoutValue}ms, fromBackground: ${fromBackground}`);
+    
     Geolocation.getCurrentPosition(
-      position => {
+      (position: GeolocationResponse) => {
         const {latitude, longitude} = position.coords;
         const newLocation = {
           latitude,
@@ -109,14 +119,65 @@ const App: React.FC<Props> = ({navigation}) => {
         };
         setLocation(newLocation);
         setLoading(false);
-        console.log('Current location set:', newLocation);
+        console.log('Current location set successfully:', newLocation);
       },
-      error => {
-        console.error('Error getting current position:', error);
-        // Alert.alert('Error', 'Unable to fetch current location');
-        setLoading(false);
+      (error: GeolocationError) => {
+        console.error(`Error getting location (background: ${fromBackground}):`, error);
+        
+        // If we're resuming from background, try again with a shorter timeout as fallback
+        if (fromBackground) {
+          console.log('Retrying location fetch with shorter timeout...');
+          setTimeout(() => {
+            Geolocation.getCurrentPosition(
+              (position: GeolocationResponse) => {
+                const {latitude, longitude} = position.coords;
+                setLocation({
+                  latitude,
+                  longitude,
+                  latitudeDelta: 0.015,
+                  longitudeDelta: 0.0121,
+                });
+                setLoading(false);
+                console.log('Location obtained on retry');
+              },
+              (retryError: GeolocationError) => {
+                console.error('Retry also failed:', retryError);
+                // Only show alert if app is active
+                if (AppState.currentState === 'active') {
+                  Alert.alert(
+                    'Location Error',
+                    'Unable to get your location. Please check your GPS settings and try again.',
+                    [
+                      {
+                        text: 'Try Again',
+                        onPress: () => fetchCurrentLocation(false)
+                      },
+                      {
+                        text: 'OK',
+                        style: 'cancel'
+                      }
+                    ]
+                  );
+                }
+                setLoading(false);
+              },
+              {enableHighAccuracy: false, timeout: 10000, maximumAge: 60000}
+            );
+          }, 1000);
+        } else {
+          // Not from background, just show error and set loading false
+          if (AppState.currentState === 'active') {
+            Alert.alert('Location Services Error', 'Please check your GPS settings.');
+          }
+          setLoading(false);
+        }
       },
-      {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
+      {
+        enableHighAccuracy: true, 
+        timeout: timeoutValue, 
+        // Don't use cached location when resuming from background
+        maximumAge: fromBackground ? 0 : 10000
+      }
     );
   };
 
@@ -364,6 +425,78 @@ const App: React.FC<Props> = ({navigation}) => {
       setSelectedOption(null);
     }
   };
+  // const fetchLocationAndSendData = async () => {
+  //   if (Platform.OS === 'android') {
+  //     const granted = await PermissionsAndroid.request(
+  //       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+  //       {
+  //         title: 'Location Permission',
+  //         message: 'This app needs access to your location.',
+  //         buttonNeutral: 'Ask Me Later',
+  //         buttonNegative: 'Cancel',
+  //         buttonPositive: 'OK',
+  //       },
+  //     );
+  //     const backgroundGranted = await PermissionsAndroid.request(
+  //       PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+  //       {
+  //         title: 'Background Location Permission',
+  //         message: 'This app needs access to your location in the background',
+  //         buttonNeutral: 'Ask Me Later',
+  //         buttonNegative: 'Cancel',
+  //         buttonPositive: 'OK',
+  //       },
+  //     );
+  //     if (backgroundGranted === PermissionsAndroid.RESULTS.GRANTED) {
+  //       console.log('Background location permission granted');
+  //     } else {
+  //       console.log('Background location permission denied');
+  //     }
+  //     if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+  //       Alert.alert('Location permission denied');
+  //       return;
+  //     }
+  //   }
+  //   Geolocation.getCurrentPosition(
+  //     async position => {
+  //       // console.log(position);
+  //       const {latitude, longitude} = position.coords;
+  //       console.log(latitude, longitude);
+  //       setLocation({
+  //         latitude,
+  //         longitude,
+  //         latitudeDelta: 0.015,
+  //         longitudeDelta: 0.0121,
+  //       });
+
+  //       if (loading) setLoading(false);
+  //       // Now send the location data to your server
+  //       try {
+  //         const response = await fetchWithAuth('http://68.183.102.75:1337/endpoint', {
+  //           method: 'POST',
+  //           headers: {
+  //             Accept: 'application/json',
+  //             'Content-Type': 'application/json',
+  //             Authorization: `Bearer ${userInfo.access_token}`,
+  //           },
+  //           body: JSON.stringify({
+  //             latitude,
+  //             longitude,
+  //           }),
+  //         });
+  //         // const jsonResponse = await response.json();
+  //         console.log('Data sent to server:', response.status);
+  //       } catch (error) {
+  //         console.error('Error sending location data:', error);
+  //       }
+  //     },
+  //     error => {
+  //       Alert.alert('Error', 'Unable to fetch location');
+  //       console.log(error);
+  //     },
+  //     {enableHighAccuracy: true, timeout: 60000, maximumAge: 0},
+  //   );
+  // };
   const fetchLocationAndSendData = async () => {
     if (Platform.OS === 'android') {
       const granted = await PermissionsAndroid.request(
@@ -396,52 +529,82 @@ const App: React.FC<Props> = ({navigation}) => {
         return;
       }
     }
-    Geolocation.getCurrentPosition(
-      async position => {
-        // console.log(position);
-        const {latitude, longitude} = position.coords;
-        console.log(latitude, longitude);
-        setLocation({
-          latitude,
-          longitude,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.0121,
+  
+    const getCurrentPositionPromise = (): Promise<GeolocationResponse> => {
+      return new Promise((resolve, reject) => {
+        const isFromBackground = AppState.currentState !== 'active';
+        const timeoutValue = isFromBackground ? 60000 : 15000;
+        
+        Geolocation.getCurrentPosition(
+          (position: GeolocationResponse) => resolve(position),
+          (error: GeolocationError) => reject(error),
+          {
+            enableHighAccuracy: true,
+            timeout: timeoutValue,
+            maximumAge: isFromBackground ? 0 : 10000
+          }
+        );
+      });
+    };
+  
+    try {
+      const position = await getCurrentPositionPromise();
+      const {latitude, longitude} = position.coords;
+      
+      // Update the UI
+      setLocation({
+        latitude,
+        longitude,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.0121,
+      });
+      
+      if (loading) setLoading(false);
+      
+      // Now send the location data to your server
+      try {
+        const response = await fetchWithAuth('http://68.183.102.75:1337/endpoint', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
+          body: JSON.stringify({
+            latitude,
+            longitude,
+          }),
         });
-
-        if (loading) setLoading(false);
-        // Now send the location data to your server
-        try {
-          const response = await fetchWithAuth('http://68.183.102.75:1337/endpoint', {
-            method: 'POST',
-            headers: {
-              Accept: 'application/json',
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${userInfo.access_token}`,
-            },
-            body: JSON.stringify({
-              latitude,
-              longitude,
-            }),
-          });
-          // const jsonResponse = await response.json();
-          console.log('Data sent to server:', response.status);
-        } catch (error) {
-          console.error('Error sending location data:', error);
-        }
-      },
-      error => {
+        console.log('Data sent to server:', response.status);
+      } catch (error) {
+        console.error('Error sending location data:', error);
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      
+      // Only show alert if app is active
+      if (AppState.currentState === 'active') {
         Alert.alert('Error', 'Unable to fetch location');
-        console.log(error);
-      },
-      {enableHighAccuracy: true, timeout: 60000, maximumAge: 0},
-    );
+      }
+    }
   };
-
   useEffect(() => {
+    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
+      console.log('App state changed to:', nextAppState);
+      
+      if (nextAppState === 'active') {
+        console.log('App is now active - refreshing location');
+        // When app comes to foreground, fetch location with the background flag
+        fetchCurrentLocation(true);
+      }
+    });
     fetchLocations();
     console.log('fetchLocations called');
     const intervalId = setInterval(fetchLocationAndSendData, 30000);
-    return () => clearInterval(intervalId);
+    return () => {
+      appStateSubscription.remove();
+      clearInterval(intervalId);
+    };
   }, []);
 
   if (loading) {

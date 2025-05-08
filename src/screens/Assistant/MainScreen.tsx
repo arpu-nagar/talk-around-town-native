@@ -621,7 +621,7 @@ const MainScreen: React.FC = () => {
         </ScrollView>
 
         <View style={styles.bottomButtonContainer}>
-  <TouchableOpacity
+  {/* <TouchableOpacity
     style={styles.childInfoButton}
     onPress={() => setShowChildInfo(true)}>
     <Icon
@@ -631,9 +631,9 @@ const MainScreen: React.FC = () => {
       style={styles.buttonIcon}
     />
     <Text style={styles.childInfoButtonText}>Children Information</Text>
-  </TouchableOpacity>
+  </TouchableOpacity> */}
   
-  <TouchableOpacity
+  {/* <TouchableOpacity
     style={styles.settingsButton}
     onPress={navigateToSettings}>
     <Icon
@@ -643,7 +643,7 @@ const MainScreen: React.FC = () => {
       style={styles.buttonIcon}
     />
     <Text style={styles.settingsButtonText}>Settings</Text>
-  </TouchableOpacity>
+  </TouchableOpacity> */}
 
   {/* Only show Dashboard button for admin users */}
 </View>
