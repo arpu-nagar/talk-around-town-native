@@ -201,12 +201,12 @@ const TipsScreen = () => {
             <Text style={styles.tipTitle}>{tipData.title}</Text>
             <Text style={styles.tipMessage}>{tipData.message}</Text>
             
-            {tipData.tipDetail && (
+            {/* {tipData.tipDetail && (
               <View style={styles.tipDetailContainer}>
                 <Text style={styles.tipDetailHeading}>More Information</Text>
                 <Text style={styles.tipDetail}>{tipData.tipDetail}</Text>
               </View>
-            )}
+            )} */}
             
             <View style={styles.actionButtons}>
               <TouchableOpacity style={styles.actionButton}>

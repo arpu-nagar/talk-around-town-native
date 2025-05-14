@@ -113,6 +113,11 @@ const getIconName = (routeName: string, focused: boolean): string => {
       return focused ? 'chatbubbles' : 'chatbubbles-outline';
     case 'LocationList':
       return focused ? 'list' : 'list-outline';
+      case 'Tips':
+        return focused ? 'bulb' : 'bulb-outline';  // Add this for Tips
+      case 'Settings':
+        return focused ? 'settings' : 'settings-outline';  // Add this for Settings
+      case 'LocationList':
     default:
       return 'alert-circle';
   }
