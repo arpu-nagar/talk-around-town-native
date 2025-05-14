@@ -14,7 +14,7 @@ import {AuthContext, AuthContextType} from '../context/AuthContext';
 import {navigationRef} from '../ref/NavigationRef';
 import RemoteNotification from '../components/RemoteNotification';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
-import DashboardScreen from '../screens/Assistant/DashboardScreen'
+import DashboardScreen from '../screens/Assistant/DashboardScreen';
 // Screens
 import SplashScreen from '../screens/SplashScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -30,6 +30,7 @@ import AboutScreen from '../screens/AboutScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import ReminderSettingsScreen from '../screens/ReminderSettingsScreen';
 import Tips from '../screens/TipsScreen';
+import ContentSelectionScreen from '../ContentSelectionScreen';
 
 // Types
 export type RootStackParamList = {
@@ -39,16 +40,18 @@ export type RootStackParamList = {
   Main: undefined;
   LocationList: {
     locations: Location[];
-    details: {
+    details: Array<{
+      id: number;  // Added the id field to match LocationListScreen component
       title: string;
       description: string;
       pinColor: string;
-    }[];
+    }>;
   };
   Settings: undefined;
   ChangePassword: undefined;
   Dashboard: undefined;
   ReminderSettings: undefined;
+  ContentSelection: undefined;
 };
 
 type AuthStackParamList = {
@@ -57,12 +60,6 @@ type AuthStackParamList = {
   ForgotPassword: undefined;
   ResetPassword: {token: string};
 };
-
-interface LocationListProps {
-  locations: any;
-  details: any;
-  navigation: any;
-}
 
 type MainTabParamList = {
   Home: undefined;
@@ -113,11 +110,10 @@ const getIconName = (routeName: string, focused: boolean): string => {
       return focused ? 'chatbubbles' : 'chatbubbles-outline';
     case 'LocationList':
       return focused ? 'list' : 'list-outline';
-      case 'Tips':
-        return focused ? 'bulb' : 'bulb-outline';  // Add this for Tips
-      case 'Settings':
-        return focused ? 'settings' : 'settings-outline';  // Add this for Settings
-      case 'LocationList':
+    case 'Tips':
+      return focused ? 'bulb' : 'bulb-outline';  // Add this for Tips
+    case 'Settings':
+      return focused ? 'settings' : 'settings-outline';  // Add this for Settings
     default:
       return 'alert-circle';
   }
@@ -194,14 +190,12 @@ const RootNavigator = () => {
         <RootStack.Screen name="Settings" component={SettingsScreen} />
         <RootStack.Screen name="About" component={AboutScreen} />
         <RootStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-        {/* <RootStack.Screen name="ReminderSettings" component={ReminderSettingsScreen} /> */}
+        <RootStack.Screen name="ContentSelection" component={ContentSelectionScreen} />
         <RootStack.Screen 
-  name="ReminderSettings" 
-  component={ReminderSettingsScreen} 
-  options={{ 
-    headerShown: false
-  }} 
-/>
+          name="ReminderSettings" 
+          component={ReminderSettingsScreen} 
+          options={{ headerShown: false }}
+        />
         {/* Only include Dashboard in routes if user is admin */}
         {isAdmin && (
           <RootStack.Screen name="Dashboard" component={DashboardScreen} />

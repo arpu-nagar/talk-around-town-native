@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { Location } from 'react-native-get-location';
 import { AuthContext } from '../context/AuthContext';
 import { fetchWithAuth } from '../api/auth';
@@ -22,6 +23,7 @@ type RootStackParamList = {
   LocationList: {
     locations: Location[];
     details: Array<{
+      id: number;  // Make sure this is defined as number, not string
       title: string;
       description: string;
       pinColor: string;
@@ -38,12 +40,61 @@ const LocationListScreen: React.FC<LocationListScreenProps> = ({
   route,
   navigation,
 }) => {
-  const { locations, details } = route.params;
-  const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
-  const [locationsList, setLocationsList] = useState(locations);
-  const [locationDetails, setLocationDetails] = useState(details);
-  const [loading, setLoading] = useState(false);
   const { userInfo } = useContext(AuthContext);
+  const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
+  const [locationsList, setLocationsList] = useState(route.params?.locations || []);
+  const [locationDetails, setLocationDetails] = useState(route.params?.details || []);
+  const [loading, setLoading] = useState(false);
+  
+  console.log('Initial details from params:', route.params?.details);
+  
+  // Function to fetch locations
+  const fetchLocations = async () => {
+    try {
+      setLoading(true);
+      
+      console.log('Fetching locations...');
+      
+      const response = await fetchWithAuth(
+        'http://68.183.102.75:1337/endpoint/locations',
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo.access_token}`,
+          }
+        }
+      );
+      
+      if (response.status === 200) {
+        const data = await response.json();
+        console.log('Locations response:', data);
+        
+        // Check if ids are included in details
+        if (data.details && data.details.length > 0) {
+          console.log('First location ID:', data.details[0].id);
+        }
+        
+        setLocationsList(data.locations);
+        setLocationDetails(data.details);
+      } else {
+        console.error('Error fetching locations:', response.status);
+      }
+    } catch (error) {
+      console.error('Exception fetching locations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Refresh locations when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchLocations();
+      return () => {};
+    }, [userInfo])
+  );
   
   const initialRegion = locationsList.length > 0 ? {
     latitude: locationsList[0].latitude,
@@ -68,8 +119,21 @@ const LocationListScreen: React.FC<LocationListScreenProps> = ({
     try {
       setLoading(true);
       
-      // Get the location to delete
-      const locationToDelete = locationsList[index];
+      // Get the ID from locationDetails
+      const locationId = locationDetails[index]?.id;
+      
+      console.log('Attempting to delete location:', {
+        index,
+        locationDetail: locationDetails[index],
+        locationId,
+      });
+      
+      // Check if ID exists
+      if (locationId === undefined) {
+        Alert.alert('Error', 'Cannot delete: Missing location ID');
+        setLoading(false);
+        return;
+      }
       
       // Make the API call to delete the location
       const response = await fetchWithAuth(
@@ -82,13 +146,22 @@ const LocationListScreen: React.FC<LocationListScreenProps> = ({
             Authorization: `Bearer ${userInfo.access_token}`,
           },
           body: JSON.stringify({
-            latitude: locationToDelete.latitude,
-            longitude: locationToDelete.longitude,
+            id: locationId
           }),
         },
       );
       
-      // Check response status and handle accordingly
+      console.log('Delete response status:', response.status);
+      
+      let responseData = null;
+      try {
+        responseData = await response.json();
+        console.log('Delete response data:', responseData);
+      } catch (e) {
+        console.error('Could not parse response JSON:', e);
+      }
+      
+      // Process response and update UI
       if (response.status >= 200 && response.status < 300) {
         // Update local state to remove the deleted location
         const newLocations = [...locationsList];
@@ -107,13 +180,28 @@ const LocationListScreen: React.FC<LocationListScreenProps> = ({
         }
         
         Alert.alert('Success', 'Location deleted successfully');
+        
+        // Refresh the locations list to ensure it's up to date
+        fetchLocations();
       } else {
-        const errorData = await response.json();
-        Alert.alert('Error', errorData.error || 'Failed to delete location');
+        // Construct a more detailed error message
+        let errorMessage = 'Failed to delete location';
+        if (responseData && responseData.error) {
+          errorMessage = `${responseData.error}`;
+          if (responseData.details) {
+            errorMessage += `\n\nDetails: ${responseData.details}`;
+          }
+          if (responseData.code) {
+            errorMessage += `\n\nCode: ${responseData.code}`;
+          }
+        }
+        
+        Alert.alert('Error', errorMessage);
       }
     } catch (error) {
-      console.error('Error deleting location:', error);
-      Alert.alert('Error', 'Failed to delete location. Please try again.');
+      console.error('Exception during deletion:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      Alert.alert('Error', `Failed to delete location: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -139,7 +227,8 @@ const LocationListScreen: React.FC<LocationListScreenProps> = ({
           styles.locationTitle,
           selectedLocation === index && styles.selectedText
         ]}>
-          {locationDetails[index]?.title || `Location ${index + 1}`}
+          {locationDetails[index]?.title || `Location ${index + 1}`} 
+          {/* {locationDetails[index]?.id ? ` (ID: ${locationDetails[index].id})` : ''} */}
         </Text>
         <View style={styles.spacer} />
         <TouchableOpacity
@@ -207,7 +296,7 @@ const LocationListScreen: React.FC<LocationListScreenProps> = ({
           onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#007AFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>All Locations</Text>
+        <Text style={styles.headerTitle}>All Locations ({locationsList.length})</Text>
       </View>
 
       {initialRegion && locationsList.length > 0 ? (
@@ -246,6 +335,7 @@ const LocationListScreen: React.FC<LocationListScreenProps> = ({
     </SafeAreaView>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

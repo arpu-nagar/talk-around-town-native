@@ -358,6 +358,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const [showChildInfo, setShowChildInfo] = useState(false);
   const [childrenInfo, setChildrenInfo] = useState<Child[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedContentAreas, setSelectedContentAreas] = useState<string[]>([]);
 
   const confirmDeleteAccount = () => {
     Alert.alert(
@@ -449,12 +450,24 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       setIsLoading(false);
     }
   };
+  const loadContentPreferences = async () => {
+    try {
+      const preferences = await AsyncStorage.getItem('contentPreferences');
+      if (preferences) {
+        setSelectedContentAreas(JSON.parse(preferences));
+      }
+    } catch (error) {
+      console.error('Error loading content preferences:', error);
+    }
+  };
 
   useEffect(() => {
     if (userInfo?.access_token) {
       fetchChildrenInfo();
     }
+    loadContentPreferences();
   }, [userInfo?.access_token]);
+
   
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -565,7 +578,25 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               <Text style={styles.menuText}>Reminder Settings</Text>
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
-            
+            {/* Content Selection Button */}
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ContentSelection')}
+            >
+              <Icon name="school" size={24} color="#4A90E2" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Content Preferences</Text>
+              <View style={styles.contentPrefsContainer}>
+                {selectedContentAreas.length > 0 ? (
+                  <View style={styles.contentBadge}>
+                    <Text style={styles.contentBadgeText}>
+                      {selectedContentAreas.length} selected
+                    </Text>
+                  </View>
+                ) : (
+                  <Icon name="chevron-right" size={24} color="#ccc" />
+                )}
+              </View>
+            </TouchableOpacity>
             <TouchableOpacity 
               style={styles.menuItem}
               onPress={() => logout()}
@@ -653,6 +684,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 30,
   },
+  contentPrefsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   section: {
     marginBottom: 24,
     backgroundColor: '#fff',
@@ -663,6 +698,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  contentBadge: {
+    backgroundColor: '#4A90E2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  contentBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   sectionTitle: {
     fontSize: 18,
