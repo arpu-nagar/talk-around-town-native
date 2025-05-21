@@ -1,274 +1,67 @@
-import React, {useContext, useEffect, useRef, useState} from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import {
   View,
   StyleSheet,
-  PermissionsAndroid,
-  Platform,
   Alert,
   Text,
   TouchableOpacity,
-  TextInput,
   SafeAreaView,
   StatusBar,
-  Dimensions,
   TouchableWithoutFeedback,
   Keyboard,
   KeyboardAvoidingView,
-  AppState,
+  Platform,
 } from 'react-native';
-import MapView, {
-  PROVIDER_GOOGLE,
-  Marker,
-  Circle,
-  PROVIDER_DEFAULT,
-} from 'react-native-maps';
-import {Dropdown} from 'react-native-element-dropdown';
-import AntDesign from '@expo/vector-icons/AntDesign';
-// import Geolocation from '@react-native-community/geolocation';
-import Geolocation, { 
-  GeolocationResponse, 
-  GeolocationError 
-} from '@react-native-community/geolocation';
-import {
-  GooglePlacesAutocomplete,
-  GooglePlacesAutocompleteRef,
-} from 'react-native-google-places-autocomplete';
-import {Icon} from 'react-native-elements';
+import MapView, { PROVIDER_GOOGLE, Marker, Circle, PROVIDER_DEFAULT } from 'react-native-maps';
+import { useAppStartup } from '../hooks/useAppStartup';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import LinearGradient from 'react-native-linear-gradient';
 import Spinner from 'react-native-loading-spinner-overlay';
-import {AuthContext} from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
+import { fetchWithAuth } from '../api/auth';
 import Notification from '../components/Notification';
-type MainTabParamList = {
-  Home: undefined;
-  Assistant: undefined;
-  LocationList: LocationListProps;
+import { useLocationTracking } from '../hooks/useLocationTracking';
+import { LocationSearchBar } from '../components/LocationSearchBar';
+import { LocationForm } from '../components/LocationForm';
+import { Location, SavedLocation, LocationDetail, LocationFormData, ExtendedUserInfo } from '../types';
+
+const LOCATION_UPDATE_INTERVAL = 60000; // 1 minute
+
+interface Props {
+  navigation: any; // Replace with proper navigation type
+}
+
+// Helper function to get user name from userInfo
+const getUserName = (userInfo: ExtendedUserInfo | null): string => {
+  if (!userInfo) return 'User';
+  
+  // Try different possible name properties
+  if (userInfo.user?.name) return userInfo.user.name;
+  if (userInfo.name) return userInfo.name;
+  if (userInfo.email) {
+    // Fallback to email prefix if no name is available
+    const emailName = userInfo.email.split('@')[0];
+    return emailName.charAt(0).toUpperCase() + emailName.slice(1);
+  }
+  
+  return 'User';
 };
 
-interface LocationListProps {
-  locations: any;
-  details: any;
-  navigation?: any;
-}
-
-// Update the component props interface
-interface Props {
-  navigation: NativeStackNavigationProp<MainTabParamList>;
-}
-import LinearGradient from 'react-native-linear-gradient';
-
-interface Location {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-}
-interface Child {
-  id: number;
-  age: number;
-  nickname?: string;
-  date_of_birth?: string;
-}
-import {useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import { fetchWithAuth } from '../api/auth';
-
-const App: React.FC<Props> = ({navigation}) => {
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [userChildren, setUserChildren] = useState<Child[]>([]);
-
-  const [location, setLocation] = useState<Location | null>();
-  const ref = useRef<GooglePlacesAutocompleteRef>(null);
-  const {userInfo, isLoading, logout} = useContext<any>(AuthContext);
-  // add a loader state variable
-  const [loading, setLoading] = useState<boolean>(true);
-  // const [pinged, SetPinged] = useState<boolean>(false);
+const ImprovedMapScreen: React.FC<Props> = ({ navigation }) => {
+  const { userInfo, logout } = useContext(AuthContext);
+  const { location, isLoading: locationLoading, locationError, retryLocation } = useLocationTracking();
+  
+  const [isLoading, setIsLoading] = useState(false);
   const [newLocation, setNewLocation] = useState<Location | null>(null);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+  const [locationDetails, setLocationDetails] = useState<LocationDetail[]>([]);
+  const { startupComplete, startupError, retryStartup, isNetworkAvailable } = useAppStartup();
 
-  // a state variable for name and description
-  const [name, setName] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const {aiTips, setAITips} = useContext<any>(AuthContext);
-  const [details, setDetails] = useState<
-    Array<{title: string; desription: string; pinColor: string}>
-  >([]);
-  const options = [
-    {label: 'Grocery Store', value: 'Grocery Store'},
-    {label: 'Bus/Walk', value: 'Bus/Walk'},
-    {label: 'Library', value: 'Library'},
-    {label: 'Park', value: 'Park'},
-    {label: 'Restaurant', value: 'Restaurant'},
-    {label: 'Waiting Room', value: 'Waiting Room'},
-    {label: "Other's Home", value: "Other's Home"},
-  ];
-
-  const fetchCurrentLocation = (fromBackground = false) => {
-    // Increase timeout when resuming from background
-    const timeoutValue = fromBackground ? 60000 : 15000; 
-    
-    console.log(`Fetching location with timeout: ${timeoutValue}ms, fromBackground: ${fromBackground}`);
-    
-    Geolocation.getCurrentPosition(
-      (position: GeolocationResponse) => {
-        const {latitude, longitude} = position.coords;
-        const newLocation = {
-          latitude,
-          longitude,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.0121,
-        };
-        setLocation(newLocation);
-        setLoading(false);
-        console.log('Current location set successfully:', newLocation);
-      },
-      (error: GeolocationError) => {
-        console.error(`Error getting location (background: ${fromBackground}):`, error);
-        
-        // If we're resuming from background, try again with a shorter timeout as fallback
-        if (fromBackground) {
-          console.log('Retrying location fetch with shorter timeout...');
-          setTimeout(() => {
-            Geolocation.getCurrentPosition(
-              (position: GeolocationResponse) => {
-                const {latitude, longitude} = position.coords;
-                setLocation({
-                  latitude,
-                  longitude,
-                  latitudeDelta: 0.015,
-                  longitudeDelta: 0.0121,
-                });
-                setLoading(false);
-                console.log('Location obtained on retry');
-              },
-              (retryError: GeolocationError) => {
-                console.error('Retry also failed:', retryError);
-                // Only show alert if app is active
-                if (AppState.currentState === 'active') {
-                  Alert.alert(
-                    'Location Error',
-                    'Unable to get your location. Please check your GPS settings and try again.',
-                    [
-                      {
-                        text: 'Try Again',
-                        onPress: () => fetchCurrentLocation(false)
-                      },
-                      {
-                        text: 'OK',
-                        style: 'cancel'
-                      }
-                    ]
-                  );
-                }
-                setLoading(false);
-              },
-              {enableHighAccuracy: false, timeout: 10000, maximumAge: 60000}
-            );
-          }, 1000);
-        } else {
-          // Not from background, just show error and set loading false
-          if (AppState.currentState === 'active') {
-            Alert.alert('Location Services Error', 'Please check your GPS settings.');
-          }
-          setLoading(false);
-        }
-      },
-      {
-        enableHighAccuracy: true, 
-        timeout: timeoutValue, 
-        // Don't use cached location when resuming from background
-        maximumAge: fromBackground ? 0 : 10000
-      }
-    );
-  };
-
-  const handleUpdateChildren = async (updatedChildren: any[]) => {
+  const fetchLocations = useCallback(async (retry = 0) => {
+    if (!userInfo?.access_token) return;
+  
     try {
-      const response = await fetch(
-        'http://68.183.102.75:1337/endpoint/updateChildren',
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
-          body: JSON.stringify({children: updatedChildren}),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to update children');
-      }
-      // Optionally refresh user data here
-      Alert.alert('Success', 'Children information updated successfully');
-    } catch (error) {
-      console.error('Error updating children:', error);
-      Alert.alert('Error', 'Failed to update children information');
-    }
-  };
-
-  useEffect(() => {
-    const setupLocation = async () => {
-      if (Platform.OS === 'ios') {
-        Geolocation.requestAuthorization();
-        fetchCurrentLocation();
-      } else if (Platform.OS === 'android') {
-        try {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-            {
-              title: 'Location Permission',
-              message: 'This app needs access to your location.',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            },
-          );
-          if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-            fetchCurrentLocation();
-          } else {
-            Alert.alert('Location permission denied');
-          }
-        } catch (err) {
-          console.warn(err);
-        }
-      }
-    };
-    const checkChildrenInfo = async () => {
-      try {
-        const response = await fetchWithAuth(
-          'http://68.183.102.75:1337/endpoint/children',
-          {
-            headers: {
-              Authorization: `Bearer ${userInfo.access_token}`,
-            },
-          },
-        );
-        const data = await response.json();
-
-        if (
-          data.children.some(
-            (child: any) => !child.nickname || !child.date_of_birth,
-          )
-        ) {
-          setUserChildren(data.children);
-          setShowUpdateModal(true);
-        }
-      } catch (error) {
-        console.error('Error checking children info:', error);
-      }
-    };
-
-    checkChildrenInfo();
-    setupLocation();
-    fetchLocations();
-
-    const intervalId = setInterval(fetchLocationAndSendData, 30000);
-    return () => clearInterval(intervalId);
-  }, []);
-  const fetchLocations = async () => {
-    try {
-      setLoading(true);
+      setIsLoading(true);
       const response = await fetchWithAuth(
         'http://68.183.102.75:1337/endpoint/locations',
         {
@@ -278,670 +71,343 @@ const App: React.FC<Props> = ({navigation}) => {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${userInfo.access_token}`,
           },
-        },
-      );
-      const jsonResponse = await response.json();
-      console.log(jsonResponse);
-
-      if (Array.isArray(jsonResponse.locations)) {
-        setLocations(jsonResponse.locations);
-      } else {
-        console.error('Locations is not an array:', jsonResponse.locations);
-        setLocations([]);
-      }
-
-      if (Array.isArray(jsonResponse.details)) {
-        setDetails(jsonResponse.details);
-      } else {
-        console.error('Details is not an array:', jsonResponse.details);
-        setDetails([]);
-      }
-
-      // Request location permission and fetch current location
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          Alert.alert('Location permission denied');
-          setLoading(false);
-          return;
         }
+      );
+  
+      if (!response.ok) {
+        // Retry logic with exponential backoff
+        if (retry < 3) {
+          const delay = Math.pow(2, retry) * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+          setIsLoading(false);
+          return fetchLocations(retry + 1);
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      Geolocation.getCurrentPosition(
-        position => {
-          const {latitude, longitude} = position.coords;
-          setLocation({
-            latitude,
-            longitude,
-            latitudeDelta: 0.015,
-            longitudeDelta: 0.0121,
-          });
-          setLoading(false);
-        },
-        error => {
-          console.error('Error getting current position:', error);
-          Alert.alert('Error', 'Unable to fetch location');
-          setLoading(false);
-        },
-        {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
-      );
+  
+      const data = await response.json();
+      
+      if (Array.isArray(data.locations)) {
+        setSavedLocations(data.locations);
+        // Cache the locations for offline use
+        await AsyncStorage.setItem('cachedLocations', JSON.stringify(data.locations));
+      } else {
+        console.warn('Expected locations array, got:', typeof data.locations);
+        setSavedLocations([]);
+      }
+      
+      if (Array.isArray(data.details)) {
+        setLocationDetails(data.details);
+        // Cache the details for offline use
+        await AsyncStorage.setItem('cachedLocationDetails', JSON.stringify(data.details));
+      } else {
+        console.warn('Expected details array, got:', typeof data.details);
+        setLocationDetails([]);
+      }
     } catch (error) {
-      setLoading(false);
       console.error('Error fetching locations:', error);
-      Alert.alert('Error', 'Unable to fetch locations');
+      
+      // Try to load cached data
+      try {
+        const cachedLocations = await AsyncStorage.getItem('cachedLocations');
+        const cachedDetails = await AsyncStorage.getItem('cachedLocationDetails');
+        
+        if (cachedLocations) {
+          setSavedLocations(JSON.parse(cachedLocations));
+        }
+        
+        if (cachedDetails) {
+          setLocationDetails(JSON.parse(cachedDetails));
+        }
+        
+        if (!cachedLocations && !cachedDetails) {
+          Alert.alert('Error', 'Unable to fetch saved locations. Please try again.');
+        }
+      } catch (cacheError) {
+        Alert.alert('Error', 'Unable to fetch saved locations. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [userInfo?.access_token]);
 
-  const calculateDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ) => {
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const sendLocationToServer = useCallback(async (currentLocation: Location) => {
+    if (!userInfo?.access_token || !currentLocation) return;
 
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    try {
+      const response = await fetchWithAuth('http://68.183.102.75:1337/endpoint', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo.access_token}`,
+        },
+        body: JSON.stringify({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+        }),
+      });
+      
+      if (response.ok) {
+        console.log('Location sent to server successfully');
+      } else {
+        console.warn('Failed to send location to server:', response.status);
+      }
+    } catch (error) {
+      console.error('Error sending location to server:', error);
+    }
+  }, [userInfo?.access_token]);
 
-    return R * c; // Distance in meters
-  };
-
-  // Function to check if location already exists
-  const isLocationNearby = (newLat: number, newLon: number) => {
-    const threshold = 100; // 100 meters radius
-    return locations.some(loc => {
-      const distance = calculateDistance(
-        newLat,
-        newLon,
-        loc.latitude,
-        loc.longitude,
-      );
-      return distance <= threshold;
-    });
-  };
-
-  const addLocation = async () => {
-    console.log('Add location');
-    if (name === '' || description === '' || !selectedOption) {
-      Alert.alert('Please enter a title and description');
+  const handleAddLocation = useCallback(async (formData: LocationFormData) => {
+    if (!userInfo?.access_token) {
+      Alert.alert('Error', 'Authentication required');
       return;
     }
-    if (newLocation) {
-      // Check if location already exists nearby
-      if (isLocationNearby(newLocation.latitude, newLocation.longitude)) {
-        Alert.alert(
-          'Duplicate Location',
-          'A location already exists within 100 meters of this point. Please choose a different location.',
-        );
-        return;
-      }
-      // make an HTTP POST request to endpoint: http://68.183.102.75:1337/endpoint/addLocation
-      // with the following data: {latitude: newLocation.latitude, longitude: newLocation.longitude, name, description}
 
-      try {
-        setLoading(true);
-        const response = await fetchWithAuth(
-          'http://68.183.102.75:1337/endpoint/addLocation',
-          {
-            method: 'POST',
-            headers: {
-              Accept: 'application/json',
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${userInfo.access_token}`,
-            },
-            body: JSON.stringify({
-              latitude: newLocation.latitude,
-              longitude: newLocation.longitude,
-              name,
-              description,
-              type: selectedOption,
-            }),
-          },
-        );
-        setLoading(false);
-        fetchLocations();
-        Alert.alert('Location added!');
-        console.log('Location added:', response.status);
-        // Reset form
-        setNewLocation(null);
-        setName('');
-        setDescription('');
-        setSelectedOption(null);
-      } catch (error) {
-        console.error('Error adding location:', error);
-        Alert.alert('Error', 'Failed to add location. Please try again.');
-      }
-      setNewLocation(null);
-      setName('');
-      setDescription('');
-      setSelectedOption(null);
-    }
-  };
-  // const fetchLocationAndSendData = async () => {
-  //   if (Platform.OS === 'android') {
-  //     const granted = await PermissionsAndroid.request(
-  //       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-  //       {
-  //         title: 'Location Permission',
-  //         message: 'This app needs access to your location.',
-  //         buttonNeutral: 'Ask Me Later',
-  //         buttonNegative: 'Cancel',
-  //         buttonPositive: 'OK',
-  //       },
-  //     );
-  //     const backgroundGranted = await PermissionsAndroid.request(
-  //       PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-  //       {
-  //         title: 'Background Location Permission',
-  //         message: 'This app needs access to your location in the background',
-  //         buttonNeutral: 'Ask Me Later',
-  //         buttonNegative: 'Cancel',
-  //         buttonPositive: 'OK',
-  //       },
-  //     );
-  //     if (backgroundGranted === PermissionsAndroid.RESULTS.GRANTED) {
-  //       console.log('Background location permission granted');
-  //     } else {
-  //       console.log('Background location permission denied');
-  //     }
-  //     if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-  //       Alert.alert('Location permission denied');
-  //       return;
-  //     }
-  //   }
-  //   Geolocation.getCurrentPosition(
-  //     async position => {
-  //       // console.log(position);
-  //       const {latitude, longitude} = position.coords;
-  //       console.log(latitude, longitude);
-  //       setLocation({
-  //         latitude,
-  //         longitude,
-  //         latitudeDelta: 0.015,
-  //         longitudeDelta: 0.0121,
-  //       });
-
-  //       if (loading) setLoading(false);
-  //       // Now send the location data to your server
-  //       try {
-  //         const response = await fetchWithAuth('http://68.183.102.75:1337/endpoint', {
-  //           method: 'POST',
-  //           headers: {
-  //             Accept: 'application/json',
-  //             'Content-Type': 'application/json',
-  //             Authorization: `Bearer ${userInfo.access_token}`,
-  //           },
-  //           body: JSON.stringify({
-  //             latitude,
-  //             longitude,
-  //           }),
-  //         });
-  //         // const jsonResponse = await response.json();
-  //         console.log('Data sent to server:', response.status);
-  //       } catch (error) {
-  //         console.error('Error sending location data:', error);
-  //       }
-  //     },
-  //     error => {
-  //       Alert.alert('Error', 'Unable to fetch location');
-  //       console.log(error);
-  //     },
-  //     {enableHighAccuracy: true, timeout: 60000, maximumAge: 0},
-  //   );
-  // };
-  const fetchLocationAndSendData = async () => {
-    if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: 'Location Permission',
-          message: 'This app needs access to your location.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-      const backgroundGranted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-        {
-          title: 'Background Location Permission',
-          message: 'This app needs access to your location in the background',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-      if (backgroundGranted === PermissionsAndroid.RESULTS.GRANTED) {
-        console.log('Background location permission granted');
-      } else {
-        console.log('Background location permission denied');
-      }
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-        Alert.alert('Location permission denied');
-        return;
-      }
-    }
-  
-    const getCurrentPositionPromise = (): Promise<GeolocationResponse> => {
-      return new Promise((resolve, reject) => {
-        const isFromBackground = AppState.currentState !== 'active';
-        const timeoutValue = isFromBackground ? 60000 : 15000;
-        
-        Geolocation.getCurrentPosition(
-          (position: GeolocationResponse) => resolve(position),
-          (error: GeolocationError) => reject(error),
-          {
-            enableHighAccuracy: true,
-            timeout: timeoutValue,
-            maximumAge: isFromBackground ? 0 : 10000
-          }
-        );
-      });
-    };
-  
     try {
-      const position = await getCurrentPositionPromise();
-      const {latitude, longitude} = position.coords;
-      
-      // Update the UI
-      setLocation({
-        latitude,
-        longitude,
-        latitudeDelta: 0.015,
-        longitudeDelta: 0.0121,
-      });
-      
-      if (loading) setLoading(false);
-      
-      // Now send the location data to your server
-      try {
-        const response = await fetchWithAuth('http://68.183.102.75:1337/endpoint', {
+      setIsLoading(true);
+      const response = await fetchWithAuth(
+        'http://68.183.102.75:1337/endpoint/addLocation',
+        {
           method: 'POST',
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
             Authorization: `Bearer ${userInfo.access_token}`,
           },
-          body: JSON.stringify({
-            latitude,
-            longitude,
-          }),
-        });
-        console.log('Data sent to server:', response.status);
-      } catch (error) {
-        console.error('Error sending location data:', error);
+          body: JSON.stringify(formData),
+        }
+      );
+
+      if (response.ok) {
+        Alert.alert('Success', 'Location added successfully!');
+        setNewLocation(null);
+        await fetchLocations();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
     } catch (error) {
-      console.error('Error getting location:', error);
-      
-      // Only show alert if app is active
-      if (AppState.currentState === 'active') {
-        Alert.alert('Error', 'Unable to fetch location');
-      }
+      console.error('Error adding location:', error);
+      Alert.alert('Error', 'Failed to add location. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-  };
-  useEffect(() => {
-    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
-      console.log('App state changed to:', nextAppState);
-      
-      if (nextAppState === 'active') {
-        console.log('App is now active - refreshing location');
-        // When app comes to foreground, fetch location with the background flag
-        fetchCurrentLocation(true);
-      }
-    });
-    fetchLocations();
-    console.log('fetchLocations called');
-    const intervalId = setInterval(fetchLocationAndSendData, 30000);
-    return () => {
-      appStateSubscription.remove();
-      clearInterval(intervalId);
-    };
+  }, [userInfo?.access_token, fetchLocations]);
+
+  const handleLocationSelect = useCallback((selectedLocation: Location) => {
+    setNewLocation(selectedLocation);
   }, []);
 
-  if (loading) {
+  const handleClearSelection = useCallback(() => {
+    setNewLocation(null);
+  }, []);
+
+  const handleShowLocations = useCallback(() => {
+    navigation.navigate('LocationList', {
+      locations: savedLocations,
+      details: locationDetails,
+    });
+  }, [navigation, savedLocations, locationDetails]);
+
+  const handleRetry = useCallback(() => {
+    if (locationError) {
+      retryLocation();
+    } else {
+      fetchLocations();
+    }
+  }, [locationError, retryLocation, fetchLocations]);
+
+  // Memoized map markers
+  const mapMarkers = useMemo(() => {
+    return savedLocations.map((loc, index) => (
+      <React.Fragment key={`${loc.id}-${index}`}>
+        <Marker
+          coordinate={loc}
+          title={locationDetails[index]?.title || loc.name}
+          description={locationDetails[index]?.desription || loc.description}
+          pinColor={locationDetails[index]?.pinColor || '#FF4B4B'}
+        />
+        <Circle
+          center={loc}
+          radius={100}
+          strokeColor="rgba(65, 105, 225, 0.5)"
+          fillColor="rgba(65, 105, 225, 0.1)"
+          zIndex={2}
+        />
+      </React.Fragment>
+    ));
+  }, [savedLocations, locationDetails]);
+
+  // Get appropriate region for map
+  const mapRegion = useMemo(() => {
+    const baseLocation = newLocation || location;
+    if (!baseLocation) return null;
+    
+    return {
+      latitude: baseLocation.latitude,
+      longitude: baseLocation.longitude,
+      latitudeDelta: baseLocation.latitudeDelta || 0.015,
+      longitudeDelta: baseLocation.longitudeDelta || 0.0121,
+    };
+  }, [newLocation, location]);
+
+  // Effects
+  useEffect(() => {
+    if (userInfo?.access_token) {
+      fetchLocations();
+    }
+  }, [fetchLocations, userInfo?.access_token]);
+
+  useEffect(() => {
+    if (!location) return;
+
+    sendLocationToServer(location);
+    const interval = setInterval(() => {
+      sendLocationToServer(location);
+    }, LOCATION_UPDATE_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [location, sendLocationToServer]);
+
+  if (!startupComplete) {
     return (
-      <View>
-        <Spinner visible={loading} />
+      <SafeAreaView style={styles.startupContainer}>
+        <Spinner visible={!startupError} />
+        {startupError && (
+          <>
+            <Text style={styles.startupErrorText}>{startupError}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={retryStartup}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        <Notification />
+      </SafeAreaView>
+    );
+  }
+  
+  // Network error component - add after startup check
+  if (!isNetworkAvailable) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Text style={styles.errorText}>
+          No internet connection available. Please check your network settings and try again.
+        </Text>
+        <TouchableOpacity style={styles.retryButton} onPress={retryStartup}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  // Error state
+  if (locationError && !location) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Text style={styles.errorText}>
+          Unable to access location services. Please check your settings and try again.
+        </Text>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  // Loading state
+  if (locationLoading || isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Spinner visible={true} />
         <Notification />
       </View>
     );
   }
+  const OfflineIndicator = () => {
+    if (isNetworkAvailable) return null;
+    
+    return (
+      <View style={styles.offlineIndicator}>
+        <Text style={styles.offlineText}>Limited connectivity. Some features may be unavailable.</Text>
+      </View>
+    );
+  };
 
   return (
     <>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="transparent"
-        translucent
-      />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <Notification />
+      <OfflineIndicator />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          {/* Search Bar with Shadow */}
-          <View style={styles.searchWrapper}>
-            <View style={styles.searchContainer}>
-              <GooglePlacesAutocomplete
-                placeholder="Search location..."
-                fetchDetails={true}
-                styles={{
-                  container: {
-                    flex: 0,
-                  },
-                  textInputContainer: {
-                    backgroundColor: 'white',
-                    borderRadius: 12,
-                    borderWidth: 0,
-                  },
-                  textInput: {
-                    height: 45,
-                    color: '#333',
-                    fontSize: 16,
-                    borderRadius: 12,
-                    paddingHorizontal: 15,
-                  },
-                  listView: {
-                    backgroundColor: 'white',
-                    borderRadius: 12,
-                    marginTop: 5,
-                  },
-                  row: {
-                    padding: 13,
-                    height: 50,
-                  },
-                }}
-                onPress={(data, details = null) => {
-                  console.log(data);
-                  if (details) {
-                    const latitude = details.geometry.location.lat;
-                    const longitude = details.geometry.location.lng;
-                    setNewLocation({
-                      latitude,
-                      longitude,
-                      latitudeDelta: 0.015,
-                      longitudeDelta: 0.0121,
-                    });
-                  }
-                }}
-                onFail={error => console.error('Error:', error)}
-                onNotFound={() => console.log('No results found')}
-                query={{
-                  key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps',
-                  language: 'en',
-                }}
-                renderRightButton={() => (
-                  <TouchableOpacity
-                    style={styles.clearButton}
-                    onPress={() => {
-                      ref.current?.clear();
-                      setName('');
-                      setDescription('');
-                      setNewLocation(null);
-                    }}>
-                    <Icon name="close" size={20} color="#666" />
-                  </TouchableOpacity>
-                )}
-                ref={ref}
-              />
-            </View>
-          </View>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
+          <SafeAreaView style={styles.safeArea}>
+            <LocationSearchBar 
+              onLocationSelect={handleLocationSelect}
+              onClear={handleClearSelection}
+            />
 
-          {/* Map Container */}
-          <View style={styles.mapContainer}>
-            {location && (
+            {mapRegion && (
               <MapView
-                provider={
-                  Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE
-                }
+                provider={Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
                 style={styles.map}
-                initialRegion={location}
-                region={newLocation || location}
+                initialRegion={mapRegion}
+                region={mapRegion}
                 showsUserLocation
                 mapType="standard"
-                userInterfaceStyle="light">
-                {locations.map((loc, index) => (
-                  <React.Fragment key={index}>
-                    <Marker
-                      coordinate={loc}
-                      title={details[index]?.title || `Location ${index + 1}`}
-                      description={details[index]?.desription || ''}
-                      pinColor={details[index]?.pinColor || '#FF4B4B'}
-                    />
-                    <Circle
-                      center={loc}
-                      radius={100}
-                      strokeColor="rgba(65, 105, 225, 0.5)"
-                      fillColor="rgba(65, 105, 225, 0.1)"
-                      zIndex={2}
-                    />
-                  </React.Fragment>
-                ))}
+                userInterfaceStyle="light"
+                showsMyLocationButton={false}
+                showsScale={true}>
+                {mapMarkers}
               </MapView>
             )}
-          </View>
 
-          {/* Location Form */}
-          {newLocation && (
-            <LinearGradient
-              colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
-              style={styles.formContainer}>
-              <Text style={styles.formTitle}>Add New Location</Text>
-              <Dropdown
-                style={styles.dropdown}
-                placeholderStyle={styles.dropdownPlaceholder}
-                selectedTextStyle={styles.dropdownSelected}
-                inputSearchStyle={styles.dropdownSearch}
-                iconStyle={styles.dropdownIcon}
-                data={options}
-                maxHeight={300}
-                labelField="label"
-                valueField="value"
-                placeholder="Select location type"
-                searchPlaceholder="Search..."
-                value={selectedOption}
-                onChange={item => setSelectedOption(item.value)}
-                renderLeftIcon={() => (
-                  <AntDesign
-                    style={styles.dropdownLeftIcon}
-                    color="#333"
-                    name="Safety"
-                    size={20}
-                  />
-                )}
+            {newLocation && (
+              <LocationForm
+                location={newLocation}
+                onSubmit={handleAddLocation}
+                existingLocations={savedLocations}
               />
-              <TextInput
-                placeholder="Location name"
-                style={styles.input}
-                value={name}
-                onChange={e => setName(e.nativeEvent.text)}
-                placeholderTextColor="#666"
-              />
-              <TextInput
-                placeholder="Description"
-                style={[styles.input, styles.textArea]}
-                value={description}
-                onChange={e => setDescription(e.nativeEvent.text)}
-                placeholderTextColor="#666"
-                multiline
-                numberOfLines={3}
-              />
-              <TouchableOpacity style={styles.addButton} onPress={addLocation}>
-                <Text style={styles.addButtonText}>Add Location</Text>
-              </TouchableOpacity>
-            </LinearGradient>
-          )}
+            )}
 
-          {/* Welcome Card */}
-          {!newLocation && (
-            <LinearGradient
-              colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
-              style={styles.welcomeContainer}>
-              <View style={styles.welcomeContent}>
-                <Text style={styles.welcomeTitle}>
-                  Welcome, {userInfo.user.name}
-                </Text>
-                <Text style={styles.welcomeText}>
-                  Search for a location on the map and follow the instructions
-                  to add a point of interest.
-                </Text>
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={[styles.button, styles.aiButton]}
-                    onPress={() => {
-                      console.log(location, details);
-                      navigation.navigate('LocationList', {
-                        locations: locations,
-                        details: details,
-                      });
-                    }}>
-                    <Text style={styles.buttonText}>Show locations</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.button, styles.logoutButton]}
-                    onPress={logout}>
-                    <Text style={styles.buttonText}>Logout</Text>
-                  </TouchableOpacity>
+            {!newLocation && (
+              <LinearGradient
+                colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
+                style={styles.welcomeContainer}>
+                <View style={styles.welcomeContent}>
+                  <Text style={styles.welcomeTitle}>
+                    Welcome, {getUserName(userInfo)}
+                  </Text>
+                  <Text style={styles.welcomeText}>
+                    Search for a location to add points of interest for personalized parenting tips.
+                  </Text>
+                  <View style={styles.buttonContainer}>
+                    <TouchableOpacity style={[styles.button, styles.locationsButton]} onPress={handleShowLocations}>
+                      <Text style={styles.buttonText}>Show Locations ({savedLocations.length})</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.button, styles.logoutButton]} onPress={logout}>
+                      <Text style={styles.buttonText}>Logout</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            </LinearGradient>
-          )}
-        </View>
-      </SafeAreaView>
-      </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
+              </LinearGradient>
+            )}
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  container: {
-    flex: 1,
-  },
-  searchWrapper: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 40,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    paddingHorizontal: 16,
-  },
-  searchContainer: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  clearButton: {
-    padding: 12,
-  },
-  mapContainer: {
-    flex: 1,
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  formContainer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 16,
-    right: 16,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  formTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-  },
-  dropdown: {
-    height: 50,
-    borderColor: '#E8E8E8',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-  },
-  dropdownPlaceholder: {
-    fontSize: 16,
-    color: '#666',
-  },
-  dropdownSelected: {
-    fontSize: 16,
-    color: '#333',
-  },
-  dropdownSearch: {
-    height: 40,
-    fontSize: 16,
-    borderRadius: 8,
-  },
-  dropdownIcon: {
-    width: 20,
-    height: 20,
-  },
-  dropdownLeftIcon: {
-    marginRight: 8,
-  },
-  input: {
-    height: 50,
-    borderColor: '#E8E8E8',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#333',
-    backgroundColor: '#FFFFFF',
-    marginBottom: 16,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-    paddingTop: 12,
-  },
-  addButton: {
-    backgroundColor: '#4A90E2',
-    borderRadius: 12,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  container: { flex: 1 },
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  errorText: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 20 },
+  retryButton: { backgroundColor: '#4A90E2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  retryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  map: { ...StyleSheet.absoluteFillObject },
   welcomeContainer: {
     position: 'absolute',
     bottom: 20,
@@ -950,44 +416,43 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
   },
-  welcomeContent: {
-    padding: 20,
-  },
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  welcomeText: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  button: {
-    flex: 1,
-    height: 45,
-    borderRadius: 12,
-    justifyContent: 'center',
+  startupContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
     alignItems: 'center',
-    marginHorizontal: 6,
+    backgroundColor: '#FFFFFF',
+    padding: 20 
   },
-  aiButton: {
-    backgroundColor: '#34C759',
+  startupErrorText: { 
+    fontSize: 16, 
+    color: '#666', 
+    textAlign: 'center', 
+    marginBottom: 20,
+    marginTop: 20
   },
-  logoutButton: {
-    backgroundColor: '#FF3B30',
+  offlineIndicator: {
+    backgroundColor: '#FFD700',
+    padding: 8,
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 40 : 30,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    alignItems: 'center'
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  offlineText: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: '500'
   },
+  welcomeContent: { padding: 20 },
+  welcomeTitle: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 8 },
+  welcomeText: { fontSize: 16, color: '#666', marginBottom: 20, lineHeight: 22 },
+  buttonContainer: { flexDirection: 'row', justifyContent: 'space-between' },
+  button: { flex: 1, height: 45, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginHorizontal: 6 },
+  locationsButton: { backgroundColor: '#34C759' },
+  logoutButton: { backgroundColor: '#FF3B30' },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });
 
-export default App;
+export default ImprovedMapScreen;

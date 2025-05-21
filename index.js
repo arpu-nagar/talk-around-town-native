@@ -401,14 +401,11 @@ const navigateToNotification = (title, message, data) => {
           // Then navigate to Tips after a longer delay
           setTimeout(() => {
             console.log('Now navigating to Tips screen with notification data');
-            navigationRef.current.navigate('Main', {
-              screen: 'Tips', // Changed from 'Home' to 'Tips'
-              params: {
-                notificationData: {
-                  title,
-                  message,
-                  ...data
-                }
+            navigationRef.current.navigate('Tips', {
+              notificationData: {
+                title,
+                message,
+                ...data
               }
             });
             console.log('Navigation completed');
@@ -416,14 +413,11 @@ const navigateToNotification = (title, message, data) => {
         } else {
           // Already in Main, navigate directly
           console.log('Already in Main, navigating to Tips');
-          navigationRef.current.navigate('Main', {
-            screen: 'Tips', // Changed from 'Home' to 'Tips'
-            params: {
-              notificationData: {
-                title,
-                message,
-                ...data
-              }
+          navigationRef.current.navigate('Tips', {
+            notificationData: {
+              title,
+              message,
+              ...data
             }
           });
           console.log('Navigation completed');

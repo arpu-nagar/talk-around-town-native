@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   Dimensions,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import Spinner from 'react-native-loading-spinner-overlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,7 +30,8 @@ interface TokenData {
   token: string;
 }
 
-const { width } = Dimensions.get('window');
+// Use exact width values instead of percentage-based calculations
+const { width, height } = Dimensions.get('window');
 const inputWidth = Math.min(width * 0.85, 400);
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
@@ -73,7 +75,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       if (!enabled) return;
   
       const fcmToken = await messaging().getToken();
-      console.log('ACTUAL FCM TOKEN RECEIVED:', fcmToken); // Add this log
+      console.log('ACTUAL FCM TOKEN RECEIVED:', fcmToken);
       
       const tokenData: TokenData = {
         os: Platform.OS,
@@ -81,12 +83,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       };
       
       await AsyncStorage.setItem('deviceToken', JSON.stringify(tokenData));
-      console.log('TOKEN SAVED TO ASYNC STORAGE:', JSON.stringify(tokenData)); // Add this log
+      console.log('TOKEN SAVED TO ASYNC STORAGE:', JSON.stringify(tokenData));
       
       const userInfo = await AsyncStorage.getItem('userInfo');
       if (userInfo) {
         const { access_token } = JSON.parse(userInfo);
-        console.log('SENDING TOKEN TO SERVER:', fcmToken); // Add this log
+        console.log('SENDING TOKEN TO SERVER:', fcmToken);
         await updateServerToken(fcmToken, access_token);
       }
     } catch (error) {
@@ -121,85 +123,89 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       <LinearGradient
         colors={['#4A90E2', '#357ABD']}
         style={styles.gradientBackground}
+        useAngle={true}
+        angle={135}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <Spinner visible={isLoading} />
-          <View style={styles.contentContainer}>
-            {/* Header Section */}
-            <View style={styles.headerContainer}>
-              <View style={styles.titleContainer}>
-                <Text style={styles.title}>ENACT</Text>
-                <Text style={styles.subtitle}>Discover learning moments everywhere</Text>
-                <View style={styles.versionBadge}>
-                  <Text style={styles.version}>v1.0</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Form Section */}
-            <View style={styles.formContainer}>
-              <InputField
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Enter your email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                editable={!isSubmitting}
-              />
-              
-              <InputField
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter your password"
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="password"
-                editable={!isSubmitting}
-              />
-
-              <TouchableOpacity
-                style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
-                onPress={handleLogin}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.loginButtonText}>Sign In</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.forgotPassword}
-                onPress={() => navigation.navigate('ForgotPassword')}
-              >
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-              </TouchableOpacity>
-
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.dividerLine} />
-              </View>
-
-              <View style={styles.registerContainer}>
-                <Text style={styles.registerText}>New to ENACT? </Text>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('Register')}
-                  disabled={isSubmitting}
-                >
-                  <Text style={styles.link}>Create Account</Text>
-                </TouchableOpacity>
+          {/* Header Section */}
+          <View style={styles.headerContainer}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>ENACT</Text>
+              <Text style={styles.subtitle}>Discover learning moments everywhere</Text>
+              <View style={styles.versionBadge}>
+                <Text style={styles.version}>v1.0</Text>
               </View>
             </View>
           </View>
-        </KeyboardAvoidingView>
+
+          {/* Form Section */}
+          <View style={styles.formContainer}>
+            <InputField
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter your email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              editable={!isSubmitting}
+            />
+            
+            <InputField
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter your password"
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete="password"
+              editable={!isSubmitting}
+            />
+
+            <TouchableOpacity
+              style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
+              onPress={handleLogin}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.loginButtonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.forgotPassword}
+              onPress={() => navigation.navigate('ForgotPassword')}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <View style={styles.registerContainer}>
+              <Text style={styles.registerText}>New to ENACT? </Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Register')}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.link}>Create Account</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+        
+        {/* Loading Spinner - Keep it outside of scrollview */}
+        <Spinner visible={isLoading} />
       </LinearGradient>
     </SafeAreaView>
   );
@@ -220,27 +226,26 @@ const InputField: React.FC<InputFieldProps> = ({ label, ...props }) => (
   </View>
 );
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   gradientBackground: {
     flex: 1,
+    width: '100%',
+    height: '100%',
   },
-  keyboardView: {
-    flex: 1,
-  },
-  contentContainer: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 40,
     paddingHorizontal: 20,
   },
   headerContainer: {
     alignItems: 'center',
     marginBottom: 40,
-    paddingTop: 40,
+    width: '100%',
   },
   titleContainer: {
     alignItems: 'center',
@@ -279,6 +284,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
+    // Fixed dimensions prevent layout shifts
+    alignSelf: 'center',
   },
   inputContainer: {
     marginBottom: 20,
@@ -295,15 +302,16 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    height: 48, // Fixed height prevents resizing
     fontSize: 16,
     color: '#333333',
   },
   loginButton: {
     backgroundColor: '#4A90E2',
     borderRadius: 12,
-    paddingVertical: 16,
+    height: 50, // Fixed height
     alignItems: 'center',
+    justifyContent: 'center', // Center content vertically
     marginTop: 8,
     shadowColor: '#4A90E2',
     shadowOffset: { width: 0, height: 4 },
@@ -322,6 +330,7 @@ const styles = StyleSheet.create({
   forgotPassword: {
     alignItems: 'center',
     marginTop: 16,
+    height: 20, // Fixed height
   },
   forgotPasswordText: {
     color: '#4A90E2',
@@ -331,6 +340,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 24,
+    height: 20, // Fixed height
   },
   dividerLine: {
     flex: 1,
@@ -345,6 +355,7 @@ const styles = StyleSheet.create({
   registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    height: 20, // Fixed height
   },
   registerText: {
     color: '#666666',

@@ -106,10 +106,15 @@ const TipsScreen = () => {
           useNativeDriver: true,
         })
       ]).start();
+    } else {
+      // If no notification data and this screen is accessed directly, go back
+      console.log('TipsScreen accessed without notification data, navigating back');
+      navigation.goBack();
     }
-  }, [route.params, fadeAnim, slideAnim]);
+  }, [route.params, fadeAnim, slideAnim, navigation]);
   
-  // If no tip data is available, show a placeholder
+  // If no tip data is available, show loading placeholder
+  // This will be brief as we navigate back if no data is found
   if (!tipData) {
     return (
       <SafeAreaView style={styles.container}>
@@ -128,7 +133,7 @@ const TipsScreen = () => {
           <View style={styles.emptyStateContainer}>
             <Ionicons name="notifications-off-outline" size={70} color="#FFFFFF" style={styles.emptyStateIcon} />
             <Text style={styles.emptyStateText}>No tip information available</Text>
-            <Text style={styles.emptyStateSubText}>Notifications will appear here when you receive them</Text>
+            <Text style={styles.emptyStateSubText}>Tips only appear from notifications</Text>
           </View>
         </LinearGradient>
       </SafeAreaView>

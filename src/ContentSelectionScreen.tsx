@@ -24,17 +24,19 @@ interface ContentArea {
   description: string;
   icon: string;
   selected: boolean;
+  available: boolean;
 }
 
 const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigation }) => {
-  // Initial content areas with selected state
+  // Initial content areas with selected state and availability
   const [contentAreas, setContentAreas] = useState<ContentArea[]>([
     {
       id: 'language',
       title: 'Language Development',
       description: 'Activities and tips that encourage vocabulary growth, communication skills, and language patterns.',
       icon: 'chat',
-      selected: false,
+      selected: true, // Default selected
+      available: true, // Available for selection
     },
     {
       id: 'science',
@@ -42,6 +44,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
       description: 'Explorations and experiments that nurture curiosity, critical thinking, and understanding of the world.',
       icon: 'science',
       selected: false,
+      available: true, // Available for selection
     },
     {
       id: 'literacy',
@@ -49,6 +52,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
       description: 'Reading and writing activities that build pre-literacy skills and foster a love for stories and books.',
       icon: 'menu-book',
       selected: false,
+      available: false, // Coming soon
     },
     {
       id: 'social',
@@ -56,6 +60,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
       description: 'Guidance for developing emotional intelligence, relationship skills, and healthy self-awareness.',
       icon: 'people',
       selected: false,
+      available: false, // Coming soon
     },
   ]);
 
@@ -82,18 +87,19 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
 
   // Toggle selection for a content area
   const toggleSelection = (id: string) => {
-    // Only allow selection of science skills, show "Coming Soon" for others
-    if (id === 'science') {
+    const area = contentAreas.find(area => area.id === id);
+    
+    if (area && area.available) {
       setContentAreas(
         contentAreas.map((area) =>
           area.id === id ? { ...area, selected: !area.selected } : area
         )
       );
-    } else {
-      // Show "Coming Soon" alert for other content areas
+    } else if (area && !area.available) {
+      // Show "Coming Soon" alert for unavailable content areas
       Alert.alert(
         'Coming Soon',
-        `${contentAreas.find(area => area.id === id)?.title} content will be available in a future update!`,
+        `${area.title} content will be available in a future update!`,
         [{ text: 'OK', style: 'default' }]
       );
     }
@@ -105,7 +111,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
   // Save preferences and go back
   const savePreferences = async () => {
     try {
-      // Get selected content areas (should only be science if any)
+      // Get selected content areas
       const selectedAreas = contentAreas
         .filter(area => area.selected)
         .map(area => area.id);
@@ -115,11 +121,16 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
       
       console.log('Saved content areas:', selectedAreas);
       
-      // Show confirmation message if science is selected
-      if (selectedAreas.includes('science')) {
+      // Show confirmation message
+      if (selectedAreas.length > 0) {
+        const selectedTopics = contentAreas
+          .filter(area => area.selected)
+          .map(area => area.title)
+          .join(' and ');
+          
         Alert.alert(
           'Preferences Saved',
-          'Your content preferences have been updated. You will now receive science-focused parenting tips.',
+          `Your content preferences have been updated. You will now receive ${selectedTopics}-focused parenting tips.`,
           [{ text: 'Great!', onPress: () => navigation.goBack() }]
         );
       } else {
@@ -162,7 +173,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
                 <Text style={styles.betaBadgeText}>BETA</Text>
               </View>
               <Text style={styles.betaText}>
-                Currently, only Science Skills content is fully available. 
+                Currently, only Language Development and Science Skills content are available. 
                 Other content areas coming soon!
               </Text>
             </View>
@@ -179,7 +190,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
                 style={[
                   styles.contentAreaItem, 
                   area.selected && styles.contentAreaSelected,
-                  area.id !== 'science' && styles.contentAreaComingSoon
+                  !area.available && styles.contentAreaComingSoon
                 ]}
                 onPress={() => toggleSelection(area.id)}
                 activeOpacity={0.7}
@@ -188,20 +199,20 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
                   <Icon 
                     name={area.icon} 
                     size={28} 
-                    color={area.selected ? "#FFFFFF" : area.id === 'science' ? "#4A90E2" : "#999999"} 
+                    color={area.selected ? "#FFFFFF" : area.available ? "#4A90E2" : "#999999"} 
                     style={styles.contentIcon} 
                   />
                   <Text 
                     style={[
                       styles.contentAreaTitle, 
                       area.selected && styles.selectedText,
-                      area.id !== 'science' && styles.comingSoonText
+                      !area.available && styles.comingSoonText
                     ]}
                   >
                     {area.title}
-                    {area.id !== 'science' && " (Coming Soon)"}
+                    {!area.available && " (Coming Soon)"}
                   </Text>
-                  {area.id === 'science' ? (
+                  {area.available ? (
                     <Icon 
                       name={area.selected ? "check-circle" : "radio-button-unchecked"} 
                       size={24} 
@@ -215,7 +226,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
                   style={[
                     styles.contentAreaDescription, 
                     area.selected && styles.selectedText,
-                    area.id !== 'science' && styles.comingSoonText
+                    !area.available && styles.comingSoonText
                   ]}
                 >
                   {area.description}
@@ -249,6 +260,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({ navigat
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: '#4A90E2',
   },
   gradientBackground: {
     flex: 1,
@@ -258,99 +270,100 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   backButton: {
     padding: 8,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   placeholderView: {
-    width: 40,
+    width: 40, // Same width as back button for center alignment
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
   contentContainer: {
     padding: 20,
     backgroundColor: '#FFFFFF',
     margin: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   tagline: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#333333',
     marginBottom: 12,
-    textAlign: 'center',
   },
   description: {
     fontSize: 16,
     color: '#666666',
-    lineHeight: 24,
-    marginBottom: 18,
-    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
   },
   betaBadgeContainer: {
-    backgroundColor: '#FFF9E6',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 18,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(74, 144, 226, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 24,
   },
   betaBadge: {
-    backgroundColor: '#FFB800',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: '#4A90E2',
     borderRadius: 4,
-    marginRight: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginRight: 8,
   },
   betaBadgeText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
     fontSize: 12,
+    fontWeight: 'bold',
   },
   betaText: {
     flex: 1,
     fontSize: 14,
-    color: '#7D6E00',
-    lineHeight: 20,
+    color: '#4A90E2',
+    fontWeight: '500',
   },
   selectionStatus: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4A90E2',
+    fontSize: 14,
+    color: '#666666',
     marginBottom: 16,
     textAlign: 'center',
   },
   contentAreaItem: {
-    backgroundColor: '#F5F7FA',
-    borderRadius: 10,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#F0F0F0',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
   },
   contentAreaSelected: {
     backgroundColor: '#4A90E2',
-    borderColor: '#357ABD',
+    borderColor: '#4A90E2',
   },
   contentAreaComingSoon: {
-    backgroundColor: '#F5F5F5',
-    borderColor: '#E0E0E0',
-    opacity: 0.8,
+    backgroundColor: '#F8F9FA',
+    borderColor: '#EAEAEA',
+    opacity: 0.7,
   },
   contentAreaHeader: {
     flexDirection: 'row',
@@ -361,16 +374,16 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   contentAreaTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333333',
     flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333333',
   },
   contentAreaDescription: {
     fontSize: 14,
-    lineHeight: 20,
     color: '#666666',
-    paddingLeft: 40,
+    lineHeight: 20,
+    paddingLeft: 40, // Align with title after icon
   },
   selectedText: {
     color: '#FFFFFF',
@@ -380,19 +393,19 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#4A90E2',
-    borderRadius: 8,
-    paddingVertical: 14,
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: 16,
+    marginBottom: 12,
   },
   saveButtonDisabled: {
-    backgroundColor: '#CCCCCC',
+    backgroundColor: '#A5C8F2',
   },
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   footerNote: {
     fontSize: 14,

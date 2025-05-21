@@ -18,6 +18,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
 import Voice from '@react-native-voice/voice';
 import Sound from 'react-native-sound';
@@ -40,6 +41,7 @@ interface Tip {
   body: string;
   details: string;
   audioUrl: string;
+  categories?: string[];
 }
 
 const calculateAge = (dateOfBirth: string): number => {
@@ -207,10 +209,28 @@ const MainScreen: React.FC = () => {
   const lastResult = useRef<string>('');
   const [showChildInfo, setShowChildInfo] = useState(false);
   const [childrenInfo, setChildrenInfo] = useState<Child[]>([]);
+  const [contentPreferences, setContentPreferences] = useState<string[]>(['language']);
+const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
 
   const navigateToSettings = () => {
     // @ts-ignore - This tells TypeScript to ignore the type error for this line
     navigation.navigate('Settings');
+  };
+  const fetchContentPreferences = async () => {
+    try {
+      const savedPreferences = await AsyncStorage.getItem('contentPreferences');
+      if (savedPreferences) {
+        const parsedPreferences = JSON.parse(savedPreferences);
+        setContentPreferences(parsedPreferences.length > 0 ? parsedPreferences : ['language']);
+      } else {
+        setContentPreferences(['language']); // Default to language if no preferences saved
+      }
+    } catch (error) {
+      console.error('Error loading content preferences:', error);
+      setContentPreferences(['language']); // Fallback to default
+    } finally {
+      setIsPreferencesLoading(false);
+    }
   };
 
 
@@ -254,6 +274,7 @@ const MainScreen: React.FC = () => {
 
   useEffect(() => {
     fetchChildrenInfo();
+    fetchContentPreferences();
   }, [userInfo.access_token]); // Add dependency to refresh when token changes
 
   const initializeVoice = async () => {
@@ -413,6 +434,8 @@ const MainScreen: React.FC = () => {
           />
           <Text style={styles.tipTitle}>{tip.title}</Text>
         </View>
+        {/* Render categories if available */}
+        {tip.categories && tip.categories.length > 0 && renderCategoryBadges(tip.categories)}
         <Text style={styles.tipBody}>{tip.body}</Text>
         <Text style={styles.tipDetails}>{tip.details}</Text>
         <View style={styles.buttonContainerGap}>
@@ -474,7 +497,9 @@ const MainScreen: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: query }),
+        body: JSON.stringify({ prompt: query, 
+          contentPreferences: contentPreferences
+         }),
       });
   
       if (!response.ok) {
@@ -499,6 +524,59 @@ const MainScreen: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  const renderCategoryBadges = (categories: string[] = []) => {
+    if (!categories || categories.length === 0) return null;
+    
+    return (
+      <View style={styles.categoryContainer}>
+        {categories.map((category, index) => (
+          <View 
+            key={index}
+            style={[
+              styles.categoryBadge,
+              { backgroundColor: category === 'language' ? '#007AFF' : '#34C759' }
+            ]}
+          >
+            <Text style={styles.categoryText}>
+              {category === 'language' ? 'Language' : 'Science'}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+  const ContentPreferenceBanner = () => {
+    if (isPreferencesLoading) return null;
+    
+    let focusText = '';
+    if (contentPreferences.includes('language') && contentPreferences.includes('science')) {
+      focusText = 'Language & Science';
+    } else if (contentPreferences.includes('language')) {
+      focusText = 'Language Development';
+    } else if (contentPreferences.includes('science')) {
+      focusText = 'Science Skills';
+    } else {
+      focusText = 'General Tips';
+    }
+    
+    return (
+      <View style={styles.preferenceBanner}>
+        <Icon name="school" size={16} color="#007AFF" style={styles.bannerIcon} />
+        <Text style={styles.bannerText}>
+          Focus: <Text style={styles.bannerHighlight}>{focusText}</Text>
+        </Text>
+        <TouchableOpacity 
+          onPress={() => {
+            // @ts-ignore - This tells TypeScript to ignore the type error
+            navigation.navigate('ContentSelection');
+          }}
+          style={styles.bannerButton}
+        >
+          <Text style={styles.bannerButtonText}>Change</Text>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   const handleRetry = () => {
@@ -553,7 +631,7 @@ const MainScreen: React.FC = () => {
           <Text style={styles.headerTitle}>Parenting Assistant</Text>
           <Text style={styles.headerSubtitle}>Ask any parenting question</Text>
         </View>
-
+        <ContentPreferenceBanner />
         <View style={styles.searchContainer}>
           <View style={styles.searchWrapper}>
             <Icon
@@ -734,6 +812,54 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     marginRight: 8,
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    marginBottom: 10,
+    flexWrap: 'wrap',
+  },
+  categoryBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  categoryText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  preferenceBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  bannerIcon: {
+    marginRight: 6,
+  },
+  bannerText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#666',
+  },
+  bannerHighlight: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  bannerButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  bannerButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '500',
   },
   searchInput: {
     flex: 1,

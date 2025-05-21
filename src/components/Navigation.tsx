@@ -52,6 +52,15 @@ export type RootStackParamList = {
   Dashboard: undefined;
   ReminderSettings: undefined;
   ContentSelection: undefined;
+  Tips: {
+    notificationData?: {
+      title: string;
+      message: string;
+      tipDetail?: string;
+      tipCategory?: string;
+      tipImage?: string;
+    };
+  };
 };
 
 type AuthStackParamList = {
@@ -64,7 +73,6 @@ type AuthStackParamList = {
 type MainTabParamList = {
   Home: undefined;
   Assistant: undefined;
-  Tips: undefined;
   Settings: undefined;
 };
 
@@ -92,6 +100,7 @@ const linking: LinkingOptions<RootStackParamList> = {
       About: 'about',
       ChangePassword: 'change-password',
       Dashboard: 'dashboard',
+      Tips: 'tips',
     },
   },
 };
@@ -110,8 +119,6 @@ const getIconName = (routeName: string, focused: boolean): string => {
       return focused ? 'chatbubbles' : 'chatbubbles-outline';
     case 'LocationList':
       return focused ? 'list' : 'list-outline';
-    case 'Tips':
-      return focused ? 'bulb' : 'bulb-outline';  // Add this for Tips
     case 'Settings':
       return focused ? 'settings' : 'settings-outline';  // Add this for Settings
     default:
@@ -148,7 +155,6 @@ const TabNavigator = () => (
       })}>
       <MainTab.Screen name="Home" component={MainScreen} />
       <MainTab.Screen name="Assistant" component={AssistantScreen} />
-      <MainTab.Screen name="Tips" component={Tips} />
       <MainTab.Screen name="Settings" component={SettingsScreen} />
     </MainTab.Navigator>
   </ScreenWithNotification>
@@ -194,6 +200,12 @@ const RootNavigator = () => {
         <RootStack.Screen 
           name="ReminderSettings" 
           component={ReminderSettingsScreen} 
+          options={{ headerShown: false }}
+        />
+        {/* Tips screen is now defined here as a stack screen, not a tab */}
+        <RootStack.Screen 
+          name="Tips" 
+          component={Tips} 
           options={{ headerShown: false }}
         />
         {/* Only include Dashboard in routes if user is admin */}
