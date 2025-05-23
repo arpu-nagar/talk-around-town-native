@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useRef, useState} from 'react';
+import React, {useContext, useEffect, useRef, useState, useCallback} from 'react';
 import {
   View,
   StyleSheet,
@@ -42,20 +42,26 @@ import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import { fetchWithAuth } from '../api/auth';
 
-// Constants for better maintainability
+// Fast startup configuration - prioritize UI over data accuracy
+const STARTUP_CONFIG = {
+  // Maximum time to show loading screen before showing UI
+  MAX_STARTUP_TIME: 8000, // 8 seconds max
+  
+  // Time to wait for critical operations before showing UI anyway
+  CRITICAL_OPERATIONS_TIMEOUT: 5000, // 5 seconds
+  
+  // Background operations can continue after UI loads
+  BACKGROUND_TIMEOUT: 30000, // 30 seconds for background tasks
+  
+  // Quick location timeout for startup
+  QUICK_LOCATION_TIMEOUT: 3000, // 3 seconds for initial location
+};
+
 const LOCATION_CONFIG = {
   TIMEOUTS: {
-    NORMAL: 15000,
-    BACKGROUND: 60000,
-    RETRY: 10000,
-    LOADING_TIMEOUT: 45000,
-  },
-  INTERVALS: {
-    LOCATION_UPDATE: 30000,
-  },
-  ACCURACY: {
-    HIGH: true,
-    DISTANCE_THRESHOLD: 100, // meters
+    QUICK: 3000,      // For startup - fail fast
+    NORMAL: 15000,    // For user-initiated requests
+    BACKGROUND: 30000, // For background updates
   },
   DELTAS: {
     LATITUDE: 0.015,
@@ -63,6 +69,8 @@ const LOCATION_CONFIG = {
   },
   CACHE_KEYS: {
     LAST_LOCATION: 'lastKnownLocation',
+    CHILDREN_INFO: 'childrenInfoCache',
+    USER_LOCATIONS: 'userLocationsCache',
   },
 };
 
@@ -75,93 +83,58 @@ const API_ENDPOINTS = {
   UPDATE_CHILDREN: '/endpoint/updateChildren',
 };
 
-type MainTabParamList = {
-  Home: undefined;
-  Assistant: undefined;
-  LocationList: LocationListProps;
+// Default location (fallback)
+const DEFAULT_LOCATION = {
+  latitude: 37.7749,    // San Francisco
+  longitude: -122.4194,
+  latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
+  longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
 };
 
-interface LocationListProps {
-  locations: any;
-  details: any;
-  navigation?: any;
-}
-
+// Define the Props type
 interface Props {
-  navigation: NativeStackNavigationProp<MainTabParamList>;
+  navigation: NativeStackNavigationProp<any>;
 }
-
-interface Location {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-}
-
-interface Child {
-  id: number;
-  age: number;
-  nickname?: string;
-  date_of_birth?: string;
-}
-
-// Enhanced error logging
-const logLocationError = (error: GeolocationError, context: string) => {
-  const errorMessages = {
-    1: 'Permission denied',
-    2: 'Position unavailable', 
-    3: 'Timeout',
-  };
-  
-  console.error(`Location error (${context}):`, {
-    code: error.code,
-    message: errorMessages[error.code as keyof typeof errorMessages] || error.message,
-    timestamp: new Date().toISOString(),
-  });
-};
-
-// Location caching utilities
-const cacheLocation = async (location: Location) => {
-  try {
-    await AsyncStorage.setItem(LOCATION_CONFIG.CACHE_KEYS.LAST_LOCATION, JSON.stringify(location));
-    console.log('Location cached successfully');
-  } catch (error) {
-    console.error('Error caching location:', error);
-  }
-};
-
-const loadCachedLocation = async (): Promise<Location | null> => {
-  try {
-    const cached = await AsyncStorage.getItem(LOCATION_CONFIG.CACHE_KEYS.LAST_LOCATION);
-    if (cached) {
-      const location = JSON.parse(cached);
-      console.log('Loaded cached location:', location);
-      return location;
-    }
-  } catch (error) {
-    console.error('Error loading cached location:', error);
-  }
-  return null;
-};
 
 const App: React.FC<Props> = ({navigation}) => {
+  // UI State
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [mainLoading, setMainLoading] = useState(true); // Main app loading
+  const [backgroundLoading, setBackgroundLoading] = useState(true); // Background operations
+  
+  // Data State
+  interface Child {
+    nickname: string;
+    date_of_birth: string;
+  }
+
   const [userChildren, setUserChildren] = useState<Child[]>([]);
-  const [location, setLocation] = useState<Location | null>(null);
-  const ref = useRef<GooglePlacesAutocompleteRef>(null);
-  const {userInfo, isLoading, logout} = useContext<any>(AuthContext);
-  const [loading, setLoading] = useState<boolean>(true);
+  // Define the Location type
+  interface Location {
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  }
+  
+    const [location, setLocation] = useState<Location | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [details, setDetails] = useState<Array<{title: string; description: string; pinColor: string}>>([]);
+  
+  // Form State
   const [newLocation, setNewLocation] = useState<Location | null>(null);
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const {aiTips, setAITips} = useContext<any>(AuthContext);
   
-  // Fixed typo: desription -> description
-  const [details, setDetails] = useState<
-    Array<{title: string; description: string; pinColor: string}>
-  >([]);
+  // Status State
+  const [locationStatus, setLocationStatus] = useState<'loading' | 'success' | 'error' | 'disabled'>('loading');
+  const [apiStatus, setApiStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [statusMessage, setStatusMessage] = useState<string>('Starting app...');
+
+  const ref = useRef<GooglePlacesAutocompleteRef>(null);
+  const {userInfo, isLoading, logout} = useContext<any>(AuthContext);
+  const {aiTips, setAITips} = useContext<any>(AuthContext);
 
   const options = [
     {label: 'Grocery Store', value: 'Grocery Store'},
@@ -173,105 +146,340 @@ const App: React.FC<Props> = ({navigation}) => {
     {label: "Other's Home", value: "Other's Home"},
   ];
 
-  // Enhanced fetchCurrentLocation with caching
-  const fetchCurrentLocation = async (fromBackground = false): Promise<Location | null> => {
-    const timeoutValue = fromBackground ? LOCATION_CONFIG.TIMEOUTS.BACKGROUND : LOCATION_CONFIG.TIMEOUTS.NORMAL;
-    
-    console.log(`Fetching location with timeout: ${timeoutValue}ms, fromBackground: ${fromBackground}`);
-    
-    // Load cached location first for immediate UI update
-    if (!location) {
-      const cached = await loadCachedLocation();
+  // Cache utilities
+  const loadFromCache = async (key: string) => {
+    try {
+      const cached = await AsyncStorage.getItem(key);
       if (cached) {
-        setLocation(cached);
-        console.log('Using cached location while fetching fresh location');
+        const data = JSON.parse(cached);
+        console.log(`Loaded cached data for ${key}`);
+        return data;
       }
+    } catch (error) {
+      console.warn(`Failed to load cache for ${key}:`, error);
     }
+    return null;
+  };
+
+  const saveToCache = async (key: string, data: any) => {
+    try {
+      await AsyncStorage.setItem(key, JSON.stringify(data));
+      console.log(`Cached data for ${key}`);
+    } catch (error) {
+      console.warn(`Failed to cache ${key}:`, error);
+    }
+  };
+
+  // Fast location fetch with immediate fallback
+  const getQuickLocation = useCallback(async (): Promise<Location> => {
+    console.log('Getting quick location...');
     
-    return new Promise((resolve, reject) => {
+    // First, try to load cached location immediately
+    const cached = await loadFromCache(LOCATION_CONFIG.CACHE_KEYS.LAST_LOCATION);
+    if (cached && cached.latitude && cached.longitude) {
+      console.log('Using cached location for quick startup');
+      setLocationStatus('success');
+      return cached;
+    }
+
+    // Try to get fresh location with short timeout
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        console.log('Quick location timeout, using default location');
+        setLocationStatus('error');
+        resolve(DEFAULT_LOCATION);
+      }, STARTUP_CONFIG.QUICK_LOCATION_TIMEOUT);
+
       Geolocation.getCurrentPosition(
         (position: GeolocationResponse) => {
-          const {latitude, longitude} = position.coords;
+          clearTimeout(timeout);
           const newLocation = {
-            latitude,
-            longitude,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
             latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
             longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
           };
           
-          setLocation(newLocation);
-          setLoading(false);
-          cacheLocation(newLocation);
+          console.log('Got fresh location quickly');
+          setLocationStatus('success');
           
-          console.log('Current location set successfully:', newLocation);
+          // Cache the new location
+          saveToCache(LOCATION_CONFIG.CACHE_KEYS.LAST_LOCATION, newLocation);
+          
           resolve(newLocation);
         },
         (error: GeolocationError) => {
-          logLocationError(error, fromBackground ? 'background' : 'foreground');
-          
-          if (fromBackground) {
-            console.log('Retrying location fetch with shorter timeout...');
-            setTimeout(() => {
-              Geolocation.getCurrentPosition(
-                (position: GeolocationResponse) => {
-                  const {latitude, longitude} = position.coords;
-                  const newLocation = {
-                    latitude,
-                    longitude,
-                    latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
-                    longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
-                  };
-                  setLocation(newLocation);
-                  setLoading(false);
-                  cacheLocation(newLocation);
-                  console.log('Location obtained on retry');
-                  resolve(newLocation);
-                },
-                (retryError: GeolocationError) => {
-                  logLocationError(retryError, 'retry');
-                  if (AppState.currentState === 'active') {
-                    Alert.alert(
-                      'Location Error',
-                      'Unable to get your location. Please check your GPS settings and try again.',
-                      [
-                        {
-                          text: 'Try Again',
-                          onPress: () => fetchCurrentLocation(false)
-                        },
-                        {
-                          text: 'OK',
-                          style: 'cancel'
-                        }
-                      ]
-                    );
-                  }
-                  setLoading(false);
-                  reject(retryError);
-                },
-                {
-                  enableHighAccuracy: false, 
-                  timeout: LOCATION_CONFIG.TIMEOUTS.RETRY, 
-                  maximumAge: 60000
-                }
-              );
-            }, 1000);
-          } else {
-            if (AppState.currentState === 'active') {
-              Alert.alert('Location Services Error', 'Please check your GPS settings.');
-            }
-            setLoading(false);
-            reject(error);
-          }
+          clearTimeout(timeout);
+          console.warn('Quick location failed, using default:', error.message);
+          setLocationStatus('error');
+          resolve(DEFAULT_LOCATION);
         },
         {
-          enableHighAccuracy: LOCATION_CONFIG.ACCURACY.HIGH,
-          timeout: timeoutValue,
-          maximumAge: fromBackground ? 0 : 10000
+          enableHighAccuracy: false, // Faster but less accurate for startup
+          timeout: STARTUP_CONFIG.QUICK_LOCATION_TIMEOUT - 500,
+          maximumAge: 60000, // Accept cached location up to 1 minute old
         }
       );
     });
-  };
+  }, []);
 
+  // Background location improvement
+  const improveLocationInBackground = useCallback(async () => {
+    if (locationStatus === 'success') {
+      console.log('Location already good, skipping background improvement');
+      return;
+    }
+
+    console.log('Improving location in background...');
+    
+    // Request permissions properly
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'This app needs access to your location for personalized tips.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('Location permission denied');
+          setLocationStatus('disabled');
+          return;
+        }
+      } catch (err) {
+        console.warn('Permission request failed:', err);
+        return;
+      }
+    }
+
+    // Get high-accuracy location
+    Geolocation.getCurrentPosition(
+      (position: GeolocationResponse) => {
+        const newLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
+          longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
+        };
+        
+        console.log('Improved location obtained in background');
+        setLocation(newLocation);
+        setLocationStatus('success');
+        saveToCache(LOCATION_CONFIG.CACHE_KEYS.LAST_LOCATION, newLocation);
+      },
+      (error: GeolocationError) => {
+        console.warn('Background location improvement failed:', error.message);
+        setLocationStatus('error');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: LOCATION_CONFIG.TIMEOUTS.BACKGROUND,
+        maximumAge: 0,
+      }
+    );
+  }, [locationStatus]);
+
+  // Fast API data loading with cache fallback
+  const loadCachedDataFirst = useCallback(async () => {
+    console.log('Loading cached data first...');
+    
+    try {
+      // Load cached locations
+      const cachedLocations = await loadFromCache(LOCATION_CONFIG.CACHE_KEYS.USER_LOCATIONS);
+      if (cachedLocations) {
+        console.log('Loaded cached locations');
+        setLocations(cachedLocations.locations || []);
+        setDetails(cachedLocations.details || []);
+      }
+
+      // Load cached children info
+      const cachedChildren = await loadFromCache(LOCATION_CONFIG.CACHE_KEYS.CHILDREN_INFO);
+      if (cachedChildren) {
+        console.log('Loaded cached children info');
+        setUserChildren(cachedChildren);
+      }
+    } catch (error) {
+      console.warn('Failed to load cached data:', error);
+    }
+  }, []);
+
+  // Background API calls
+  const refreshDataInBackground = useCallback(async () => {
+    if (!userInfo?.access_token) {
+      console.log('No auth token, skipping API calls');
+      setApiStatus('error');
+      return;
+    }
+
+    console.log('Refreshing data in background...');
+    
+    try {
+      // Fetch locations in background
+      const locationsPromise = fetchWithAuth(
+        `${API_ENDPOINTS.BASE_URL}${API_ENDPOINTS.LOCATIONS}`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
+        },
+      ).then(async (response) => {
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data.locations) && Array.isArray(data.details)) {
+            setLocations(data.locations);
+            setDetails(data.details);
+            
+            // Cache the fresh data
+            await saveToCache(LOCATION_CONFIG.CACHE_KEYS.USER_LOCATIONS, {
+              locations: data.locations,
+              details: data.details,
+            });
+            
+            console.log('Locations refreshed successfully');
+            return true;
+          }
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }).catch(error => {
+        console.warn('Failed to refresh locations:', error);
+        return false;
+      });
+
+      // Fetch children info in background
+      const childrenPromise = fetchWithAuth(
+        `${API_ENDPOINTS.BASE_URL}${API_ENDPOINTS.CHILDREN}`,
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
+        },
+      ).then(async (response) => {
+        if (response.ok) {
+          const data = await response.json();
+          if (data.children) {
+            if (data.children.some((child: any) => !child.nickname || !child.date_of_birth)) {
+              setUserChildren(data.children);
+              setShowUpdateModal(true);
+            }
+            
+            // Cache the fresh data
+            await saveToCache(LOCATION_CONFIG.CACHE_KEYS.CHILDREN_INFO, data.children);
+            
+            console.log('Children info refreshed successfully');
+            return true;
+          }
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }).catch(error => {
+        console.warn('Failed to refresh children info:', error);
+        return false;
+      });
+
+      // Wait for both with timeout
+      const results = await Promise.allSettled([
+        Promise.race([locationsPromise, new Promise(resolve => setTimeout(() => resolve(false), 10000))]),
+        Promise.race([childrenPromise, new Promise(resolve => setTimeout(() => resolve(false), 10000))]),
+      ]);
+
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+      setApiStatus(successCount > 0 ? 'success' : 'error');
+      
+      console.log(`Background refresh completed: ${successCount}/2 successful`);
+      
+    } catch (error) {
+      console.error('Background refresh failed:', error);
+      setApiStatus('error');
+    } finally {
+      setBackgroundLoading(false);
+    }
+  }, [userInfo]);
+
+  // Fast startup initialization
+  useEffect(() => {
+    let mounted = true;
+    
+    const startupSequence = async () => {
+      console.log('=== FAST STARTUP SEQUENCE BEGIN ===');
+      
+      try {
+        // Step 1: Load cached data immediately (non-blocking)
+        await loadCachedDataFirst();
+        
+        // Step 2: Get location quickly (with fallback)
+        setStatusMessage('Getting your location...');
+        const quickLocation = await getQuickLocation();
+        
+        if (mounted) {
+          setLocation(quickLocation);
+          console.log('Quick location set:', quickLocation);
+        }
+        
+        // Step 3: Show main UI quickly
+        setStatusMessage('Loading interface...');
+        
+        // Small delay to let UI render
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (mounted) {
+          console.log('Showing main UI');
+          setMainLoading(false); // SHOW MAIN UI NOW
+        }
+        
+        // Step 4: Continue background operations
+        console.log('Starting background operations...');
+        
+        // These run in background after UI is shown
+        Promise.allSettled([
+          improveLocationInBackground(),
+          refreshDataInBackground(),
+        ]).then(() => {
+          if (mounted) {
+            console.log('Background operations completed');
+            setBackgroundLoading(false);
+          }
+        });
+        
+      } catch (error) {
+        console.error('Startup sequence error:', error);
+        
+        if (mounted) {
+          // Even if something fails, show the UI
+          setLocation(DEFAULT_LOCATION);
+          setMainLoading(false);
+          setBackgroundLoading(false);
+        }
+      }
+      
+      console.log('=== FAST STARTUP SEQUENCE END ===');
+    };
+
+    startupSequence();
+
+    // Failsafe: Always show UI after max startup time
+    const failsafeTimeout = setTimeout(() => {
+      if (mounted && mainLoading) {
+        console.log('Failsafe: Forcing UI to show after timeout');
+        setLocation(prev => prev || DEFAULT_LOCATION);
+        setMainLoading(false);
+        setBackgroundLoading(false);
+      }
+    }, STARTUP_CONFIG.MAX_STARTUP_TIME);
+
+    return () => {
+      mounted = false;
+      clearTimeout(failsafeTimeout);
+    };
+  }, [getQuickLocation, loadCachedDataFirst, improveLocationInBackground, refreshDataInBackground, mainLoading]);
+
+  // Existing methods (keeping your current implementation)
   const handleUpdateChildren = async (updatedChildren: any[]) => {
     try {
       const response = await fetch(
@@ -297,194 +505,27 @@ const App: React.FC<Props> = ({navigation}) => {
     }
   };
 
-  const setupLocation = async () => {
-    if (Platform.OS === 'ios') {
-      Geolocation.requestAuthorization();
-      await fetchCurrentLocation();
-    } else if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Location Permission',
-            message: 'This app needs access to your location.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          },
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          await fetchCurrentLocation();
-        } else {
-          Alert.alert('Location permission denied');
-          setLoading(false);
-        }
-      } catch (err) {
-        console.warn('Permission request error:', err);
-        setLoading(false);
-      }
-    }
-  };
-
-  const checkChildrenInfo = async () => {
-    try {
-      const response = await fetchWithAuth(
-        `${API_ENDPOINTS.BASE_URL}${API_ENDPOINTS.CHILDREN}`,
-        {
-          headers: {
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
-        },
-      );
-      const data = await response.json();
-
-      if (
-        data.children.some(
-          (child: any) => !child.nickname || !child.date_of_birth,
-        )
-      ) {
-        setUserChildren(data.children);
-        setShowUpdateModal(true);
-      }
-    } catch (error) {
-      console.error('Error checking children info:', error);
-    }
-  };
-
-  // Add loading timeout to prevent infinite loading
-  useEffect(() => {
-    const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn('Location loading timed out after 45 seconds');
-        setLoading(false);
-        Alert.alert(
-          'Location Timeout', 
-          'Taking longer than expected to get your location. You can continue using the app.',
-          [{ text: 'OK', style: 'default' }]
-        );
-      }
-    }, LOCATION_CONFIG.TIMEOUTS.LOADING_TIMEOUT);
-
-    return () => clearTimeout(loadingTimeout);
-  }, [loading]);
-
-  useEffect(() => {
-    checkChildrenInfo();
-    setupLocation();
-    fetchLocations();
-
-    const intervalId = setInterval(fetchLocationAndSendData, LOCATION_CONFIG.INTERVALS.LOCATION_UPDATE);
-    return () => clearInterval(intervalId);
-  }, []);
-
-  const fetchLocations = async () => {
-    try {
-      setLoading(true);
-      const response = await fetchWithAuth(
-        `${API_ENDPOINTS.BASE_URL}${API_ENDPOINTS.LOCATIONS}`,
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
-        },
-      );
-      const jsonResponse = await response.json();
-      console.log('Fetched locations:', jsonResponse);
-
-      if (Array.isArray(jsonResponse.locations)) {
-        setLocations(jsonResponse.locations);
-      } else {
-        console.error('Locations is not an array:', jsonResponse.locations);
-        setLocations([]);
-      }
-
-      if (Array.isArray(jsonResponse.details)) {
-        setDetails(jsonResponse.details);
-      } else {
-        console.error('Details is not an array:', jsonResponse.details);
-        setDetails([]);
-      }
-
-      // Request location permission and fetch current location
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          Alert.alert('Location permission denied');
-          setLoading(false);
-          return;
-        }
-      }
-
-      Geolocation.getCurrentPosition(
-        position => {
-          const {latitude, longitude} = position.coords;
-          const newLocation = {
-            latitude,
-            longitude,
-            latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
-            longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
-          };
-          setLocation(newLocation);
-          cacheLocation(newLocation);
-          setLoading(false);
-        },
-        error => {
-          logLocationError(error, 'fetchLocations');
-          Alert.alert('Error', 'Unable to fetch location');
-          setLoading(false);
-        },
-        {
-          enableHighAccuracy: true, 
-          timeout: LOCATION_CONFIG.TIMEOUTS.NORMAL, 
-          maximumAge: 10000
-        },
-      );
-    } catch (error) {
-      setLoading(false);
-      console.error('Error fetching locations:', error);
-      Alert.alert('Error', 'Unable to fetch locations');
-    }
-  };
-
-  const calculateDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ) => {
-    const R = 6371e3; // Earth's radius in meters
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3;
     const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
     const Δφ = ((lat2 - lat1) * Math.PI) / 180;
     const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return R * c; // Distance in meters
+    return R * c;
   };
 
   const isLocationNearby = (newLat: number, newLon: number) => {
     return locations.some(loc => {
-      const distance = calculateDistance(
-        newLat,
-        newLon,
-        loc.latitude,
-        loc.longitude,
-      );
-      return distance <= LOCATION_CONFIG.ACCURACY.DISTANCE_THRESHOLD;
+      const distance = calculateDistance(newLat, newLon, loc.latitude, loc.longitude);
+      return distance <= 100;
     });
   };
 
   const addLocation = async () => {
-    console.log('Add location');
     if (name === '' || description === '' || !selectedOption) {
       Alert.alert('Missing Information', 'Please enter a title, description, and select a location type.');
       return;
@@ -492,15 +533,11 @@ const App: React.FC<Props> = ({navigation}) => {
     
     if (newLocation) {
       if (isLocationNearby(newLocation.latitude, newLocation.longitude)) {
-        Alert.alert(
-          'Duplicate Location',
-          `A location already exists within ${LOCATION_CONFIG.ACCURACY.DISTANCE_THRESHOLD} meters of this point. Please choose a different location.`,
-        );
+        Alert.alert('Duplicate Location', 'A location already exists within 100 meters of this point.');
         return;
       }
 
       try {
-        setLoading(true);
         const response = await fetchWithAuth(
           `${API_ENDPOINTS.BASE_URL}${API_ENDPOINTS.ADD_LOCATION}`,
           {
@@ -524,12 +561,9 @@ const App: React.FC<Props> = ({navigation}) => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        setLoading(false);
-        await fetchLocations();
+        await refreshDataInBackground();
         Alert.alert('Success', 'Location added successfully!');
-        console.log('Location added:', response.status);
         
-        // Reset form
         setNewLocation(null);
         setName('');
         setDescription('');
@@ -537,132 +571,46 @@ const App: React.FC<Props> = ({navigation}) => {
         ref.current?.clear();
       } catch (error) {
         console.error('Error adding location:', error);
-        setLoading(false);
         Alert.alert('Error', 'Failed to add location. Please try again.');
       }
     }
   };
 
-  const fetchLocationAndSendData = async () => {
-    if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: 'Location Permission',
-          message: 'This app needs access to your location.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-      
-      const backgroundGranted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-        {
-          title: 'Background Location Permission',
-          message: 'This app needs access to your location in the background',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-      
-      if (backgroundGranted === PermissionsAndroid.RESULTS.GRANTED) {
-        console.log('Background location permission granted');
-      } else {
-        console.log('Background location permission denied');
-      }
-      
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-        Alert.alert('Location permission denied');
-        return;
-      }
-    }
-  
-    const getCurrentPositionPromise = (): Promise<GeolocationResponse> => {
-      return new Promise((resolve, reject) => {
-        const isFromBackground = AppState.currentState !== 'active';
-        const timeoutValue = isFromBackground ? LOCATION_CONFIG.TIMEOUTS.BACKGROUND : LOCATION_CONFIG.TIMEOUTS.NORMAL;
-        
-        Geolocation.getCurrentPosition(
-          (position: GeolocationResponse) => resolve(position),
-          (error: GeolocationError) => reject(error),
-          {
-            enableHighAccuracy: true,
-            timeout: timeoutValue,
-            maximumAge: isFromBackground ? 0 : 10000
-          }
-        );
-      });
-    };
-  
-    try {
-      const position = await getCurrentPositionPromise();
-      const {latitude, longitude} = position.coords;
-      
-      const newLocation = {
-        latitude,
-        longitude,
-        latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
-        longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
-      };
-      
-      setLocation(newLocation);
-      cacheLocation(newLocation);
-      
-      if (loading) setLoading(false);
-      
-      // Send location data to server
-      try {
-        const response = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${API_ENDPOINTS.SEND_LOCATION}`, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
-          body: JSON.stringify({
-            latitude,
-            longitude,
-          }),
-        });
-        console.log('Data sent to server:', response.status);
-      } catch (error) {
-        console.error('Error sending location data:', error);
-      }
-    } catch (error) {
-      logLocationError(error as GeolocationError, 'fetchLocationAndSendData');
-      
-      if (AppState.currentState === 'active') {
-        Alert.alert('Error', 'Unable to fetch location');
-      }
-    }
-  };
-
+  // Periodic location updates (existing logic)
   useEffect(() => {
-    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
-      console.log('App state changed to:', nextAppState);
-      
-      if (nextAppState === 'active') {
-        console.log('App is now active - refreshing location');
-        fetchCurrentLocation(true);
+    const intervalId = setInterval(async () => {
+      if (AppState.currentState === 'active' && location && userInfo?.access_token) {
+        try {
+          await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${API_ENDPOINTS.SEND_LOCATION}`, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${userInfo.access_token}`,
+            },
+            body: JSON.stringify({
+              latitude: location.latitude,
+              longitude: location.longitude,
+            }),
+          });
+        } catch (error) {
+          console.warn('Location update failed:', error);
+        }
       }
-    });
-
-    fetchLocations();
-    console.log('fetchLocations called');
-    const intervalId = setInterval(fetchLocationAndSendData, LOCATION_CONFIG.INTERVALS.LOCATION_UPDATE);
+    }, 30000);
     
-    return () => {
-      appStateSubscription.remove();
-      clearInterval(intervalId);
-    };
-  }, []);
+    return () => clearInterval(intervalId);
+  }, [location, userInfo]);
 
-  if (loading) {
+  // Show loading screen only briefly
+  if (mainLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <Spinner visible={loading} />
+        <Spinner visible={true} />
+        <Text style={styles.loadingText}>{statusMessage}</Text>
+        <Text style={styles.loadingSubtext}>
+          {Date.now() % 2000 < 1000 ? 'Almost ready...' : 'Just a moment...'}
+        </Text>
         <Notification />
       </View>
     );
@@ -670,12 +618,22 @@ const App: React.FC<Props> = ({navigation}) => {
 
   return (
     <>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="transparent"
-        translucent
-      />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <Notification />
+      
+      {/* Background loading indicator */}
+      {backgroundLoading && (
+        <View style={styles.backgroundLoadingBanner}>
+          <View style={styles.backgroundLoadingContent}>
+            <Text style={styles.backgroundLoadingText}>🔄 Refreshing data...</Text>
+            <Text style={styles.backgroundLoadingSubtext}>
+              Location: {locationStatus === 'success' ? '✓' : locationStatus === 'loading' ? '⏳' : '⚠️'} | 
+              Data: {apiStatus === 'success' ? '✓' : apiStatus === 'loading' ? '⏳' : '⚠️'}
+            </Text>
+          </View>
+        </View>
+      )}
+      
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <KeyboardAvoidingView 
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -683,16 +641,14 @@ const App: React.FC<Props> = ({navigation}) => {
         >
           <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
-              {/* Search Bar with Shadow */}
+              {/* Search Bar */}
               <View style={styles.searchWrapper}>
                 <View style={styles.searchContainer}>
                   <GooglePlacesAutocomplete
                     placeholder="Search location..."
                     fetchDetails={true}
                     styles={{
-                      container: {
-                        flex: 0,
-                      },
+                      container: { flex: 0 },
                       textInputContainer: {
                         backgroundColor: 'white',
                         borderRadius: 12,
@@ -710,13 +666,9 @@ const App: React.FC<Props> = ({navigation}) => {
                         borderRadius: 12,
                         marginTop: 5,
                       },
-                      row: {
-                        padding: 13,
-                        height: 50,
-                      },
+                      row: { padding: 13, height: 50 },
                     }}
                     onPress={(data, details = null) => {
-                      console.log('Location selected:', data);
                       if (details) {
                         const latitude = details.geometry.location.lat;
                         const longitude = details.geometry.location.lng;
@@ -728,12 +680,7 @@ const App: React.FC<Props> = ({navigation}) => {
                         });
                       }
                     }}
-                    onFail={error => console.error('Places API Error:', error)}
-                    onNotFound={() => console.log('No results found')}
-                    query={{
-                      key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps',
-                      language: 'en',
-                    }}
+                    query={{ key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps', language: 'en' }}
                     renderRightButton={() => (
                       <TouchableOpacity
                         style={styles.clearButton}
@@ -756,9 +703,7 @@ const App: React.FC<Props> = ({navigation}) => {
               <View style={styles.mapContainer}>
                 {location && (
                   <MapView
-                    provider={
-                      Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE
-                    }
+                    provider={Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
                     style={styles.map}
                     initialRegion={location}
                     region={newLocation || location}
@@ -775,7 +720,7 @@ const App: React.FC<Props> = ({navigation}) => {
                         />
                         <Circle
                           center={loc}
-                          radius={LOCATION_CONFIG.ACCURACY.DISTANCE_THRESHOLD}
+                          radius={100}
                           strokeColor="rgba(65, 105, 225, 0.5)"
                           fillColor="rgba(65, 105, 225, 0.1)"
                           zIndex={2}
@@ -796,37 +741,29 @@ const App: React.FC<Props> = ({navigation}) => {
                     style={styles.dropdown}
                     placeholderStyle={styles.dropdownPlaceholder}
                     selectedTextStyle={styles.dropdownSelected}
-                    inputSearchStyle={styles.dropdownSearch}
-                    iconStyle={styles.dropdownIcon}
                     data={options}
                     maxHeight={300}
                     labelField="label"
                     valueField="value"
                     placeholder="Select location type"
-                    searchPlaceholder="Search..."
                     value={selectedOption}
                     onChange={item => setSelectedOption(item.value)}
                     renderLeftIcon={() => (
-                      <AntDesign
-                        style={styles.dropdownLeftIcon}
-                        color="#333"
-                        name="Safety"
-                        size={20}
-                      />
+                      <AntDesign style={styles.dropdownLeftIcon} color="#333" name="Safety" size={20} />
                     )}
                   />
                   <TextInput
                     placeholder="Location name"
                     style={styles.input}
                     value={name}
-                    onChange={e => setName(e.nativeEvent.text)}
+                    onChangeText={setName}
                     placeholderTextColor="#666"
                   />
                   <TextInput
                     placeholder="Description"
                     style={[styles.input, styles.textArea]}
                     value={description}
-                    onChange={e => setDescription(e.nativeEvent.text)}
+                    onChangeText={setDescription}
                     placeholderTextColor="#666"
                     multiline
                     numberOfLines={3}
@@ -847,26 +784,33 @@ const App: React.FC<Props> = ({navigation}) => {
                       Welcome, {userInfo?.user?.name || 'User'}
                     </Text>
                     <Text style={styles.welcomeText}>
-                      Search for a location on the map and follow the instructions
-                      to add a point of interest for personalized parenting tips.
+                      Search for a location and add points of interest for personalized parenting tips.
                     </Text>
+                    
+                    {/* Status indicators */}
+                    <View style={styles.statusContainer}>
+                      <Text style={styles.statusText}>
+                        📍 Location: {locationStatus === 'success' ? 'Ready' : 
+                                    locationStatus === 'loading' ? 'Getting...' : 
+                                    locationStatus === 'disabled' ? 'Disabled' : 'Using default'}
+                      </Text>
+                      <Text style={styles.statusText}>
+                        🔄 Data: {apiStatus === 'success' ? 'Current' : 
+                                  apiStatus === 'loading' ? 'Refreshing...' : 'Using cached'}
+                      </Text>
+                    </View>
+
                     <View style={styles.buttonContainer}>
                       <TouchableOpacity
                         style={[styles.button, styles.aiButton]}
                         onPress={() => {
-                          console.log('Navigating to LocationList with:', { locations, details });
-                          navigation.navigate('LocationList', {
-                            locations: locations,
-                            details: details,
-                          });
+                          navigation.navigate('LocationList', { locations, details });
                         }}>
                         <Text style={styles.buttonText}>
                           Show Locations ({locations.length})
                         </Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.button, styles.logoutButton]}
-                        onPress={logout}>
+                      <TouchableOpacity style={[styles.button, styles.logoutButton]} onPress={logout}>
                         <Text style={styles.buttonText}>Logout</Text>
                       </TouchableOpacity>
                     </View>
@@ -887,6 +831,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  loadingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  backgroundLoadingBanner: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 25,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    backgroundColor: 'rgba(74, 144, 226, 0.9)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  backgroundLoadingContent: {
+    alignItems: 'center',
+  },
+  backgroundLoadingText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  backgroundLoadingSubtext: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
+    marginTop: 2,
   },
   safeArea: {
     flex: 1,
@@ -907,10 +888,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
@@ -933,10 +911,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
@@ -962,15 +937,6 @@ const styles = StyleSheet.create({
   dropdownSelected: {
     fontSize: 16,
     color: '#333',
-  },
-  dropdownSearch: {
-    height: 40,
-    fontSize: 16,
-    borderRadius: 8,
-  },
-  dropdownIcon: {
-    width: 20,
-    height: 20,
   },
   dropdownLeftIcon: {
     marginRight: 8,
@@ -1023,8 +989,19 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 20,
+    marginBottom: 12,
     lineHeight: 22,
+  },
+  statusContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: 'rgba(74, 144, 226, 0.1)',
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    color: '#4A90E2',
+    marginBottom: 4,
   },
   buttonContainer: {
     flexDirection: 'row',

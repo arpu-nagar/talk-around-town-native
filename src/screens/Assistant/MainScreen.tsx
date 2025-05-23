@@ -5,7 +5,7 @@ import React, {
   useRef,
   useContext,
 } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -27,13 +27,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Loader from './Loader';
 import ChildInfoModal from '../ChildInfoModal';
 import {AuthContext, AuthContextType} from '../../context/AuthContext';
-import DashboardScreen from './DashboardScreen';
-interface Child {
-  id: number;
-  nickname?: string;
-  date_of_birth: string;
-  age?: number;
-}
+import { useChildrenInfo } from '../../hooks/useChildrenInfo';
+import { Child } from '../../services/ChildrenInfoService';
 
 interface Tip {
   id: number;
@@ -64,25 +59,20 @@ const detectChildNameInQuery = (query: string, childrenInfo: Child[]) => {
     return null;
   }
   
-  // Normalize the query (lowercase for case-insensitive matching)
   const normalizedQuery = query.toLowerCase();
   
-  // Check for each child's name in the query
   for (const child of childrenInfo) {
     const nickname = child.nickname?.toLowerCase();
     
-    // Skip if no nickname is available
     if (!nickname) continue;
     
-    // Simple check if the nickname appears in the query
-    // We can look for variants like "for [name]" or "[name]'s" or just the name itself
     const patterns = [
       ` for ${nickname}`,
       ` ${nickname}'s `,
       ` ${nickname} `,
-      `^${nickname} `,       // At the beginning of the query
-      ` ${nickname}$`,       // At the end of the query
-      `^${nickname}$`        // Query is just the name
+      `^${nickname} `,
+      ` ${nickname}$`,
+      `^${nickname}$`
     ];
     
     if (patterns.some(pattern => normalizedQuery.match(pattern))) {
@@ -98,9 +88,7 @@ const CRUD_API_BASE_URL = 'http://68.183.102.75:1337';
 
 const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
   const [rating, setRating] = useState<'up' | 'down' | null>(null);
-  const [repeatPreference, setRepeatPreference] = useState<boolean | null>(
-    null,
-  );
+  const [repeatPreference, setRepeatPreference] = useState<boolean | null>(null);
 
   const handleRating = async (type: 'up' | 'down') => {
     try {
@@ -117,7 +105,6 @@ const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
 
       if (response.ok) {
         setRating(type);
-        // Automatically set repeat preference based on rating
         const shouldRepeat = type === 'up';
         setRepeatPreference(shouldRepeat);
         handleRepeatPreference(shouldRepeat);
@@ -202,80 +189,77 @@ const MainScreen: React.FC = () => {
   const [showAgePrompt, setShowAgePrompt] = useState(false);
   const [lastQuery, setLastQuery] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
-  // const {userInfo, isLoading: contextLoading} =
-  //   useContext<AuthContextType>(AuthContext);
-    const { userInfo, isLoading: contextLoading, isAdmin } = useContext<AuthContextType>(AuthContext);
+  const [showChildInfo, setShowChildInfo] = useState(false);
+  const [contentPreferences, setContentPreferences] = useState<string[]>(['language']);
+  const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
+
+  const { userInfo, isLoading: contextLoading, isAdmin } = useContext<AuthContextType>(AuthContext);
   const currentSound = useRef<Sound | null>(null);
   const lastResult = useRef<string>('');
-  const [showChildInfo, setShowChildInfo] = useState(false);
-  const [childrenInfo, setChildrenInfo] = useState<Child[]>([]);
-  const [contentPreferences, setContentPreferences] = useState<string[]>(['language']);
-const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
+
+  // Use the enhanced children info hook
+  const {
+    children: childrenInfo,
+    isLoading: childrenLoading,
+    error: childrenError,
+    isFromCache: childrenFromCache,
+    fetchChildren,
+    updateChildren,
+    clearError: clearChildrenError,
+    retryFetch: retryChildrenFetch,
+    needsProfileCompletion,
+  } = useChildrenInfo();
 
   const navigateToSettings = () => {
-    // @ts-ignore - This tells TypeScript to ignore the type error for this line
+    // @ts-ignore
     navigation.navigate('Settings');
   };
-  const fetchContentPreferences = async () => {
+
+  // Enhanced fetchContentPreferences with better debugging
+  const fetchContentPreferences = useCallback(async () => {
     try {
+      setIsPreferencesLoading(true);
+      console.log('Fetching content preferences...');
+      
       const savedPreferences = await AsyncStorage.getItem('contentPreferences');
+      console.log('Raw stored preferences:', savedPreferences);
+      
       if (savedPreferences) {
         const parsedPreferences = JSON.parse(savedPreferences);
-        setContentPreferences(parsedPreferences.length > 0 ? parsedPreferences : ['language']);
+        console.log('Parsed preferences:', parsedPreferences);
+        
+        // Ensure we have a valid array
+        if (Array.isArray(parsedPreferences) && parsedPreferences.length > 0) {
+          setContentPreferences(parsedPreferences);
+          console.log('Set content preferences to:', parsedPreferences);
+        } else {
+          console.log('Invalid preferences array, using default: [language]');
+          setContentPreferences(['language']);
+        }
       } else {
-        setContentPreferences(['language']); // Default to language if no preferences saved
+        console.log('No saved preferences found, using default: [language]');
+        setContentPreferences(['language']);
       }
     } catch (error) {
       console.error('Error loading content preferences:', error);
-      setContentPreferences(['language']); // Fallback to default
+      setContentPreferences(['language']);
     } finally {
       setIsPreferencesLoading(false);
     }
-  };
+  }, []);
 
+  // Use useFocusEffect to refresh preferences when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Screen focused, refreshing content preferences...');
+      fetchContentPreferences();
+    }, [fetchContentPreferences])
+  );
 
-  const fetchChildrenInfo = async () => {
-    if (!userInfo?.access_token) {
-      console.error('No access token available');
-      return;
-    }
-
-    try {
-      setIsLoading(true); // Add loading state
-      const response = await fetch(
-        'http://68.183.102.75:1337/endpoint/children',
-        {
-          headers: {
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
-        },
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (data && data.children) {
-        setChildrenInfo(data.children);
-      } else {
-        setChildrenInfo([]);
-      }
-    } catch (error) {
-      console.error('Error fetching children info:', error);
-      Alert.alert(
-        'Error',
-        'Failed to fetch children information. Please try again later.',
-      );
-      setChildrenInfo([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Also load preferences on mount (fallback)
   useEffect(() => {
-    fetchChildrenInfo();
     fetchContentPreferences();
-  }, [userInfo.access_token]); // Add dependency to refresh when token changes
+  }, [fetchContentPreferences]);
 
   const initializeVoice = async () => {
     try {
@@ -313,8 +297,7 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
           {
             title: 'Microphone Permission',
-            message:
-              'This app needs access to your microphone for voice recognition.',
+            message: 'This app needs access to your microphone for voice recognition.',
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
             buttonPositive: 'OK',
@@ -434,7 +417,6 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
           />
           <Text style={styles.tipTitle}>{tip.title}</Text>
         </View>
-        {/* Render categories if available */}
         {tip.categories && tip.categories.length > 0 && renderCategoryBadges(tip.categories)}
         <Text style={styles.tipBody}>{tip.body}</Text>
         <Text style={styles.tipDetails}>{tip.details}</Text>
@@ -467,10 +449,7 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
       </LinearGradient>
     </View>
   );
-  // const navigateToDashboard = () => {
-  //   // @ts-ignore
-  //   navigation.navigate('Dashboard');
-  // };
+
   const getTips = async (query = searchText) => {
     if (!query.trim()) {
       Alert.alert(
@@ -480,26 +459,28 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
       return;
     }
   
-    // Attempt to detect a child's name in the query
+    // Enhanced child name detection with better error handling
     const detectedChild = detectChildNameInQuery(query, childrenInfo);
     
-    // If we detected a child, automatically include their age
     if (detectedChild) {
       const age = calculateAge(detectedChild.date_of_birth);
-      // Modify the query to include the age information
       query = `${query} for ${age} year old`;
+      console.log(`Detected child: ${detectedChild.nickname}, age: ${age}`);
     }
   
     setIsLoading(true);
     try {
+      console.log('Sending request with preferences:', contentPreferences);
+      
       const response = await fetch(`${API_BASE_URL}/generate-tips`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: query, 
+        body: JSON.stringify({ 
+          prompt: query, 
           contentPreferences: contentPreferences
-         }),
+        }),
       });
   
       if (!response.ok) {
@@ -525,6 +506,7 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
       setIsLoading(false);
     }
   };
+
   const renderCategoryBadges = (categories: string[] = []) => {
     if (!categories || categories.length === 0) return null;
     
@@ -546,34 +528,75 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
       </View>
     );
   };
+
+  // Enhanced ContentPreferenceBanner with better debugging and logic
   const ContentPreferenceBanner = () => {
     if (isPreferencesLoading) return null;
     
+    console.log('Rendering ContentPreferenceBanner with preferences:', contentPreferences);
+    
     let focusText = '';
+    let backgroundColor = '#E3F2FD'; // Default blue
+    let textColor = '#0D47A1';
+    
+    // Enhanced logic to handle all cases
     if (contentPreferences.includes('language') && contentPreferences.includes('science')) {
       focusText = 'Language & Science';
-    } else if (contentPreferences.includes('language')) {
+      backgroundColor = '#E8F5E8'; // Light green
+      textColor = '#2E7D2E';
+    } else if (contentPreferences.includes('language') && !contentPreferences.includes('science')) {
       focusText = 'Language Development';
-    } else if (contentPreferences.includes('science')) {
+      backgroundColor = '#E3F2FD'; // Light blue
+      textColor = '#0D47A1';
+    } else if (contentPreferences.includes('science') && !contentPreferences.includes('language')) {
       focusText = 'Science Skills';
+      backgroundColor = '#E8F5E8'; // Light green
+      textColor = '#2E7D2E';
+    } else if (contentPreferences.length === 0) {
+      focusText = 'No Focus Selected';
+      backgroundColor = '#FFF3CD'; // Light yellow
+      textColor = '#856404';
     } else {
+      // Any other preferences that are not language or science
       focusText = 'General Tips';
+      backgroundColor = '#F3E5F5'; // Light purple
+      textColor = '#7B1FA2';
     }
     
+    console.log('Computed focus text:', focusText);
+    
     return (
-      <View style={styles.preferenceBanner}>
-        <Icon name="school" size={16} color="#007AFF" style={styles.bannerIcon} />
-        <Text style={styles.bannerText}>
+      <View style={[styles.preferenceBanner, { backgroundColor }]}>
+        <Icon name="school" size={16} color={textColor} style={styles.bannerIcon} />
+        <Text style={[styles.bannerText, { color: textColor }]}>
           Focus: <Text style={styles.bannerHighlight}>{focusText}</Text>
         </Text>
         <TouchableOpacity 
           onPress={() => {
-            // @ts-ignore - This tells TypeScript to ignore the type error
+            console.log('Navigating to ContentSelection...');
+            // @ts-ignore
             navigation.navigate('ContentSelection');
           }}
-          style={styles.bannerButton}
+          style={[styles.bannerButton, { backgroundColor: `${textColor}20` }]}
         >
-          <Text style={styles.bannerButtonText}>Change</Text>
+          <Text style={[styles.bannerButtonText, { color: textColor }]}>Change</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // Enhanced children info status banner
+  const ChildrenInfoBanner = () => {
+    if (childrenLoading || !childrenError) return null;
+    
+    return (
+      <View style={styles.childrenErrorBanner}>
+        <Icon name="warning" size={16} color="#FF9500" style={styles.bannerIcon} />
+        <Text style={styles.childrenErrorText}>
+          {childrenFromCache ? 'Using cached children info' : 'Failed to load children info'}
+        </Text>
+        <TouchableOpacity onPress={retryChildrenFetch} style={styles.bannerButton}>
+          <Text style={styles.bannerButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
@@ -590,6 +613,19 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
     const queryWithAge = `${lastQuery} for ${age} year old`;
     setSearchText(queryWithAge);
     getTips(queryWithAge);
+  };
+
+  // Fixed: Create wrapper function that matches ChildInfoModal interface
+  const handleChildInfoClose = () => {
+    setShowChildInfo(false);
+    clearChildrenError();
+  };
+
+  const handleChildrenUpdateWrapper = () => {
+    // This function will be called by ChildInfoModal after it updates children
+    // The actual update logic is handled by the ChildInfoModal itself
+    // We just need to refresh our data after the modal closes
+    fetchChildren(true); // Force refresh after update
   };
 
   const AgePromptModal = () => (
@@ -631,7 +667,10 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
           <Text style={styles.headerTitle}>Parenting Assistant</Text>
           <Text style={styles.headerSubtitle}>Ask any parenting question</Text>
         </View>
+        
         <ContentPreferenceBanner />
+        <ChildrenInfoBanner />
+        
         <View style={styles.searchContainer}>
           <View style={styles.searchWrapper}>
             <Icon
@@ -699,40 +738,17 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
         </ScrollView>
 
         <View style={styles.bottomButtonContainer}>
-  {/* <TouchableOpacity
-    style={styles.childInfoButton}
-    onPress={() => setShowChildInfo(true)}>
-    <Icon
-      name="child-care"
-      size={20}
-      color="white"
-      style={styles.buttonIcon}
-    />
-    <Text style={styles.childInfoButtonText}>Children Information</Text>
-  </TouchableOpacity> */}
-  
-  {/* <TouchableOpacity
-    style={styles.settingsButton}
-    onPress={navigateToSettings}>
-    <Icon
-      name="settings"
-      size={20}
-      color="white"
-      style={styles.buttonIcon}
-    />
-    <Text style={styles.settingsButtonText}>Settings</Text>
-  </TouchableOpacity> */}
+          {/* Bottom navigation buttons can be added here if needed */}
+        </View>
 
-  {/* Only show Dashboard button for admin users */}
-</View>
-
-        {userInfo.access_token ? (
+        {/* Fixed: Use wrapper function that matches ChildInfoModal interface */}
+        {userInfo?.access_token ? (
           <ChildInfoModal
             visible={showChildInfo}
-            onClose={() => setShowChildInfo(false)}
+            onClose={handleChildInfoClose}
             children={childrenInfo}
             userToken={userInfo.access_token}
-            onChildrenUpdate={fetchChildrenInfo}
+            onChildrenUpdate={handleChildrenUpdateWrapper}
           />
         ) : (
           showChildInfo && (
@@ -740,7 +756,7 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
               visible={true}
               transparent={true}
               animationType="slide"
-              onRequestClose={() => setShowChildInfo(false)}>
+              onRequestClose={handleChildInfoClose}>
               <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>
                   <Text style={styles.modalTitle}>Not Logged In</Text>
@@ -749,7 +765,7 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
                   </Text>
                   <TouchableOpacity
                     style={styles.closeButton}
-                    onPress={() => setShowChildInfo(false)}>
+                    onPress={handleChildInfoClose}>
                     <Text style={styles.closeButtonText}>Close</Text>
                   </TouchableOpacity>
                 </View>
@@ -766,182 +782,189 @@ const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
 };
 
 const styles = StyleSheet.create({
+  preferenceBanner: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  childrenErrorBanner: {
+    backgroundColor: '#FFF3CD',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  bannerIcon: {
+    marginRight: 8,
+  },
+  bannerText: {
+    flex: 1,
+    fontSize: 14,
+  },
+  bannerHighlight: {
+    fontWeight: 'bold',
+  },
+  bannerButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  bannerButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  childrenErrorText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#856404',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#f0f2f5',
   },
   container: {
     flex: 1,
-    padding: 16,
   },
   headerContainer: {
-    marginBottom: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 8,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 16,
     color: '#666',
-    fontWeight: '500',
   },
   searchContainer: {
-    flexDirection: 'row',
+    paddingHorizontal: 16,
     marginBottom: 16,
+    flexDirection: 'row',
     alignItems: 'center',
   },
   searchWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    height: 50,
+    backgroundColor: 'white',
+    borderRadius: 25,
+    paddingHorizontal: 16,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   searchIcon: {
-    marginRight: 8,
-  },
-  categoryContainer: {
-    flexDirection: 'row',
-    marginBottom: 10,
-    flexWrap: 'wrap',
-  },
-  categoryBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginRight: 6,
-    marginBottom: 6,
-  },
-  categoryText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  preferenceBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  bannerIcon: {
-    marginRight: 6,
-  },
-  bannerText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#666',
-  },
-  bannerHighlight: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  bannerButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  bannerButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '500',
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
+    height: 50,
     fontSize: 16,
     color: '#333',
-    height: '100%',
   },
   micButton: {
+    marginLeft: 12,
     width: 50,
     height: 50,
+    borderRadius: 25,
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
-    marginLeft: 12,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   micButtonActive: {
     backgroundColor: '#FF3B30',
   },
   buttonContainer: {
+    paddingHorizontal: 16,
     flexDirection: 'row',
-    marginBottom: 24,
-    gap: 12,
+    marginBottom: 16,
   },
   buttonFlex: {
     flex: 1,
+    marginHorizontal: 4,
+  },
+  searchButton: {
+    backgroundColor: '#4A90E2',
+    paddingVertical: 14,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-  },
-  searchButton: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   retryButton: {
     backgroundColor: '#34C759',
-    padding: 16,
+    paddingVertical: 14,
     borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-  },
-  buttonIcon: {
-    marginRight: 8,
+    marginLeft: 8,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingHorizontal: 16,
   },
   tipItem: {
     marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   tipGradient: {
+    borderRadius: 16,
     padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   tipHeader: {
     flexDirection: 'row',
@@ -949,156 +972,142 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tipIcon: {
-    marginRight: 8,
+    marginRight: 12,
   },
   tipTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
     flex: 1,
   },
   tipBody: {
     fontSize: 16,
-    marginBottom: 12,
-    color: '#333',
+    color: '#444',
     lineHeight: 24,
+    marginBottom: 12,
   },
   tipDetails: {
     fontSize: 14,
-    fontStyle: 'italic',
-    marginBottom: 16,
     color: '#666',
+    lineHeight: 20,
+    marginBottom: 16,
   },
-  dashboardButton: {
-    flex: 1,
-    backgroundColor: '#8E44AD', // Purple color for dashboard
-    padding: 16,
-    borderRadius: 12,
+  categoryContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    marginBottom: 12,
+    flexWrap: 'wrap',
   },
-  dashboardButtonText: {
+  categoryBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  categoryText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '600',
   },
-  audioButtonsContainer: {
+  buttonContainerGap: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   playButton: {
-    backgroundColor: '#34C759',
-    padding: 12,
-    borderRadius: 12,
-    flex: 1,
+    backgroundColor: '#007AFF',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    flex: 1,
+    marginRight: 8,
   },
   stopButton: {
     backgroundColor: '#FF3B30',
   },
+  ratingContainer: {
+    flexDirection: 'row',
+  },
+  ratingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginLeft: 4,
+    backgroundColor: '#f0f0f0',
+  },
+  ratingActive: {
+    backgroundColor: '#e6f3ff',
+  },
+  ratingText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: '#666',
+  },
+  ratingTextActive: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
   bottomButtonContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
-  childInfoButton: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: '#5856D6',
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  settingsButton: {
-    flex: 1,
-    backgroundColor: '#FF9500',
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    padding: 20,
   },
-  settingsButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
   },
-  // childInfoButton: {
-  //   backgroundColor: '#5856D6',
-  //   padding: 16,
-  //   borderRadius: 12,
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   justifyContent: 'center',
-  //   shadowColor: '#000',
-  //   shadowOffset: {width: 0, height: 2},
-  //   shadowOpacity: 0.25,
-  //   shadowRadius: 4,
-  //   elevation: 5,
-  // },
-  childInfoButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  testButton: {
-    backgroundColor: '#FF9500', // Orange color to distinguish it
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-
-  childItem: {
-    backgroundColor: '#F8F9FA',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  childName: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-    color: '#1C1C1E',
-  },
-  childInfo: {
-    fontSize: 14,
-    color: '#636366',
-  },
-  childrenList: {
-    maxHeight: 300,
-    marginBottom: 16,
-  },
-  noChildrenText: {
-    fontSize: 16,
-    color: '#636366',
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     textAlign: 'center',
-    marginVertical: 20,
+    marginBottom: 16,
+    color: '#333',
+  },
+  modalText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+    lineHeight: 22,
+  },
+  ageButton: {
+    backgroundColor: '#4A90E2',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  ageButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   closeButton: {
     backgroundColor: '#007AFF',
@@ -1110,83 +1119,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     fontWeight: '500',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    width: '90%',
-    maxWidth: 400,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  modalText: {
-    fontSize: 16,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  ageButton: {
-    backgroundColor: '#007AFF',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  ageButtonText: {
-    color: 'white',
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  cancelButton: {
-    padding: 12,
-    marginTop: 8,
-  },
-  cancelButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 10,
-    gap: 10,
-  },
-  ratingButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-  },
-  ratingActive: {
-    backgroundColor: '#e6f7ff',
-  },
-  ratingText: {
-    marginLeft: 5,
-    color: '#666',
-  },
-  ratingTextActive: {
-    color: '#007AFF',
-  },
-  buttonContainerGap: {
-    flexDirection: 'column',
-    gap: 8,
   },
 });
 
