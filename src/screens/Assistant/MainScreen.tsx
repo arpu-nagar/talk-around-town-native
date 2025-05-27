@@ -586,21 +586,21 @@ const MainScreen: React.FC = () => {
   };
 
   // Enhanced children info status banner
-  const ChildrenInfoBanner = () => {
-    if (childrenLoading || !childrenError) return null;
+  // const ChildrenInfoBanner = () => {
+  //   if (childrenLoading || !childrenError) return null;
     
-    return (
-      <View style={styles.childrenErrorBanner}>
-        <Icon name="warning" size={16} color="#FF9500" style={styles.bannerIcon} />
-        <Text style={styles.childrenErrorText}>
-          {childrenFromCache ? 'Using cached children info' : 'Failed to load children info'}
-        </Text>
-        <TouchableOpacity onPress={retryChildrenFetch} style={styles.bannerButton}>
-          <Text style={styles.bannerButtonText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+  //   return (
+  //     <View style={styles.childrenErrorBanner}>
+  //       <Icon name="warning" size={16} color="#FF9500" style={styles.bannerIcon} />
+  //       <Text style={styles.childrenErrorText}>
+  //         {childrenFromCache ? 'Using cached children info' : 'Failed to load children info'}
+  //       </Text>
+  //       <TouchableOpacity onPress={retryChildrenFetch} style={styles.bannerButton}>
+  //         <Text style={styles.bannerButtonText}>Retry</Text>
+  //       </TouchableOpacity>
+  //     </View>
+  //   );
+  // };
 
   const handleRetry = () => {
     if (searchText.trim()) {
@@ -669,7 +669,7 @@ const MainScreen: React.FC = () => {
         </View>
         
         <ContentPreferenceBanner />
-        <ChildrenInfoBanner />
+        {/* <ChildrenInfoBanner /> */}
         
         <View style={styles.searchContainer}>
           <View style={styles.searchWrapper}>
