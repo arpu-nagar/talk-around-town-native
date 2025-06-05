@@ -1862,6 +1862,26 @@ const MainScreen: React.FC = () => {
               editable={!isListening}
               placeholderTextColor="#999"
             />
+            
+            {/* Clear button - only show when there's text */}
+    {searchText.length > 0 && !isListening && (
+      <TouchableOpacity
+        style={styles.clearButton}
+        onPress={() => {
+          setSearchText('');
+          // Optional: clear previous tips when clearing search
+          // setTips([]);
+          // setHasSearched(false);
+        }}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Icon
+          name="clear"
+          size={20}
+          color="#999"
+        />
+      </TouchableOpacity>
+    )}
           </View>
           <TouchableOpacity
             style={[styles.micButton, isListening && styles.micButtonActive]}
@@ -1899,6 +1919,21 @@ const MainScreen: React.FC = () => {
             </TouchableOpacity>
           )}
         </View>
+        {hasSearched && (
+  <View style={styles.newQuestionContainer}>
+    <TouchableOpacity
+      style={styles.newQuestionButton}
+      onPress={() => {
+        setSearchText('');
+        setTips([]);
+        setHasSearched(false);
+      }}
+    >
+      <Icon name="add" size={20} color="white" />
+      <Text style={styles.newQuestionText}>Ask New Question</Text>
+    </TouchableOpacity>
+  </View>
+)}
 
         {/* Progress bar for better loading feedback */}
         {isLoading && (
@@ -2044,12 +2079,6 @@ const styles = StyleSheet.create({
   searchIcon: {
     marginRight: 10,
   },
-  searchInput: {
-    flex: 1,
-    height: 50,
-    fontSize: 16,
-    color: '#333',
-  },
   micButton: {
     marginLeft: 12,
     width: 50,
@@ -2078,6 +2107,50 @@ const styles = StyleSheet.create({
   buttonFlex: {
     flex: 1,
     marginHorizontal: 4,
+  },
+  newQuestionContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  newQuestionButton: {
+    backgroundColor: '#34C759',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  newQuestionText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 50,
+    fontSize: 16,
+    color: '#333',
+    paddingRight: 40, // Add padding for clear button
+  },
+  // New clear button style
+  clearButton: {
+    position: 'absolute',
+    right: 16,
+    top: 15,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchButton: {
     backgroundColor: '#4A90E2',
