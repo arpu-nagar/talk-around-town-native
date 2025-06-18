@@ -21,7 +21,7 @@ import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import MainScreen from '../screens/MainScreen';
-import AssistantScreen from '../screens/Assistant/MainScreen';
+// import AssistantScreen from '../screens/Assistant/MainScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import LocationListScreen from '../screens/LocationList';
 import SettingsScreen from '../screens/SettingsScreen'; // Import SettingsScreen
@@ -154,7 +154,7 @@ const TabNavigator = () => (
         },
       })}>
       <MainTab.Screen name="Home" component={MainScreen} />
-      <MainTab.Screen name="Assistant" component={AssistantScreen} />
+      {/* <MainTab.Screen name="Assistant" component={AssistantScreen} /> */}
       <MainTab.Screen name="Settings" component={SettingsScreen} />
     </MainTab.Navigator>
   </ScreenWithNotification>
