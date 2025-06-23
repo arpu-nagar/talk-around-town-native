@@ -18,6 +18,7 @@ import { NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChildInfoModal from './ChildInfoModal';
 import { useChildrenInfo } from '../hooks/useChildrenInfo';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface SettingsScreenProps {
   navigation: NavigationProp<any>;
@@ -28,7 +29,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showChildInfo, setShowChildInfo] = useState(false);
   const [selectedContentAreas, setSelectedContentAreas] = useState<string[]>([]);
-  
+
   // Use the enhanced children info hook
   const {
     children: childrenInfo,
@@ -48,24 +49,24 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive', 
-          onPress: handleDeleteAccount 
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: handleDeleteAccount
         }
       ],
       { cancelable: true }
     );
   };
-  
+
   const debugStorage = async () => {
     try {
       const generalSetting = await AsyncStorage.getItem('generalRemindersEnabled');
       const specificSetting = await AsyncStorage.getItem('specificReminders');
-      
+
       console.log('General reminders enabled:', generalSetting);
       console.log('Specific reminders:', specificSetting);
-      
+
       Alert.alert(
         'Stored Reminders',
         `General: ${generalSetting}\n\nSpecific: ${JSON.stringify(JSON.parse(specificSetting || '{}'), null, 2)}`,
@@ -75,7 +76,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       console.error('Error reading storage:', error);
     }
   };
-  
+
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
@@ -148,16 +149,16 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
     };
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.menuItem}
         onPress={handleChildrenInfoPress}
         disabled={childrenLoading}
       >
-        <Icon 
-          name={getStatusIcon()} 
-          size={24} 
-          color={getStatusColor()} 
-          style={styles.menuIcon} 
+        <Icon
+          name={getStatusIcon()}
+          size={24}
+          color={getStatusColor()}
+          style={styles.menuIcon}
         />
         <View style={styles.menuTextContainer}>
           <Text style={styles.menuText}>Children Information</Text>
@@ -190,27 +191,22 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
     );
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient colors={['#4A90E2', '#357ABD']} style={styles.gradientBackground}>
+    <View style={styles.safeArea}>
+      {/* <StatusBar barStyle="light-content" /> */}
+      <LinearGradient colors={['#4A90E2', '#357ABD']} style={[styles.gradientBackground, { top: insets.top - 10 }]}>
         <View style={styles.headerContainer}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Icon name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
           <Text style={styles.headerTitle}>Settings</Text>
-          <View style={styles.placeholderView} />
         </View>
-        
+
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           {/* Admin Section - Only visible to admins */}
           {isAdmin && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Admin Settings</Text>
-              
+
               <View style={styles.menuItem}>
                 <Icon name="verified-user" size={24} color="#4CAF50" style={styles.menuIcon} />
                 <Text style={styles.menuText}>Admin Status</Text>
@@ -219,8 +215,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
                   <Text style={styles.adminBadgeText}>Admin</Text>
                 </View>
               </View>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => navigation.navigate('Dashboard')}
               >
@@ -228,8 +224,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
                 <Text style={styles.menuText}>Admin Dashboard</Text>
                 <Icon name="chevron-right" size={24} color="#ccc" />
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => Alert.alert('Feature Coming Soon', 'User management will be available in the next update.')}
               >
@@ -239,23 +235,26 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           )}
-          
+
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account</Text>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('ChangePassword')}
             >
-              <Icon name="lock" size={24} color="#4A90E2" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Change Password</Text>
+              <View style={{ flexDirection: "row", alignItems: 'center', }}>
+                <Icon name="lock" size={24} color="#4A90E2" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Change Password</Text>
+              </View>
+              
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
-            
+
             {/* Enhanced Children Information Button */}
             {renderChildrenInfoMenuItem()}
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.dangerMenuItem}
               onPress={confirmDeleteAccount}
               disabled={isDeleting}
@@ -271,35 +270,72 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               )}
             </TouchableOpacity>
           </View>
-      
+
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>App</Text>
-            
-            <TouchableOpacity 
+            <Text style={styles.sectionTitle}>Tips</Text>
+
+            <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => navigation.navigate('About')}
+            // onPress={() => setAssistantView('saved')}> On press will open the modal
             >
-              <Icon name="info" size={24} color="#4A90E2" style={styles.menuIcon} />
-              <Text style={styles.menuText}>About ENACT</Text>
+              <View style={{ flexDirection: "row", alignItems: 'center', }}>
+                <Icon name="bookmark" size={24} color={'#4A90E2'} style={styles.menuIcon} />
+                <Text style={styles.menuText}>
+                  Last 30 Days
+                </Text>
+              </View>
+
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('ReminderSettings')}
             >
-              <Icon name="notifications" size={24} color="#4A90E2" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Reminder Settings</Text>
+              <View style={{ flexDirection: "row", alignItems: 'center', }}>
+                <Icon name="notifications" size={24} color="#4A90E2" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Liked</Text>
+              </View>
+
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
-            
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>App</Text>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('About')}
+            >
+              <View style={{ flexDirection: "row", alignItems: 'center', }}>
+                <Icon name="info" size={24} color="#4A90E2" style={styles.menuIcon} />
+                <Text style={styles.menuText}>About ENACT</Text>
+              </View>
+
+              <Icon name="chevron-right" size={24} color="#ccc" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ReminderSettings')}
+            >
+              <View style={{ flexDirection: "row", alignItems: 'center', }}><Icon name="notifications" size={24} color="#4A90E2" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Reminder Settings</Text></View>
+
+              <Icon name="chevron-right" size={24} color="#ccc" />
+            </TouchableOpacity>
+
             {/* Content Selection Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('ContentSelection')}
             >
-              <Icon name="school" size={24} color="#4A90E2" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Content Preferences</Text>
+              <View style={{ flexDirection: "row", alignItems: 'center', }}>
+                <Icon name="school" size={24} color="#4A90E2" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Content Preferences</Text>
+              </View>
+
               <View style={styles.contentPrefsContainer}>
                 {selectedContentAreas.length > 0 ? (
                   <View style={styles.contentBadge}>
@@ -312,17 +348,19 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
                 )}
               </View>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.menuItem}
               onPress={() => logout()}
             >
-              <Icon name="logout" size={24} color="#4A90E2" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Logout</Text>
+              <View style={{ flexDirection: "row", alignItems: 'center', }}>
+                <Icon name="logout" size={24} color="#4A90E2" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Logout</Text>
+              </View>
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
           </View>
-          
+
           {/* Error banner for children info */}
           {childrenError && !isFromCache && (
             <View style={styles.errorBanner}>
@@ -333,12 +371,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           )}
-          
+
           <View style={styles.versionContainer}>
             <Text style={styles.versionText}>ENACT v1.0</Text>
           </View>
         </ScrollView>
-        
+
         {/* Fixed: Use wrapper function that matches ChildInfoModal interface */}
         {userInfo?.access_token ? (
           <ChildInfoModal
@@ -372,7 +410,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
           )
         )}
       </LinearGradient>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -387,7 +425,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -417,9 +455,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 12,
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -442,20 +480,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 16,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    justifyContent: "space-between"
   },
   dangerMenuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 0,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   menuIcon: {
     marginRight: 16,
@@ -545,8 +584,8 @@ const styles = StyleSheet.create({
   },
   versionContainer: {
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 12,
+    marginBottom: 6,
   },
   versionText: {
     color: 'rgba(255,255,255,0.7)',

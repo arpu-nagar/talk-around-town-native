@@ -31,6 +31,7 @@ import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import ReminderSettingsScreen from '../screens/ReminderSettingsScreen';
 import Tips from '../screens/TipsScreen';
 import ContentSelectionScreen from '../ContentSelectionScreen';
+import CustomTabBar from './CustomTabBar';
 
 // Types
 export type RootStackParamList = {
@@ -140,17 +141,19 @@ const ScreenWithNotification: React.FC<{children: React.ReactNode}> = ({
 const TabNavigator = () => (
   <ScreenWithNotification>
     <MainTab.Navigator
+    tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={({route}) => ({
-        tabBarIcon: ({focused, color, size}) => {
-          const iconName = getIconName(route.name, focused);
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: Platform.OS === 'ios' ? '#007AFF' : '#6200EE',
-        tabBarInactiveTintColor: 'gray',
+        // tabBarIcon: ({focused, color, size}) => {
+        //   const iconName = getIconName(route.name, focused);
+        //   return <Ionicons name={iconName} size={size} color={color} />;
+        // },
+        // tabBarActiveTintColor: Platform.OS === 'ios' ? '#007AFF' : '#6200EE',
+        // tabBarInactiveTintColor: 'gray',
         headerShown: false,
         tabBarStyle: {
-          paddingVertical: Platform.OS === 'ios' ? 10 : 0,
-          height: Platform.OS === 'ios' ? 88 : 60,
+          // paddingVertical: Platform.OS === 'ios' ? 10 : 0,
+          // height: Platform.OS === 'ios' ? 88 : 60,
+          // display: 'none'
         },
       })}>
       <MainTab.Screen name="Home" component={MainScreen} />
