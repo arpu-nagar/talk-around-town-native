@@ -312,7 +312,43 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
                 )}
               </View>
             </TouchableOpacity>
+            <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Locations</Text>
             
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('LocationList')}
+            >
+              <Icon name="location-on" size={24} color="#4A90E2" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Saved Locations</Text>
+              <View style={styles.locationBadgeContainer}>
+                <View style={styles.locationBadge}>
+                  <Text style={styles.locationBadgeText}>2</Text>
+                </View>
+                <Icon name="chevron-right" size={24} color="#ccc" />
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('LocationList', { 
+                showFavorites: true 
+              })}
+            >
+              <Icon name="favorite" size={24} color="#FF6B6B" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Favorite Locations</Text>
+              <Icon name="chevron-right" size={24} color="#ccc" />
+            </TouchableOpacity>
+            
+            {/* <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => Alert.alert('Feature Coming Soon', 'Location preferences will be available in the next update.')}
+            >
+              <Icon name="tune" size={24} color="#4A90E2" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Location Preferences</Text>
+              <Icon name="chevron-right" size={24} color="#ccc" />
+            </TouchableOpacity> */}
+          </View>
             <TouchableOpacity 
               style={styles.menuItem}
               onPress={() => logout()}
@@ -415,6 +451,24 @@ const styles = StyleSheet.create({
   contentPrefsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  locationBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationBadge: {
+    backgroundColor: '#10B981',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  locationBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   section: {
     marginBottom: 24,

@@ -115,17 +115,12 @@ const getIconName = (routeName: string, focused: boolean): string => {
   switch (routeName) {
     case 'Home':
       return focused ? 'home' : 'home-outline';
-    case 'Assistant':
-      return focused ? 'chatbubbles' : 'chatbubbles-outline';
-    case 'LocationList':
-      return focused ? 'list' : 'list-outline';
     case 'Settings':
-      return focused ? 'settings' : 'settings-outline';  // Add this for Settings
+      return focused ? 'settings' : 'settings-outline';
     default:
       return 'alert-circle';
   }
 };
-
 // Wrapper component
 const ScreenWithNotification: React.FC<{children: React.ReactNode}> = ({
   children,
@@ -145,17 +140,41 @@ const TabNavigator = () => (
           const iconName = getIconName(route.name, focused);
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: Platform.OS === 'ios' ? '#007AFF' : '#6200EE',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: '#3B82F6', // Blue color to match design
+        tabBarInactiveTintColor: '#9CA3AF', // Gray color for inactive
         headerShown: false,
         tabBarStyle: {
-          paddingVertical: Platform.OS === 'ios' ? 10 : 0,
-          height: Platform.OS === 'ios' ? 88 : 60,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
+          paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+          height: Platform.OS === 'ios' ? 88 : 65,
+          paddingBottom: Platform.OS === 'ios' ? 25 : 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+          marginTop: 2,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
         },
       })}>
-      <MainTab.Screen name="Home" component={MainScreen} />
-      {/* <MainTab.Screen name="Assistant" component={AssistantScreen} /> */}
-      <MainTab.Screen name="Settings" component={SettingsScreen} />
+      <MainTab.Screen 
+        name="Home" 
+        component={MainScreen}
+        options={{
+          tabBarLabel: 'Home',
+        }}
+      />
+      <MainTab.Screen 
+        name="Settings" 
+        component={SettingsScreen}
+        options={{
+          tabBarLabel: 'Settings',
+        }}
+      />
     </MainTab.Navigator>
   </ScreenWithNotification>
 );
