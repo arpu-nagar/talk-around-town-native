@@ -24,6 +24,7 @@ import MapView, {
   Circle,
   PROVIDER_DEFAULT,
 } from 'react-native-maps';
+import CustomBottomSheet from '../context/CustomBottomSheet';
 import {Dropdown} from 'react-native-element-dropdown';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Geolocation, { 
@@ -121,6 +122,7 @@ const App: React.FC<Props> = ({navigation}) => {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [mainLoading, setMainLoading] = useState(true);
   const [backgroundLoading, setBackgroundLoading] = useState(true);
+  const [showLocationSheet, setShowLocationSheet] = useState(false);
   
   // Data State
   const [userChildren, setUserChildren] = useState<Child[]>([]);
@@ -1346,16 +1348,28 @@ const App: React.FC<Props> = ({navigation}) => {
                     query={{ key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps', language: 'en' }}
                     renderRightButton={() => (
                       <TouchableOpacity
-                        style={styles.clearButton}
-                        onPress={() => {
-                          ref.current?.clear();
-                          setName('');
-                          setDescription('');
-                          setNewLocation(null);
-                          setSelectedOption(null);
-                        }}>
-                        <Icon name="close" size={20} color="#666" />
-                      </TouchableOpacity>
+    style={styles.clearButton}
+    onPress={() => {
+      // Check if there's text in the search
+      const hasText = name || description || newLocation;
+      if (hasText) {
+        // Clear the search
+        ref.current?.clear();
+        setName('');
+        setDescription('');
+        setNewLocation(null);
+        setSelectedOption(null);
+      } else {
+        // Show locations bottom sheet
+        setShowLocationSheet(true);
+      }
+    }}>
+    <Icon 
+      name={(name || description || newLocation) ? "close" : "bookmark"} 
+      size={20} 
+      color="#4A90E2" 
+    />
+  </TouchableOpacity>
                     )}
                     ref={ref}
                   />
@@ -1588,6 +1602,11 @@ const App: React.FC<Props> = ({navigation}) => {
       <LikedTipsModal />
       <ChildPromptModal />
       <AgeInputModal />
+      <CustomBottomSheet
+  visible={showLocationSheet}
+  onClose={() => setShowLocationSheet(false)}
+  userInfo={userInfo}
+/>
     </>
   );
 };
