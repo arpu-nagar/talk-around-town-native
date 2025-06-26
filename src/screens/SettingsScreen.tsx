@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 import { AuthContext, AuthContextType } from '../context/AuthContext';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { NavigationProp } from '@react-navigation/native';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChildInfoModal from './ChildInfoModal';
 import { useChildrenInfo } from '../hooks/useChildrenInfo';
@@ -23,11 +23,31 @@ interface SettingsScreenProps {
   navigation: NavigationProp<any>;
 }
 
+// Tip type for saved/liked tips
+interface Tip {
+  id: number;
+  title: string;
+  body: string;
+  details: string;
+  audioUrl: string | null;
+  categories?: string[];
+}
+
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const { userInfo, logout, deleteAccount, isAdmin } = useContext<AuthContextType>(AuthContext);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showChildInfo, setShowChildInfo] = useState(false);
   const [selectedContentAreas, setSelectedContentAreas] = useState<string[]>([]);
+  const [savedTips, setSavedTips] = useState<Tip[]>([]);
+  const [likedTips, setLikedTips] = useState<Tip[]>([]);
+  const [showSavedTipsModal, setShowSavedTipsModal] = useState(false);
+  const [showLikedTipsModal, setShowLikedTipsModal] = useState(false);
+  const [activeAudioIndex, setActiveAudioIndex] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioLoadingIndex, setAudioLoadingIndex] = useState<number | null>(null);
+  const audioCache = React.useRef<Map<number, string>>(new Map());
+  const currentSound = React.useRef<any>(null);
+  const nav = useNavigation();
   
   // Use the enhanced children info hook
   const {
@@ -190,6 +210,199 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
     );
   };
 
+  // Load saved/liked tips from AsyncStorage
+  const loadTipsFromStorage = useCallback(async () => {
+    try {
+      const savedTipsData = await AsyncStorage.getItem('savedTips');
+      if (savedTipsData) setSavedTips(JSON.parse(savedTipsData));
+      const likedTipsData = await AsyncStorage.getItem('likedTips');
+      if (likedTipsData) setLikedTips(JSON.parse(likedTipsData));
+    } catch (error) {
+      console.warn('Failed to load saved/liked tips:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTipsFromStorage();
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadTipsFromStorage();
+    });
+    return unsubscribe;
+  }, [loadTipsFromStorage, navigation]);
+
+  // Audio functions (copied from MainScreen)
+  const loadAudio = async (tip: Tip, index: number) => {
+    if (audioCache.current.has(tip.id)) {
+      return audioCache.current.get(tip.id);
+    }
+    if (tip.audioUrl) {
+      const fullAudioUrl = `http://68.183.102.75:4000/audio${tip.audioUrl}`;
+      audioCache.current.set(tip.id, fullAudioUrl);
+      return fullAudioUrl;
+    }
+    setAudioLoadingIndex(index);
+    try {
+      const response = await fetch(`http://68.183.102.75:4000/generate-tip-audio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipId: tip.id,
+          title: tip.title,
+          body: tip.body,
+          details: tip.details
+        })
+      });
+      if (!response.ok) throw new Error('Failed to generate audio');
+      const { audioUrl } = await response.json();
+      const fullAudioUrl = `http://68.183.102.75:4000/audio${audioUrl}`;
+      tip.audioUrl = audioUrl;
+      audioCache.current.set(tip.id, fullAudioUrl);
+      return fullAudioUrl;
+    } catch (error) {
+      Alert.alert('Error', 'Failed to generate audio. Please try again.');
+      return null;
+    } finally {
+      setAudioLoadingIndex(null);
+    }
+  };
+  const cleanupSound = () => {
+    if (currentSound.current) {
+      currentSound.current.stop();
+      currentSound.current.release();
+      currentSound.current = null;
+    }
+    setIsPlaying(false);
+    setActiveAudioIndex(null);
+  };
+  const speakTip = useCallback(async (tip: Tip, index: number) => {
+    cleanupSound();
+    setActiveAudioIndex(index);
+    try {
+      const audioUrl = await loadAudio(tip, index);
+      if (!audioUrl) return;
+      setIsPlaying(true);
+      currentSound.current = new (require('react-native-sound'))(audioUrl, '', (error: any) => {
+        if (error) {
+          Alert.alert('Error', 'Failed to play audio. Please try again.');
+          cleanupSound();
+          return;
+        }
+        currentSound.current?.play((success: boolean) => {
+          if (!success) {
+            Alert.alert('Error', 'Audio playback failed. Please try again.');
+          }
+          cleanupSound();
+        });
+      });
+    } catch (error) {
+      cleanupSound();
+    }
+  }, []);
+
+  // Render a tip item (copied from MainScreen, only play button)
+  const renderTipItem = (tip: Tip, index: number) => (
+    <View key={index} style={{ marginBottom: 16 }}>
+      <LinearGradient colors={['#ffffff', '#f8f9fa']} style={{ borderRadius: 16, padding: 20 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <Icon name="lightbulb" size={24} color="#FFA726" style={{ marginRight: 12 }} />
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333', flex: 1 }}>{tip.title || ''}</Text>
+        </View>
+        <Text style={{ fontSize: 16, color: '#444', lineHeight: 24, marginBottom: 12 }}>{tip.body || ''}</Text>
+        <Text style={{ fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 16 }}>{tip.details || ''}</Text>
+        <View style={{ flexDirection: 'row', marginTop: 12 }}>
+          <TouchableOpacity
+            style={{ backgroundColor: '#007AFF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flex: 1 }}
+            onPress={() => {
+              if (activeAudioIndex === index && isPlaying) {
+                cleanupSound();
+              } else {
+                speakTip(tip, index);
+              }
+            }}
+            disabled={audioLoadingIndex === index}>
+            {audioLoadingIndex === index ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <Icon name={activeAudioIndex === index && isPlaying ? 'stop' : 'play-arrow'} size={16} color="white" />
+            )}
+            <Text style={{ color: 'white', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>
+              {audioLoadingIndex === index 
+                ? 'Loading...' 
+                : activeAudioIndex === index && isPlaying 
+                ? 'Stop' 
+                : 'Play'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+
+  // Saved Tips Modal
+  const SavedTipsModal = () => (
+    <Modal visible={showSavedTipsModal} animationType="slide" presentationStyle="pageSheet">
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#f0f2f5' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E8E8E8' }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#333' }}>Saved Tips ({savedTips.length})</Text>
+          <TouchableOpacity style={{ padding: 8 }} onPress={() => setShowSavedTipsModal(false)}>
+            <Icon name="close" size={24} color="#666" />
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
+          {savedTips.length > 0 ? (
+            savedTips.map((tip, index) => renderTipItem(tip, index))
+          ) : (
+            <View style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 }}>
+              <Icon name="bookmark-border" size={64} color="#ccc" />
+              <Text style={{ fontSize: 18, fontWeight: '600', color: '#999', marginTop: 16 }}>No Saved Tips</Text>
+              <Text style={{ fontSize: 14, color: '#ccc', textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+                Save tips by tapping the bookmark icon on any tip
+              </Text>
+            </View>
+          )}
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+
+  // Liked Tips Modal
+  const LikedTipsModal = () => (
+    <Modal visible={showLikedTipsModal} animationType="slide" presentationStyle="pageSheet">
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#f0f2f5' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E8E8E8' }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#333' }}>Liked Tips ({likedTips.length})</Text>
+          <TouchableOpacity style={{ padding: 8 }} onPress={() => setShowLikedTipsModal(false)}>
+            <Icon name="close" size={24} color="#666" />
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
+          {likedTips.length > 0 ? (
+            likedTips.map((tip, index) => renderTipItem(tip, index))
+          ) : (
+            <View style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 }}>
+              <Icon name="favorite-border" size={64} color="#ccc" />
+              <Text style={{ fontSize: 18, fontWeight: '600', color: '#999', marginTop: 16 }}>No Liked Tips</Text>
+              <Text style={{ fontSize: 14, color: '#ccc', textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+                Like tips by tapping the heart icon on any tip
+              </Text>
+            </View>
+          )}
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+
+  useEffect(() => {
+    if (!userInfo || !userInfo.access_token) {
+      // @ts-ignore: route name type may be restricted by navigation type
+      nav.reset && nav.reset({ index: 0, routes: [{ name: 'Login' as any }] });
+      // If using navigation prop directly, fallback:
+      // navigation.reset({ index: 0, routes: [{ name: 'Login' as any }] });
+    }
+  }, [userInfo]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
@@ -323,6 +536,21 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
             </TouchableOpacity>
           </View>
           
+          {/* Tips Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tips</Text>
+            <TouchableOpacity style={styles.menuItem} onPress={() => setShowSavedTipsModal(true)}>
+              <Icon name="bookmark" size={24} color="#4A90E2" style={styles.menuIcon} />
+              <Text style={styles.menuText}>View Saved Tips</Text>
+              <Icon name="chevron-right" size={24} color="#ccc" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => setShowLikedTipsModal(true)}>
+              <Icon name="favorite" size={24} color="#FF3B30" style={styles.menuIcon} />
+              <Text style={styles.menuText}>View Liked Tips</Text>
+              <Icon name="chevron-right" size={24} color="#ccc" />
+            </TouchableOpacity>
+          </View>
+          
           {/* Error banner for children info */}
           {childrenError && !isFromCache && (
             <View style={styles.errorBanner}>
@@ -372,6 +600,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
           )
         )}
       </LinearGradient>
+      <SavedTipsModal />
+      <LikedTipsModal />
     </SafeAreaView>
   );
 };
