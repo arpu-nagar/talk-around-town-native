@@ -1,13 +1,15 @@
 'use strict';
-import React, {useEffect, useState} from 'react';
-import {StatusBar, Platform, Alert, PermissionsAndroid} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StatusBar, Platform, Alert, PermissionsAndroid } from 'react-native';
 import Navigation from './src/components/Navigation';
-import {AuthProvider} from './src/context/AuthContext';
-import {LocationProvider} from './src/context/LocationContext';
+import { AuthProvider } from './src/context/AuthContext';
+import { LocationProvider } from './src/context/LocationContext';
 // import RemoteNotification from './src/components/RemoteNotification';
 import messaging from '@react-native-firebase/messaging';
 import AppStateTracker from './src/components/AppStateTracker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BottomSheetProvider } from './src/context/BottomSheetContext';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const WELCOME_SHOWN_KEY = 'welcome_message_shown';
 
@@ -30,7 +32,7 @@ const App = () => {
     try {
       // Check if welcome message has been shown before
       const welcomeShown = await AsyncStorage.getItem(WELCOME_SHOWN_KEY);
-      
+
       if (welcomeShown !== 'true') {
         const message = Platform.select({
           ios:
@@ -45,7 +47,7 @@ const App = () => {
             'Please allow these permissions when prompted.',
           default: '',
         });
-        
+
         // Show the welcome message
         Alert.alert('Welcome!', message, [
           {
@@ -108,7 +110,7 @@ const App = () => {
       try {
         // Show welcome message on first launch
         await showWelcomeMessage();
-        
+
         // Log startup information
         await logStartupInfo();
       } catch (error) {
@@ -124,10 +126,14 @@ const App = () => {
   return (
     <AuthProvider>
       <LocationProvider>
-        <StatusBar backgroundColor="#06bcee" />
-        <AppStateTracker />
-        {/* <RemoteNotification /> */}
-        <Navigation />
+        <BottomSheetProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <StatusBar backgroundColor="#06bcee" />
+            <AppStateTracker />
+            {/* <RemoteNotification /> */}
+            <Navigation />
+          </GestureHandlerRootView>
+        </BottomSheetProvider>
       </LocationProvider>
     </AuthProvider>
   );

@@ -1,5 +1,5 @@
-import React, {useContext} from 'react';
-import {Platform, View} from 'react-native';
+import React, { useContext } from 'react';
+import { Platform, View } from 'react-native';
 import {
   NavigationContainer,
   NavigationContainerRef,
@@ -8,10 +8,10 @@ import {
 import {
   createNativeStackNavigator,
 } from '@react-navigation/native-stack';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import {AuthContext, AuthContextType} from '../context/AuthContext';
-import {navigationRef} from '../ref/NavigationRef';
+import { AuthContext, AuthContextType } from '../context/AuthContext';
+import { navigationRef } from '../ref/NavigationRef';
 import RemoteNotification from '../components/RemoteNotification';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import DashboardScreen from '../screens/Assistant/DashboardScreen';
@@ -25,12 +25,13 @@ import MainScreen from '../screens/MainScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import LocationListScreen from '../screens/LocationList';
 import SettingsScreen from '../screens/SettingsScreen'; // Import SettingsScreen
-import {Location} from 'react-native-get-location';
+import { Location } from 'react-native-get-location';
 import AboutScreen from '../screens/AboutScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import ReminderSettingsScreen from '../screens/ReminderSettingsScreen';
 import Tips from '../screens/TipsScreen';
 import ContentSelectionScreen from '../ContentSelectionScreen';
+import CustomTabBar from './CustomTabBar';
 
 // Types
 export type RootStackParamList = {
@@ -67,7 +68,7 @@ type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
-  ResetPassword: {token: string};
+  ResetPassword: { token: string };
 };
 
 type MainTabParamList = {
@@ -127,10 +128,10 @@ const getIconName = (routeName: string, focused: boolean): string => {
 };
 
 // Wrapper component
-const ScreenWithNotification: React.FC<{children: React.ReactNode}> = ({
+const ScreenWithNotification: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => (
-  <View style={{flex: 1}}>
+  <View style={{ flex: 1 }}>
     {children}
     <RemoteNotification />
   </View>
@@ -140,17 +141,19 @@ const ScreenWithNotification: React.FC<{children: React.ReactNode}> = ({
 const TabNavigator = () => (
   <ScreenWithNotification>
     <MainTab.Navigator
-      screenOptions={({route}) => ({
-        tabBarIcon: ({focused, color, size}) => {
-          const iconName = getIconName(route.name, focused);
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: Platform.OS === 'ios' ? '#007AFF' : '#6200EE',
-        tabBarInactiveTintColor: 'gray',
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={({ route }) => ({
+        // tabBarIcon: ({focused, color, size}) => {
+        //   const iconName = getIconName(route.name, focused);
+        //   return <Ionicons name={iconName} size={size} color={color} />;
+        // },
+        // tabBarActiveTintColor: Platform.OS === 'ios' ? '#007AFF' : '#6200EE',
+        // tabBarInactiveTintColor: 'gray',
         headerShown: false,
         tabBarStyle: {
-          paddingVertical: Platform.OS === 'ios' ? 10 : 0,
-          height: Platform.OS === 'ios' ? 88 : 60,
+          // paddingVertical: Platform.OS === 'ios' ? 10 : 0,
+          // height: Platform.OS === 'ios' ? 88 : 60,
+          // display: 'none'
         },
       })}>
       <MainTab.Screen name="Home" component={MainScreen} />
@@ -163,7 +166,7 @@ const TabNavigator = () => (
 // Auth Navigator
 const AuthNavigator = () => (
   <ScreenWithNotification>
-    <AuthStack.Navigator screenOptions={{headerShown: false}}>
+    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen
         name="ForgotPassword"
@@ -177,7 +180,7 @@ const AuthNavigator = () => (
 
 // Root Navigator - Split the rendering logic to avoid whitespace issues
 const RootNavigator = () => {
-  const {userInfo, splashLoading, isAdmin} = useContext<AuthContextType>(AuthContext);
+  const { userInfo, splashLoading, isAdmin } = useContext<AuthContextType>(AuthContext);
 
   // Render different navigator configurations based on app state
   if (splashLoading) {
@@ -197,15 +200,15 @@ const RootNavigator = () => {
         <RootStack.Screen name="About" component={AboutScreen} />
         <RootStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         <RootStack.Screen name="ContentSelection" component={ContentSelectionScreen} />
-        <RootStack.Screen 
-          name="ReminderSettings" 
-          component={ReminderSettingsScreen} 
+        <RootStack.Screen
+          name="ReminderSettings"
+          component={ReminderSettingsScreen}
           options={{ headerShown: false }}
         />
         {/* Tips screen is now defined here as a stack screen, not a tab */}
-        <RootStack.Screen 
-          name="Tips" 
-          component={Tips} 
+        <RootStack.Screen
+          name="Tips"
+          component={Tips}
           options={{ headerShown: false }}
         />
         {/* Only include Dashboard in routes if user is admin */}

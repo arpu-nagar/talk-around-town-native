@@ -18,6 +18,7 @@ import { NavigationProp, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChildInfoModal from './ChildInfoModal';
 import { useChildrenInfo } from '../hooks/useChildrenInfo';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface SettingsScreenProps {
   navigation: NavigationProp<any>;
@@ -48,7 +49,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const audioCache = React.useRef<Map<number, string>>(new Map());
   const currentSound = React.useRef<any>(null);
   const nav = useNavigation();
-  
+
   // Use the enhanced children info hook
   const {
     children: childrenInfo,
@@ -68,24 +69,24 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive', 
-          onPress: handleDeleteAccount 
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: handleDeleteAccount
         }
       ],
       { cancelable: true }
     );
   };
-  
+
   const debugStorage = async () => {
     try {
       const generalSetting = await AsyncStorage.getItem('generalRemindersEnabled');
       const specificSetting = await AsyncStorage.getItem('specificReminders');
-      
+
       console.log('General reminders enabled:', generalSetting);
       console.log('Specific reminders:', specificSetting);
-      
+
       Alert.alert(
         'Stored Reminders',
         `General: ${generalSetting}\n\nSpecific: ${JSON.stringify(JSON.parse(specificSetting || '{}'), null, 2)}`,
@@ -95,7 +96,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       console.error('Error reading storage:', error);
     }
   };
-  
+
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
@@ -168,16 +169,16 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
     };
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.menuItem}
         onPress={handleChildrenInfoPress}
         disabled={childrenLoading}
       >
-        <Icon 
-          name={getStatusIcon()} 
-          size={24} 
-          color={getStatusColor()} 
-          style={styles.menuIcon} 
+        <Icon
+          name={getStatusIcon()}
+          size={24}
+          color={getStatusColor()}
+          style={styles.menuIcon}
         />
         <View style={styles.menuTextContainer}>
           <Text style={styles.menuText}>Children Information</Text>
@@ -326,11 +327,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               <Icon name={activeAudioIndex === index && isPlaying ? 'stop' : 'play-arrow'} size={16} color="white" />
             )}
             <Text style={{ color: 'white', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>
-              {audioLoadingIndex === index 
-                ? 'Loading...' 
-                : activeAudioIndex === index && isPlaying 
-                ? 'Stop' 
-                : 'Play'}
+              {audioLoadingIndex === index
+                ? 'Loading...'
+                : activeAudioIndex === index && isPlaying
+                  ? 'Stop'
+                  : 'Play'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -403,12 +404,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
     }
   }, [userInfo]);
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient colors={['#4A90E2', '#357ABD']} style={styles.gradientBackground}>
+    <View style={styles.safeArea}>
+      {/* <StatusBar barStyle="light-content" /> */}
+      <LinearGradient colors={['#4A90E2', '#357ABD']} style={[styles.gradientBackground, { top: insets.top - 10 }]}>
         <View style={styles.headerContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
@@ -417,13 +420,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
           <Text style={styles.headerTitle}>Settings</Text>
           <View style={styles.placeholderView} />
         </View>
-        
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+
+        <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 125 }]}>
           {/* Admin Section - Only visible to admins */}
           {isAdmin && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Admin Settings</Text>
-              
+
               <View style={styles.menuItem}>
                 <Icon name="verified-user" size={24} color="#4CAF50" style={styles.menuIcon} />
                 <Text style={styles.menuText}>Admin Status</Text>
@@ -432,8 +435,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
                   <Text style={styles.adminBadgeText}>Admin</Text>
                 </View>
               </View>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => navigation.navigate('Dashboard')}
               >
@@ -441,8 +444,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
                 <Text style={styles.menuText}>Admin Dashboard</Text>
                 <Icon name="chevron-right" size={24} color="#ccc" />
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => Alert.alert('Feature Coming Soon', 'User management will be available in the next update.')}
               >
@@ -452,11 +455,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           )}
-          
+
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account</Text>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('ChangePassword')}
             >
@@ -464,11 +467,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               <Text style={styles.menuText}>Change Password</Text>
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
-            
+
             {/* Enhanced Children Information Button */}
             {renderChildrenInfoMenuItem()}
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.dangerMenuItem}
               onPress={confirmDeleteAccount}
               disabled={isDeleting}
@@ -484,11 +487,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               )}
             </TouchableOpacity>
           </View>
-      
+
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>App</Text>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('About')}
             >
@@ -496,8 +499,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               <Text style={styles.menuText}>About ENACT</Text>
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('ReminderSettings')}
             >
@@ -505,9 +508,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               <Text style={styles.menuText}>Reminder Settings</Text>
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
-            
+
             {/* Content Selection Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('ContentSelection')}
             >
@@ -525,8 +528,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
                 )}
               </View>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.menuItem}
               onPress={() => logout()}
             >
@@ -535,7 +538,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
           </View>
-          
+
           {/* Tips Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tips</Text>
@@ -550,7 +553,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
           </View>
-          
+
           {/* Error banner for children info */}
           {childrenError && !isFromCache && (
             <View style={styles.errorBanner}>
@@ -561,12 +564,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           )}
-          
+
           <View style={styles.versionContainer}>
             <Text style={styles.versionText}>ENACT v1.0</Text>
           </View>
         </ScrollView>
-        
+
         {/* Fixed: Use wrapper function that matches ChildInfoModal interface */}
         {userInfo?.access_token ? (
           <ChildInfoModal
@@ -602,7 +605,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       </LinearGradient>
       <SavedTipsModal />
       <LikedTipsModal />
-    </SafeAreaView>
+    </View>
   );
 };
 
