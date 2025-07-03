@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useRef, useState, useCallback} from 'react';
+import React, { useContext, useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -24,28 +24,32 @@ import MapView, {
   Circle,
   PROVIDER_DEFAULT,
 } from 'react-native-maps';
-import {Dropdown} from 'react-native-element-dropdown';
+import { Dropdown } from 'react-native-element-dropdown';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import Geolocation, { 
-  GeolocationResponse, 
-  GeolocationError 
+import Geolocation, {
+  GeolocationResponse,
+  GeolocationError
 } from '@react-native-community/geolocation';
 import {
   GooglePlacesAutocomplete,
   GooglePlacesAutocompleteRef,
 } from 'react-native-google-places-autocomplete';
-import {Icon} from 'react-native-elements';
+import { Icon } from 'react-native-elements';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Spinner from 'react-native-loading-spinner-overlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
 import Voice from '@react-native-voice/voice';
 import Sound from 'react-native-sound';
-import {AuthContext} from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 import Notification from '../components/Notification';
-import {useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fetchWithAuth } from '../api/auth';
+import LocationBottomSheet from '../components/LocationBottomSheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BottomSheetContext } from '../context/BottomSheetContext';
+
 
 // Configuration constants
 const STARTUP_CONFIG = {
@@ -116,15 +120,22 @@ interface Props {
   navigation: NativeStackNavigationProp<any>;
 }
 
-const App: React.FC<Props> = ({navigation}) => {
+const App: React.FC<Props> = ({ navigation }) => {
   // ===== ALL HOOKS MUST BE AT THE TOP - NEVER AFTER CONDITIONAL RETURNS =====
-  
+
   // Context and refs
-  const {userInfo, isLoading, logout} = useContext<any>(AuthContext);
+  const { userInfo, isLoading, logout } = useContext<any>(AuthContext);
   const ref = useRef<GooglePlacesAutocompleteRef>(null);
   const currentSound = useRef<Sound | null>(null);
   const lastResult = useRef<string>('');
   const audioCache = useRef<Map<number, string>>(new Map());
+
+  const { sheetIsOpen, setSheetIsOpen } = useContext(BottomSheetContext);
+
+  useEffect(() => {
+    console.log("sheetIsOpen", sheetIsOpen)
+  }, [sheetIsOpen])
+
 
   // State hooks
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -133,7 +144,7 @@ const App: React.FC<Props> = ({navigation}) => {
   const [userChildren, setUserChildren] = useState<Child[]>([]);
   const [location, setLocation] = useState<Location | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [details, setDetails] = useState<Array<{title: string; description: string; pinColor: string}>>([]);
+  const [details, setDetails] = useState<Array<{ title: string; description: string; pinColor: string }>>([]);
   const [newLocation, setNewLocation] = useState<Location | null>(null);
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
@@ -160,6 +171,7 @@ const App: React.FC<Props> = ({navigation}) => {
   const [currentQuery, setCurrentQuery] = useState<string>('');
   const [showAgeInput, setShowAgeInput] = useState(false);
   const [tempAge, setTempAge] = useState<string>('');
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   // Cache utilities (defined as useCallback)
   const loadFromCache = useCallback(async (key: string) => {
@@ -188,7 +200,7 @@ const App: React.FC<Props> = ({navigation}) => {
   // Location functions (defined as useCallback)
   const getQuickLocation = useCallback(async (): Promise<Location> => {
     console.log('Getting quick location...');
-    
+
     const cached = await loadFromCache(LOCATION_CONFIG.CACHE_KEYS.LAST_LOCATION);
     if (cached && cached.latitude && cached.longitude) {
       console.log('Using cached location for quick startup');
@@ -212,7 +224,7 @@ const App: React.FC<Props> = ({navigation}) => {
             latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
             longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
           };
-          
+
           console.log('Got fresh location quickly');
           setLocationStatus('success');
           saveToCache(LOCATION_CONFIG.CACHE_KEYS.LAST_LOCATION, newLocation);
@@ -240,7 +252,7 @@ const App: React.FC<Props> = ({navigation}) => {
     }
 
     console.log('Improving location in background...');
-    
+
     if (Platform.OS === 'android') {
       try {
         const granted = await PermissionsAndroid.request(
@@ -253,7 +265,7 @@ const App: React.FC<Props> = ({navigation}) => {
             buttonPositive: 'OK',
           },
         );
-        
+
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
           console.log('Location permission denied');
           setLocationStatus('disabled');
@@ -273,7 +285,7 @@ const App: React.FC<Props> = ({navigation}) => {
           latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
           longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
         };
-        
+
         console.log('Improved location obtained in background');
         setLocation(newLocation);
         setLocationStatus('success');
@@ -293,7 +305,7 @@ const App: React.FC<Props> = ({navigation}) => {
 
   const loadCachedDataFirst = useCallback(async () => {
     console.log('Loading cached data first...');
-    
+
     try {
       const cachedLocations = await loadFromCache(LOCATION_CONFIG.CACHE_KEYS.USER_LOCATIONS);
       if (cachedLocations) {
@@ -339,7 +351,7 @@ const App: React.FC<Props> = ({navigation}) => {
     }
 
     console.log('Refreshing data in background...');
-    
+
     try {
       const locationsPromise = fetchWithAuth(
         `${API_ENDPOINTS.BASE_URL}${API_ENDPOINTS.LOCATIONS}`,
@@ -357,12 +369,12 @@ const App: React.FC<Props> = ({navigation}) => {
           if (Array.isArray(data.locations) && Array.isArray(data.details)) {
             setLocations(data.locations);
             setDetails(data.details);
-            
+
             await saveToCache(LOCATION_CONFIG.CACHE_KEYS.USER_LOCATIONS, {
               locations: data.locations,
               details: data.details,
             });
-            
+
             console.log('Locations refreshed successfully');
             return true;
           }
@@ -388,9 +400,9 @@ const App: React.FC<Props> = ({navigation}) => {
             if (data.children.some((child: any) => !child.nickname || !child.date_of_birth)) {
               setShowUpdateModal(true);
             }
-            
+
             await saveToCache(LOCATION_CONFIG.CACHE_KEYS.CHILDREN_INFO, data.children);
-            
+
             console.log('Children info refreshed successfully');
             return true;
           }
@@ -408,9 +420,9 @@ const App: React.FC<Props> = ({navigation}) => {
 
       const successCount = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
       setApiStatus(successCount > 0 ? 'success' : 'error');
-      
+
       console.log(`Background refresh completed: ${successCount}/2 successful`);
-      
+
     } catch (error) {
       console.error('Background refresh failed:', error);
       setApiStatus('error');
@@ -432,7 +444,7 @@ const App: React.FC<Props> = ({navigation}) => {
     try {
       // Load audio function (simplified for this example)
       let audioUrl = audioCache.current.get(tip.id);
-      
+
       if (!audioUrl) {
         if (tip.audioUrl) {
           audioUrl = `${API_ENDPOINTS.ASSISTANT_BASE_URL}/audio${tip.audioUrl}`;
@@ -459,7 +471,7 @@ const App: React.FC<Props> = ({navigation}) => {
 
             const { audioUrl: newAudioUrl } = await response.json();
             audioUrl = `${API_ENDPOINTS.ASSISTANT_BASE_URL}/audio${newAudioUrl}`;
-            
+
             tip.audioUrl = newAudioUrl;
             audioCache.current.set(tip.id, audioUrl);
           } catch (error) {
@@ -507,31 +519,31 @@ const App: React.FC<Props> = ({navigation}) => {
   // Startup initialization useEffect
   useEffect(() => {
     let mounted = true;
-    
+
     const startupSequence = async () => {
       console.log('=== FAST STARTUP SEQUENCE BEGIN ===');
-      
+
       try {
         await loadCachedDataFirst();
-        
+
         setStatusMessage('Getting your location...');
         const quickLocation = await getQuickLocation();
-        
+
         if (mounted) {
           setLocation(quickLocation);
           console.log('Quick location set:', quickLocation);
         }
-        
+
         setStatusMessage('Loading interface...');
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         if (mounted) {
           console.log('Showing main UI');
           setMainLoading(false);
         }
-        
+
         console.log('Starting background operations...');
-        
+
         Promise.allSettled([
           improveLocationInBackground(),
           refreshDataInBackground()
@@ -541,17 +553,17 @@ const App: React.FC<Props> = ({navigation}) => {
             setBackgroundLoading(false);
           }
         });
-        
+
       } catch (error) {
         console.error('Startup sequence error:', error);
-        
+
         if (mounted) {
           setLocation(DEFAULT_LOCATION);
           setMainLoading(false);
           setBackgroundLoading(false);
         }
       }
-      
+
       console.log('=== FAST STARTUP SEQUENCE END ===');
     };
 
@@ -569,7 +581,7 @@ const App: React.FC<Props> = ({navigation}) => {
     return () => {
       mounted = false;
       clearTimeout(failsafeTimeout);
-      
+
       // Cleanup voice and sound
       Voice.destroy().then(Voice.removeAllListeners);
       if (currentSound.current) {
@@ -604,7 +616,7 @@ const App: React.FC<Props> = ({navigation}) => {
         }
       }
     }, 30000);
-    
+
     return () => clearInterval(intervalId);
   }, [location, userInfo]);
 
@@ -718,13 +730,13 @@ const App: React.FC<Props> = ({navigation}) => {
 
   // Helper functions (these can be defined after hooks since they're not hooks themselves)
   const options = [
-    {label: 'Grocery Store', value: 'Grocery Store'},
-    {label: 'Bus/Walk', value: 'Bus/Walk'},
-    {label: 'Library', value: 'Library'},
-    {label: 'Park', value: 'Park'},
-    {label: 'Restaurant', value: 'Restaurant'},
-    {label: 'Waiting Room', value: 'Waiting Room'},
-    {label: "Other's Home", value: "Other's Home"},
+    { label: 'Grocery Store', value: 'Grocery Store' },
+    { label: 'Bus/Walk', value: 'Bus/Walk' },
+    { label: 'Library', value: 'Library' },
+    { label: 'Park', value: 'Park' },
+    { label: 'Restaurant', value: 'Restaurant' },
+    { label: 'Waiting Room', value: 'Waiting Room' },
+    { label: "Other's Home", value: "Other's Home" },
   ];
 
   const calculateAge = (dateOfBirth: string): number => {
@@ -743,14 +755,14 @@ const App: React.FC<Props> = ({navigation}) => {
     if (!childrenInfo || childrenInfo.length === 0) {
       return null;
     }
-    
+
     const normalizedQuery = query.toLowerCase();
-    
+
     for (const child of childrenInfo) {
       const nickname = child.nickname?.toLowerCase();
-      
+
       if (!nickname) continue;
-      
+
       const patterns = [
         ` for ${nickname}`,
         ` ${nickname}'s `,
@@ -759,18 +771,18 @@ const App: React.FC<Props> = ({navigation}) => {
         ` ${nickname}$`,
         `^${nickname}$`
       ];
-      
+
       if (patterns.some(pattern => normalizedQuery.match(pattern))) {
         return child;
       }
     }
-    
+
     return null;
   };
 
   const detectPotentialChildName = (query: string) => {
     const normalizedQuery = query.toLowerCase();
-    
+
     const childPatterns = [
       / for (\w+)/g,
       / (\w+)'s /g,
@@ -782,22 +794,22 @@ const App: React.FC<Props> = ({navigation}) => {
       / my (\w+) /g,
       / with (\w+) /g,
     ];
-    
+
     for (const pattern of childPatterns) {
       const matches = normalizedQuery.matchAll(pattern);
       for (const match of matches) {
         const potentialName = match[1];
-        
-        const skipWords = ['child', 'kids', 'children', 'baby', 'toddler', 'son', 'daughter', 
-                          'homework', 'reading', 'bedtime', 'eating', 'playing', 'school',
-                          'help', 'them', 'this', 'that', 'when', 'what', 'how', 'why'];
-        
+
+        const skipWords = ['child', 'kids', 'children', 'baby', 'toddler', 'son', 'daughter',
+          'homework', 'reading', 'bedtime', 'eating', 'playing', 'school',
+          'help', 'them', 'this', 'that', 'when', 'what', 'how', 'why'];
+
         if (!skipWords.includes(potentialName) && potentialName.length > 2) {
           return potentialName.charAt(0).toUpperCase() + potentialName.slice(1);
         }
       }
     }
-    
+
     return null;
   };
 
@@ -841,13 +853,13 @@ const App: React.FC<Props> = ({navigation}) => {
 
     const detectedChild = detectChildNameInQuery(query, userChildren);
     let finalQuery = query;
-    
+
     if (detectedChild) {
       const age = calculateAge(detectedChild.date_of_birth);
       finalQuery = `${query} for ${age} year old`;
     } else {
       const potentialChildName = detectPotentialChildName(query);
-      
+
       if (potentialChildName && !providedAge) {
         setDetectedChildName(potentialChildName);
         setCurrentQuery(query);
@@ -872,8 +884,8 @@ const App: React.FC<Props> = ({navigation}) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          prompt: finalQuery, 
+        body: JSON.stringify({
+          prompt: finalQuery,
           contentPreferences: contentPreferences
         })
       });
@@ -885,7 +897,7 @@ const App: React.FC<Props> = ({navigation}) => {
       const data = await response.json();
       setTips(data.tips);
       setShowTipsModal(true);
-      
+
     } catch (error) {
       console.error('Error fetching tips:', error);
       Alert.alert('Error', 'Failed to fetch tips. Please check your connection and try again.');
@@ -906,7 +918,7 @@ const App: React.FC<Props> = ({navigation}) => {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${userInfo.access_token}`,
           },
-          body: JSON.stringify({children: updatedChildren})
+          body: JSON.stringify({ children: updatedChildren })
         },
       );
 
@@ -945,7 +957,7 @@ const App: React.FC<Props> = ({navigation}) => {
       Alert.alert('Missing Information', 'Please enter a title, description, and select a location type.');
       return;
     }
-    
+
     if (newLocation) {
       if (isLocationNearby(newLocation.latitude, newLocation.longitude)) {
         Alert.alert('Duplicate Location', 'A location already exists within 100 meters of this point.');
@@ -971,14 +983,14 @@ const App: React.FC<Props> = ({navigation}) => {
             })
           },
         );
-        
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         await refreshDataInBackground();
         Alert.alert('Success', 'Location added successfully!');
-        
+
         setNewLocation(null);
         setName('');
         setDescription('');
@@ -995,13 +1007,15 @@ const App: React.FC<Props> = ({navigation}) => {
   const handleAddChild = () => {
     setShowChildPrompt(false);
     Alert.alert(
-      'Add Child', 
+      'Add Child',
       `You can add ${detectedChildName} to your profile in the Settings menu for personalized age-based tips.`,
       [
         { text: 'Later', style: 'cancel' },
-        { text: 'Go to Settings', onPress: () => {
-          navigation.navigate('Settings' as never);
-        }}
+        {
+          text: 'Go to Settings', onPress: () => {
+            navigation.navigate('Settings' as never);
+          }
+        }
       ]
     );
   };
@@ -1016,7 +1030,7 @@ const App: React.FC<Props> = ({navigation}) => {
       Alert.alert('Invalid Age', 'Please enter a valid age in years.');
       return;
     }
-    
+
     setShowAgeInput(false);
     getTips(currentQuery, tempAge);
     setTempAge('');
@@ -1034,7 +1048,7 @@ const App: React.FC<Props> = ({navigation}) => {
   const handleSaveTip = async (tip: Tip) => {
     try {
       const isAlreadySaved = savedTips.some(savedTip => savedTip.id === tip.id);
-      
+
       if (isAlreadySaved) {
         // Remove from saved
         const updatedSavedTips = savedTips.filter(savedTip => savedTip.id !== tip.id);
@@ -1057,7 +1071,7 @@ const App: React.FC<Props> = ({navigation}) => {
   const handleLikeTip = async (tip: Tip) => {
     try {
       const isAlreadyLiked = likedTips.some(likedTip => likedTip.id === tip.id);
-      
+
       if (isAlreadyLiked) {
         // Remove from liked
         const updatedLikedTips = likedTips.filter(likedTip => likedTip.id !== tip.id);
@@ -1103,7 +1117,7 @@ const App: React.FC<Props> = ({navigation}) => {
         </View>
         <Text style={styles.tipBody}>{tip.body || ''}</Text>
         <Text style={styles.tipDetails}>{tip.details || ''}</Text>
-        <View style={{flexDirection: 'row', marginTop: 12, alignItems: 'center'}}>
+        <View style={{ flexDirection: 'row', marginTop: 12, alignItems: 'center' }}>
           <TouchableOpacity
             style={[
               styles.playButton,
@@ -1128,11 +1142,11 @@ const App: React.FC<Props> = ({navigation}) => {
               />
             )}
             <Text style={styles.playButtonText}>
-              {audioLoadingIndex === index 
-                ? 'Loading...' 
-                : activeAudioIndex === index && isPlaying 
-                ? 'Stop' 
-                : 'Play'}
+              {audioLoadingIndex === index
+                ? 'Loading...'
+                : activeAudioIndex === index && isPlaying
+                  ? 'Stop'
+                  : 'Play'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -1175,7 +1189,7 @@ const App: React.FC<Props> = ({navigation}) => {
         </View>
         <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
           {tips.map((tip, index) => renderTipItem(tip, index, 'search'))}
-          <View style={{height: 20}} />
+          <View style={{ height: 20 }} />
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -1188,20 +1202,20 @@ const App: React.FC<Props> = ({navigation}) => {
           <MaterialIcons name="child-care" size={48} color="#4A90E2" style={styles.modalIcon} />
           <Text style={styles.modalTitle}>Child Detected: {detectedChildName || 'Unknown'}</Text>
           <Text style={styles.modalText}>
-            I noticed you mentioned "{detectedChildName || 'a child'}" but they're not in your profile yet. 
+            I noticed you mentioned "{detectedChildName || 'a child'}" but they're not in your profile yet.
             Would you like to add them for personalized tips, or just provide their age for this question?
           </Text>
-          
+
           <TouchableOpacity style={styles.primaryButton} onPress={handleAddChild}>
             <MaterialIcons name="person-add" size={20} color="white" />
             <Text style={styles.primaryButtonText}>Add {detectedChildName || 'child'} to Profile</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.secondaryButton} onPress={handleProvideAge}>
             <MaterialIcons name="schedule" size={20} color="#4A90E2" />
             <Text style={styles.secondaryButtonText}>Just Provide Age</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.cancelButton} onPress={handleCancelChildPrompt}>
             <Text style={styles.cancelButtonText}>Skip</Text>
           </TouchableOpacity>
@@ -1219,7 +1233,7 @@ const App: React.FC<Props> = ({navigation}) => {
           <Text style={styles.modalText}>
             Please enter {detectedChildName || 'your child'}'s age in years to get age-appropriate tips.
           </Text>
-          
+
           <TextInput
             style={styles.ageInput}
             value={tempAge}
@@ -1229,12 +1243,12 @@ const App: React.FC<Props> = ({navigation}) => {
             maxLength={2}
             autoFocus
           />
-          
+
           <TouchableOpacity style={styles.primaryButton} onPress={handleAgeSubmit}>
             <MaterialIcons name="check" size={20} color="white" />
             <Text style={styles.primaryButtonText}>Get Tips</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.cancelButton} onPress={handleCancelChildPrompt}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -1243,12 +1257,14 @@ const App: React.FC<Props> = ({navigation}) => {
     </Modal>
   );
 
+  const insets = useSafeAreaInsets();
+
   // Main component render
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <Notification />
-      
+
       {backgroundLoading && (
         <View style={styles.backgroundLoadingBanner}>
           <View style={styles.backgroundLoadingContent}>
@@ -1256,214 +1272,333 @@ const App: React.FC<Props> = ({navigation}) => {
           </View>
         </View>
       )}
-      
+
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
         >
-          <SafeAreaView style={styles.safeArea}>
-            <View style={styles.container}>
-              <View style={styles.searchWrapper}>
-                <View style={styles.searchContainer}>
-                  <GooglePlacesAutocomplete
-                    placeholder="Search location..."
-                    fetchDetails={true}
-                    styles={{
-                      container: { flex: 0 },
-                      textInputContainer: {
-                        backgroundColor: 'white',
-                        borderRadius: 12,
-                        borderWidth: 0,
-                      },
-                      textInput: {
-                        height: 45,
-                        color: '#333',
-                        fontSize: 16,
-                        borderRadius: 12,
-                        paddingHorizontal: 15,
-                      },
-                      listView: {
-                        backgroundColor: 'white',
-                        borderRadius: 12,
-                        marginTop: 5,
-                      },
-                      row: { padding: 13, height: 50 },
-                    }}
-                    onPress={(data, details = null) => {
-                      if (details) {
-                        const latitude = details.geometry.location.lat;
-                        const longitude = details.geometry.location.lng;
-                        setNewLocation({
-                          latitude,
-                          longitude,
-                          latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
-                          longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
-                        });
-                      }
-                    }}
-                    query={{ key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps', language: 'en' }}
-                    renderRightButton={() => (
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <TouchableOpacity
-                          style={styles.clearButton}
-                          onPress={() => {
-                            ref.current?.clear();
-                            setName('');
-                            setDescription('');
-                            setNewLocation(null);
-                            setSelectedOption(null);
-                          }}
-                          accessibilityLabel="Clear search"
-                        >
-                          <Icon name="close" size={20} color="#666" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.locationIconButton}
-                          onPress={() => navigation.navigate('LocationList', { locations, details })}
-                          accessibilityLabel="Show saved locations"
-                        >
-                          <MaterialIcons name="location-on" size={24} color="#4A90E2" />
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                    ref={ref}
-                  />
-                </View>
-              </View>
+          <View style={styles.container}>
+            <View style={[styles.assistantContainer, { top: Platform.OS === "ios" ? insets.top : insets.top + 35 }]}>
+              <GooglePlacesAutocomplete
+                placeholder="Search location..."
+                suppressDefaultStyles={true}
+                debounce={500}
+                renderLeftButton={() => <MaterialIcons name="search" size={20} color="#666" style={{ marginRight: 10 }} />}
 
-              <View style={styles.mapContainer}>
-                {location && location.latitude && location.longitude && (
-                  <MapView
-                    provider={Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
-                    style={styles.map}
-                    initialRegion={location}
-                    region={newLocation || location}
-                    showsUserLocation
-                    mapType="standard"
-                    userInterfaceStyle="light">
-                    {locations && locations.length > 0 && locations.map((loc, index) => (
-                      <React.Fragment key={`location-${index}`}>
-                        <Marker
-                          coordinate={loc}
-                          title={details[index]?.title || `Location ${index + 1}`}
-                          description={details[index]?.description || ''}
-                          pinColor={details[index]?.pinColor || '#FF4B4B'}
-                        />
-                        <Circle
-                          center={loc}
-                          radius={100}
-                          strokeColor="rgba(65, 105, 225, 0.5)"
-                          fillColor="rgba(65, 105, 225, 0.1)"
-                          zIndex={2}
-                        />
-                      </React.Fragment>
-                    ))}
-                  </MapView>
-                )}
-              </View>
-
-              {newLocation && (
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
-                  style={styles.formContainer}>
-                  <Text style={styles.formTitle}>Add New Location</Text>
-                  <Dropdown
-                    style={styles.dropdown}
-                    placeholderStyle={styles.dropdownPlaceholder}
-                    selectedTextStyle={styles.dropdownSelected}
-                    data={options}
-                    maxHeight={300}
-                    labelField="label"
-                    valueField="value"
-                    placeholder="Select location type"
-                    value={selectedOption}
-                    onChange={item => setSelectedOption(item.value)}
-                    renderLeftIcon={() => (
-                      <AntDesign style={styles.dropdownLeftIcon} color="#333" name="Safety" size={20} />
-                    )}
-                  />
-                  <TextInput
-                    placeholder="Location name"
-                    style={styles.input}
-                    value={name}
-                    onChangeText={setName}
-                    placeholderTextColor="#666"
-                  />
-                  <TextInput
-                    placeholder="Description"
-                    style={[styles.input, styles.textArea]}
-                    value={description}
-                    onChangeText={setDescription}
-                    placeholderTextColor="#666"
-                    multiline
-                    numberOfLines={3}
-                  />
-                  <TouchableOpacity style={styles.addButton} onPress={addLocation}>
-                    <Text style={styles.addButtonText}>Add Location</Text>
+                styles={{
+                  textInputContainer: {
+                    backgroundColor: 'rgba(74, 144, 226, 0.05)',
+                    borderRadius: 14,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  },
+                  textInput: {
+                    flex: 1,
+                    height: 40,
+                    fontSize: 16,
+                    color: '#000',
+                  },
+                  listView: {
+                    backgroundColor: 'rgba(74, 144, 226, 0.05)',
+                    borderRadius: 14,
+                    marginTop: 8,
+                    paddingVertical: 4,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 3,
+                    elevation: 2,
+                  },
+                  row: {
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    borderBottomColor: '#E0E0E0',
+                    borderBottomWidth: 1,
+                  },
+                  description: {
+                    fontSize: 15,
+                    color: '#000',
+                  },
+                  separator: {
+                    height: 0,
+                  },
+                  poweredContainer: {
+                    padding: 10
+                  }
+                }}
+                fetchDetails={true}
+                onPress={(data, details = null) => {
+                  if (details) {
+                    const latitude = details.geometry.location.lat;
+                    const longitude = details.geometry.location.lng;
+                    setNewLocation({
+                      latitude,
+                      longitude,
+                      latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
+                      longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
+                    });
+                  }
+                }}
+                query={{ key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps', language: 'en' }}
+                renderRightButton={() => (
+                  <TouchableOpacity onPress={() => { setSheetVisible(true); setSheetIsOpen(true) }}>
+                    <MaterialIcons name="bookmark" size={24} color={'#4A90E2'} />
                   </TouchableOpacity>
-                </LinearGradient>
-              )}
+                )}
+                ref={ref}
+              />
+            </View>
 
-              {!newLocation && (
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
-                  style={styles.welcomeContainer}>
-                  <View style={styles.welcomeContent}>
-                    <View style={styles.assistantContainer}>
-                      
-                      
-                      <View style={styles.assistantSearchContainer}>
-                        <View style={styles.assistantSearchWrapper}>
-                          <MaterialIcons name="search" size={20} color="#666" style={styles.assistantSearchIcon} />
-                          <TextInput
-                            style={styles.assistantSearchInput}
-                            value={searchText}
-                            onChangeText={setSearchText}
-                            placeholder={isListening ? 'Listening...' : 'Ask a parenting question...'}
-                            returnKeyType="search"
-                            onSubmitEditing={() => getTips()}
-                            editable={!isListening}
-                            placeholderTextColor="#999"
-                          />
-                          {searchText.length > 0 && !isListening && (
-                            <TouchableOpacity
-                              style={styles.assistantClearButton}
-                              onPress={() => setSearchText('')}
-                              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                              <MaterialIcons name="clear" size={20} color="#999" />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                        <TouchableOpacity
-                          style={[styles.assistantMicButton, isListening && styles.assistantMicButtonActive]}
-                          onPress={toggleListening}>
-                          <MaterialIcons
-                            name={isListening ? 'mic-off' : 'mic'}
-                            size={20}
-                            color="white"
-                          />
-                        </TouchableOpacity>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.assistantSubmitButton}
-                        onPress={() => getTips()}
-                        disabled={isAssistantLoading || isListening}>
-                        {isAssistantLoading ? (
-                          <ActivityIndicator color="white" size="small" />
-                        ) : (
-                          <>
-                            <MaterialIcons name="psychology" size={20} color="white" />
-                            <Text style={styles.assistantSubmitText}>Get Parenting Tips</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </LinearGradient>
+            <View style={styles.mapContainer}>
+              {location && location.latitude && location.longitude && (
+                <MapView
+                  provider={Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
+                  style={styles.map}
+                  initialRegion={location}
+                  region={newLocation || location}
+                  showsUserLocation
+                  mapType="standard"
+                  userInterfaceStyle="light">
+                  {locations && locations.length > 0 && locations.map((loc, index) => (
+                    <React.Fragment key={`location-${index}`}>
+                      <Marker
+                        coordinate={loc}
+                        title={details[index]?.title || `Location ${index + 1}`}
+                        description={details[index]?.description || ''}
+                        pinColor={details[index]?.pinColor || '#FF4B4B'}
+                      />
+                      <Circle
+                        center={loc}
+                        radius={100}
+                        strokeColor="rgba(65, 105, 225, 0.5)"
+                        fillColor="rgba(65, 105, 225, 0.1)"
+                        zIndex={2}
+                      />
+                    </React.Fragment>
+                  ))}
+                </MapView>
+
               )}
             </View>
-          </SafeAreaView>
+
+            {/* {newLocation && (
+              <LinearGradient
+                colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
+                style={styles.formContainer}>
+                <Text style={styles.formTitle}>Add New Location</Text>
+                <Dropdown
+                  style={styles.dropdown}
+                  placeholderStyle={styles.dropdownPlaceholder}
+                  selectedTextStyle={styles.dropdownSelected}
+                  data={options}
+                  maxHeight={300}
+                  labelField="label"
+                  valueField="value"
+                  placeholder="Select location type"
+                  value={selectedOption}
+                  onChange={item => setSelectedOption(item.value)}
+                  renderLeftIcon={() => (
+                    <AntDesign style={styles.dropdownLeftIcon} color="#333" name="Safety" size={20} />
+                  )}
+                />
+                <TextInput
+                  placeholder="Location name"
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholderTextColor="#666"
+                />
+                <TextInput
+                  placeholder="Description"
+                  style={[styles.input, styles.textArea]}
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholderTextColor="#666"
+                  multiline
+                  numberOfLines={3}
+                />
+                <TouchableOpacity style={styles.addButton} onPress={addLocation}>
+                  <Text style={styles.addButtonText}>Add Location</Text>
+                </TouchableOpacity>
+              </LinearGradient>
+            )} */}
+
+            {/* {!newLocation && (
+              <LinearGradient
+                colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
+                style={styles.welcomeContainer}>
+                <View style={styles.welcomeContent}>
+                  <View style={styles.assistantContainer}>
+
+
+                    <View style={styles.assistantSearchContainer}>
+                      <View style={styles.assistantSearchWrapper}>
+                        <MaterialIcons name="search" size={20} color="#666" style={styles.assistantSearchIcon} />
+                        <TextInput
+                          style={styles.assistantSearchInput}
+                          value={searchText}
+                          onChangeText={setSearchText}
+                          placeholder={isListening ? 'Listening...' : 'Ask a parenting question...'}
+                          returnKeyType="search"
+                          onSubmitEditing={() => getTips()}
+                          editable={!isListening}
+                          placeholderTextColor="#999"
+                        />
+                        {searchText.length > 0 && !isListening && (
+                          <TouchableOpacity
+                            style={styles.assistantClearButton}
+                            onPress={() => setSearchText('')}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <MaterialIcons name="clear" size={20} color="#999" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.assistantMicButton, isListening && styles.assistantMicButtonActive]}
+                        onPress={toggleListening}>
+                        <MaterialIcons
+                          name={isListening ? 'mic-off' : 'mic'}
+                          size={20}
+                          color="white"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.assistantSubmitButton}
+                      onPress={() => getTips()}
+                      disabled={isAssistantLoading || isListening}>
+                      {isAssistantLoading ? (
+                        <ActivityIndicator color="white" size="small" />
+                      ) : (
+                        <>
+                          <MaterialIcons name="psychology" size={20} color="white" />
+                          <Text style={styles.assistantSubmitText}>Get Parenting Tips</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </LinearGradient>
+            )} */}
+
+            {newLocation && (
+              <LinearGradient
+                colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
+                style={[styles.formContainer, { bottom: Platform.OS === "ios" ? insets.bottom + 55 : insets.bottom + 80 }]}>
+                <Text style={styles.formTitle}>Add New Location</Text>
+                <Dropdown
+                  style={styles.dropdown}
+                  placeholderStyle={styles.dropdownPlaceholder}
+                  selectedTextStyle={styles.dropdownSelected}
+                  data={options}
+                  maxHeight={300}
+                  labelField="label"
+                  valueField="value"
+                  placeholder="Select location type"
+                  value={selectedOption}
+                  onChange={item => setSelectedOption(item.value)}
+                  renderLeftIcon={() => (
+                    <AntDesign style={styles.dropdownLeftIcon} color="#333" name="Safety" size={20} />
+                  )}
+                />
+                <TextInput
+                  placeholder="Location name"
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholderTextColor="#d3d3d3"
+                />
+                <TextInput
+                  placeholder="Description"
+                  style={[styles.input, styles.textArea]}
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholderTextColor="#d3d3d3"
+                  multiline
+                  numberOfLines={3}
+                />
+                <TouchableOpacity style={styles.addButton} onPress={addLocation}>
+                  <Text style={styles.addButtonText}>Add Location</Text>
+                </TouchableOpacity>
+              </LinearGradient>
+            )}
+
+            {!newLocation && (
+              <View
+                style={[styles.assistantContainer, { bottom: Platform.OS === "ios" ? insets.bottom + 55 : insets.bottom + 80 }]}>
+                {/* <Text style={styles.assistantTitle}>🤖 Parenting Assistant</Text>
+                <Text style={styles.assistantSubtitle}>Ask any parenting question</Text> */}
+
+                <View style={{
+                  backgroundColor: 'rgba(74, 144, 226, 0.05)',
+                  borderRadius: 14,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  flexDirection: 'row', alignItems: 'center'
+                }}>
+                  <MaterialIcons name="search" size={20} color="#666" style={styles.assistantSearchIcon} />
+
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      height: 40,
+                      fontSize: 16,
+                      color: '#000',
+                      padding: 0,
+                    }}
+                    value={searchText}
+                    onChangeText={setSearchText}
+                    placeholder={isListening ? 'Listening...' : 'Ask a parenting question...'}
+                    returnKeyType="search"
+                    onSubmitEditing={() => getTips()}
+                    editable={!isListening}
+                    placeholderTextColor="#d3d3d3"
+                  />
+
+                  {searchText.length > 0 && !isListening && (
+                    <TouchableOpacity
+                      style={styles.assistantClearButton}
+                      onPress={() => setSearchText('')}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                      <MaterialIcons name="clear" size={20} color="#999" />
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    style={[isListening && styles.assistantMicButtonActive]}
+                    onPress={toggleListening}>
+                    <MaterialIcons
+                      name={isListening ? 'mic-off' : 'mic'}
+                      size={24}
+                      color="#4A90E2"
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.assistantSubmitButton}
+                  onPress={() => getTips()}
+                  disabled={isAssistantLoading || isListening}>
+                  {isAssistantLoading ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <>
+                      <MaterialIcons name="psychology" size={20} color="white" />
+                      <Text style={styles.assistantSubmitText}>Get Parenting Tips</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+              </View>
+            )}
+          </View>
+
+          <LocationBottomSheet visible={sheetVisible} onClose={() => { setSheetVisible(false); setSheetIsOpen(false) }} />
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
 
@@ -1473,6 +1608,409 @@ const App: React.FC<Props> = ({navigation}) => {
     </>
   );
 };
+
+// const styles = StyleSheet.create({
+//   loadingContainer: {
+//     flex: 1,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//     backgroundColor: '#FFFFFF',
+//     padding: 20,
+//   },
+//   loadingText: {
+//     marginTop: 20,
+//     fontSize: 16,
+//     color: '#333',
+//     textAlign: 'center',
+//     fontWeight: '500',
+//   },
+//   loadingSubtext: {
+//     marginTop: 8,
+//     fontSize: 14,
+//     color: '#666',
+//     textAlign: 'center',
+//   },
+//   backgroundLoadingBanner: {
+//     position: 'absolute',
+//     top: Platform.OS === 'ios' ? 50 : 25,
+//     left: 0,
+//     right: 0,
+//     zIndex: 20,
+//     backgroundColor: 'rgba(74, 144, 226, 0.9)',
+//     paddingVertical: 8,
+//     paddingHorizontal: 16,
+//   },
+//   backgroundLoadingContent: {
+//     alignItems: 'center',
+//   },
+//   backgroundLoadingText: {
+//     color: '#FFFFFF',
+//     fontSize: 14,
+//     fontWeight: '500',
+//   },
+//   container: {
+//     flex: 1,
+//   },
+//   assistantContainer: {
+//     backgroundColor: 'white',
+//     borderRadius: 14,
+//     position: 'absolute',
+//     padding: 16,
+//     left: 16,
+//     right: 16,
+//     zIndex: 10,
+//   },
+//   clearButton: {
+//     padding: 12,
+//   },
+//   mapContainer: {
+//     flex: 1,
+//     padding: 0,
+//     margin: 0,
+//   },
+//   map: {
+//     ...StyleSheet.absoluteFillObject,
+//   },
+//   formContainer: {
+//     position: 'absolute',
+//     bottom: 20,
+//     left: 16,
+//     right: 16,
+//     backgroundColor: 'white',
+//     borderRadius: 16,
+//     padding: 20,
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 2 },
+//     shadowOpacity: 0.25,
+//     shadowRadius: 3.84,
+//     elevation: 5,
+//   },
+//   formTitle: {
+//     fontSize: 20,
+//     fontWeight: '600',
+//     color: '#333',
+//     marginBottom: 16,
+//   },
+//   dropdown: {
+//     height: 50,
+//     borderColor: '#E8E8E8',
+//     borderWidth: 1,
+//     borderRadius: 12,
+//     paddingHorizontal: 12,
+//     marginBottom: 16,
+//   },
+//   dropdownPlaceholder: {
+//     fontSize: 16,
+//     color: '#666',
+//   },
+//   dropdownSelected: {
+//     fontSize: 16,
+//     color: '#333',
+//   },
+//   dropdownLeftIcon: {
+//     marginRight: 8,
+//   },
+//   input: {
+//     height: 50,
+//     borderColor: '#E8E8E8',
+//     borderWidth: 1,
+//     borderRadius: 12,
+//     paddingHorizontal: 16,
+//     fontSize: 16,
+//     color: '#333',
+//     backgroundColor: '#FFFFFF',
+//     marginBottom: 16,
+//   },
+//   textArea: {
+//     height: 100,
+//     textAlignVertical: 'top',
+//     paddingTop: 12,
+//   },
+//   addButton: {
+//     backgroundColor: '#4A90E2',
+//     borderRadius: 12,
+//     height: 50,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//   },
+//   addButtonText: {
+//     color: '#FFFFFF',
+//     fontSize: 16,
+//     fontWeight: '600',
+//   },
+//   welcomeContainer: {
+//     position: 'absolute',
+//     bottom: 20,
+//     left: 16,
+//     right: 16,
+//     borderRadius: 16,
+//     overflow: 'hidden',
+//   },
+//   welcomeContent: {
+//     padding: 20,
+//   },
+//   assistantTitle: {
+//     fontSize: 18,
+//     fontWeight: '600',
+//     color: '#4A90E2',
+//     textAlign: 'center',
+//     marginBottom: 4,
+//   },
+//   assistantSubtitle: {
+//     fontSize: 14,
+//     color: '#666',
+//     textAlign: 'center',
+//     marginBottom: 12,
+//   },
+//   assistantSearchContainer: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     marginBottom: 12,
+//   },
+//   assistantSearchWrapper: {
+//     flex: 1,
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     backgroundColor: 'white',
+//     borderRadius: 20,
+//     paddingHorizontal: 12,
+//     marginRight: 8,
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 1 },
+//     shadowOpacity: 0.1,
+//     shadowRadius: 2,
+//     elevation: 2,
+//   },
+//   assistantSearchIcon: {
+//     marginRight: 8,
+//   },
+//   assistantSearchInput: {
+//     flex: 1,
+//     height: 40,
+//     fontSize: 14,
+//     color: '#333',
+//     paddingRight: 30,
+//   },
+//   assistantClearButton: {
+//     position: 'absolute',
+//     right: 12,
+//     top: 10,
+//     width: 20,
+//     height: 20,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//   },
+//   assistantMicButton: {
+//     width: 40,
+//     height: 40,
+//     borderRadius: 20,
+//     backgroundColor: '#4A90E2',
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 2 },
+//     shadowOpacity: 0.15,
+//     shadowRadius: 2,
+//     elevation: 3,
+//   },
+//   assistantMicButtonActive: {
+//     backgroundColor: '#FF3B30',
+//   },
+//   assistantSubmitButton: {
+//     backgroundColor: '#4A90E2',
+//     paddingVertical: 12,
+//     paddingHorizontal: 16,
+//     borderRadius: 8,
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 2 },
+//     shadowOpacity: 0.15,
+//     shadowRadius: 3,
+//     elevation: 3,
+//   },
+//   assistantSubmitText: {
+//     color: 'white',
+//     fontSize: 14,
+//     fontWeight: '600',
+//     marginLeft: 6,
+//   },
+//   modalContainer: {
+//     flex: 1,
+//     backgroundColor: '#f0f2f5',
+//   },
+//   modalHeader: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//     alignItems: 'center',
+//     paddingHorizontal: 20,
+//     paddingVertical: 16,
+//     backgroundColor: 'white',
+//     borderBottomWidth: 1,
+//     borderBottomColor: '#E8E8E8',
+//   },
+//   modalTitle: {
+//     fontSize: 20,
+//     fontWeight: 'bold',
+//     color: '#333',
+//   },
+//   closeModalButton: {
+//     padding: 8,
+//   },
+//   modalContent: {
+//     flex: 1,
+//     paddingHorizontal: 16,
+//     paddingTop: 16,
+//   },
+//   tipItem: {
+//     marginBottom: 16,
+//   },
+//   tipGradient: {
+//     borderRadius: 16,
+//     padding: 20,
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 2 },
+//     shadowOpacity: 0.1,
+//     shadowRadius: 3.84,
+//     elevation: 5,
+//   },
+//   tipHeader: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     marginBottom: 12,
+//   },
+//   tipIcon: {
+//     marginRight: 12,
+//   },
+//   tipTitle: {
+//     fontSize: 18,
+//     fontWeight: 'bold',
+//     color: '#333',
+//     flex: 1,
+//   },
+//   tipBody: {
+//     fontSize: 16,
+//     color: '#444',
+//     lineHeight: 24,
+//     marginBottom: 12,
+//   },
+//   tipDetails: {
+//     fontSize: 14,
+//     color: '#666',
+//     lineHeight: 20,
+//     marginBottom: 16,
+//   },
+//   playButton: {
+//     backgroundColor: '#007AFF',
+//     paddingVertical: 8,
+//     paddingHorizontal: 12,
+//     borderRadius: 6,
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//     flex: 1,
+//   },
+//   stopButton: {
+//     backgroundColor: '#FF3B30',
+//   },
+//   loadingButton: {
+//     backgroundColor: '#999',
+//   },
+//   playButtonText: {
+//     color: 'white',
+//     fontSize: 12,
+//     fontWeight: '600',
+//     marginLeft: 4,
+//   },
+//   modalOverlay: {
+//     flex: 1,
+//     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//     padding: 20,
+//   },
+//   modalIcon: {
+//     alignSelf: 'center',
+//     marginBottom: 16,
+//   },
+//   modalText: {
+//     fontSize: 16,
+//     textAlign: 'center',
+//     marginBottom: 24,
+//     color: '#666',
+//     lineHeight: 22,
+//   },
+//   primaryButton: {
+//     backgroundColor: '#4A90E2',
+//     paddingVertical: 14,
+//     paddingHorizontal: 20,
+//     borderRadius: 12,
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//     marginBottom: 12,
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 2 },
+//     shadowOpacity: 0.1,
+//     shadowRadius: 3,
+//     elevation: 3,
+//   },
+//   primaryButtonText: {
+//     color: 'white',
+//     fontSize: 16,
+//     fontWeight: '600',
+//     marginLeft: 8,
+//   },
+//   secondaryButton: {
+//     backgroundColor: 'white',
+//     paddingVertical: 14,
+//     paddingHorizontal: 20,
+//     borderRadius: 12,
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//     marginBottom: 12,
+//     borderWidth: 2,
+//     borderColor: '#4A90E2',
+//   },
+//   secondaryButtonText: {
+//     color: '#4A90E2',
+//     fontSize: 16,
+//     fontWeight: '600',
+//     marginLeft: 8,
+//   },
+//   cancelButton: {
+//     backgroundColor: '#f0f0f0',
+//     paddingVertical: 14,
+//     paddingHorizontal: 20,
+//     borderRadius: 12,
+//     marginTop: 8,
+//   },
+//   cancelButtonText: {
+//     color: '#666',
+//     fontSize: 16,
+//     fontWeight: '600',
+//     textAlign: 'center',
+//   },
+//   ageInput: {
+//     borderWidth: 2,
+//     borderColor: '#E8E8E8',
+//     borderRadius: 12,
+//     paddingHorizontal: 16,
+//     paddingVertical: 12,
+//     fontSize: 18,
+//     textAlign: 'center',
+//     marginBottom: 20,
+//     backgroundColor: '#FFFFFF',
+//   },
+//   locationIconButton: {
+//     padding: 8,
+//     marginLeft: 4,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//   },
+// });
 
 const styles = StyleSheet.create({
   loadingContainer: {
@@ -1515,35 +2053,32 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1,
   },
-  searchWrapper: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 40,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    paddingHorizontal: 16,
-  },
-  searchContainer: {
+  assistantContainer: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderRadius: 14,
+    position: 'absolute',
+    padding: 16,
+    left: 16,
+    right: 16,
+    zIndex: 10,
+  },
+  headerText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#4A90E2',
+    textAlign: 'center',
+    marginBottom: 8,
   },
   clearButton: {
-    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   mapContainer: {
     flex: 1,
-    padding: 0,
-    margin: 0,
   },
   map: {
     ...StyleSheet.absoluteFillObject,
@@ -1615,25 +2150,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  welcomeContainer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 16,
-    right: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  welcomeContent: {
-    padding: 20,
-  },
-  assistantContainer: {
-    backgroundColor: 'rgba(74, 144, 226, 0.05)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(74, 144, 226, 0.1)',
-  },
   assistantTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -1647,43 +2163,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
-  assistantSearchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  assistantSearchWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    marginRight: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
   assistantSearchIcon: {
     marginRight: 8,
   },
-  assistantSearchInput: {
-    flex: 1,
-    height: 40,
-    fontSize: 14,
-    color: '#333',
-    paddingRight: 30,
-  },
   assistantClearButton: {
-    position: 'absolute',
-    right: 12,
-    top: 10,
-    width: 20,
-    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 10
   },
   assistantMicButton: {
     width: 40,
@@ -1699,13 +2185,14 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   assistantMicButtonActive: {
-    backgroundColor: '#FF3B30',
+    // backgroundColor: '#FF3B30',
   },
   assistantSubmitButton: {
     backgroundColor: '#4A90E2',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 7,
+    marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1720,6 +2207,72 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 6,
+  },
+
+  // Tip actions
+  tipActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  actionButtonActive: {
+    backgroundColor: '#EDF4FF',
+    borderColor: '#4A90E2',
+  },
+  actionButtonText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  actionButtonTextActive: {
+    color: '#4A90E2',
+    fontWeight: '600',
+  },
+
+  // Empty states
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#999',
+    marginTop: 16,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#ccc',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  button: {
+    flex: 1,
+    height: 45,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 6,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalContainer: {
     flex: 1,
@@ -1888,12 +2441,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     backgroundColor: '#FFFFFF',
-  },
-  locationIconButton: {
-    padding: 8,
-    marginLeft: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });
 
