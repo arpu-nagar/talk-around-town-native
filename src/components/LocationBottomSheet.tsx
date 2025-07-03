@@ -1,20 +1,14 @@
-import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from "@gorhom/bottom-sheet";
-import { BottomSheetMethods } from "@gorhom/bottom-sheet/lib/typescript/types";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { Alert, Animated, Dimensions, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from "react-native";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { BottomSheetContext } from "../context/BottomSheetContext";
 import { AuthContext } from '../context/AuthContext';
 import { fetchWithAuth } from '../api/auth';
 import Spinner from 'react-native-loading-spinner-overlay';
 import { useFocusEffect } from '@react-navigation/native';
-import { FlatList, ScrollView } from "react-native-gesture-handler";
+// import { FlatList, ScrollView } from "react-native-gesture-handler";
 import BottomSheetLocationItem from "./BottomSheetLocationItem";
-import { SwipeableRow } from "./SwipeableRow";
+// import { SwipeableRow } from "./SwipeableRow";
 import React from "react";
-
-interface LocationBottomSheetProps {
-    sheetRef: React.RefObject<BottomSheetMethods>;
-}
 
 type LocationList = {
     id: number,
@@ -25,8 +19,16 @@ type LocationList = {
     address: string
 }
 
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
+interface LocationBottomSheetProps {
+    visible: boolean
+    onClose: () => void
+}
+
 const LocationBottomSheet: React.FC<LocationBottomSheetProps> = ({
-    sheetRef,
+    visible,
+    onClose
 }) => {
     const { sheetIsOpen, setSheetIsOpen } = useContext(BottomSheetContext);
 
@@ -197,74 +199,144 @@ const LocationBottomSheet: React.FC<LocationBottomSheetProps> = ({
         }
     };
 
-    const handleSheetChange = (index: number) => {
-        // Update context immediately when sheet starts to close
-        if (index === -1) {
-            setSheetIsOpen(false);
-        } else if (index >= 0) {
-            setSheetIsOpen(true);
-        }
-    };
+    const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
-    // Handle animation start
-    const handleAnimate = (_fromIndex: number, toIndex: number) => {
-        console.log(_fromIndex, toIndex)
-        // If closing animation starts, immediately update UI state
-        if (toIndex === -1) {
-            setSheetIsOpen(false);
-        }
-    };
+    const panResponder = useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 10,
+            onPanResponderMove: (_, gesture) => {
+                if (gesture.dy > 0) {
+                    translateY.setValue(gesture.dy);
+                }
+            },
+            onPanResponderRelease: (_, gesture) => {
+                if (gesture.dy > 100) {
+                    // onClose();
+                } else {
+                    Animated.spring(translateY, {
+                        toValue: 0,
+                        useNativeDriver: true,
+                    }).start();
+                }
+            },
+        })
+    ).current;
 
+    useEffect(() => {
+        if (visible) {
+            Animated.timing(translateY, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+        } else {
+            Animated.timing(translateY, {
+                toValue: SCREEN_HEIGHT,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+        }
+    }, [visible]);
+
+    // const handleSheetChange = (index: number) => {
+    //     // Update context immediately when sheet starts to close
+    //     if (index === -1) {
+    //         setSheetIsOpen(false);
+    //     } else if (index >= 0) {
+    //         setSheetIsOpen(true);
+    //     }
+    // };
+
+    // // Handle animation start
+    // const handleAnimate = (_fromIndex: number, toIndex: number) => {
+    //     console.log(_fromIndex, toIndex)
+    //     // If closing animation starts, immediately update UI state
+    //     if (toIndex === -1) {
+    //         setSheetIsOpen(false);
+    //     }
+    // };
+
+    // return (
+    //     <BottomSheet
+    //         ref={sheetRef}
+    //         index={-1}
+    //         snapPoints={["75%"]}
+    //         // handleIndicatorStyle={{ display: "none" }}
+    //         enablePanDownToClose={true}
+    //         // enableContentPanningGesture={true}
+    //         // enableHandlePanningGesture={true}
+    //         onChange={handleSheetChange}
+    //         onAnimate={handleAnimate}
+    //     >
+    //         <BottomSheetView style={styles.sheetContainer}>
+    //             <Text style={styles.sheetTitle}>
+    //                 Saved Locations
+    //             </Text>
+
+    // <View style={styles.listWrapper}>
+    //     <ScrollView>
+    //         {locationsList.map((loc, index) => (
+    //             <>
+    //                 {/* <SwipeableRow
+    //                     key={loc.id}
+    //                     onDelete={() => deleteLocation(loc.id)}
+    //                     bounce={sheetIsOpen && index === 0}
+    //                 > */}
+    //                     <BottomSheetLocationItem locations={loc} lastItem={locationsList.length === index} />
+    //                 {/* </SwipeableRow> */}
+    //                 <View style={[styles.separator, index < locationsList.length - 1 && { marginBottom: 16 }]} />
+    //             </>
+    //         ))}
+    //     </ScrollView>
+    // </View>
+    //         </BottomSheetView>
+    //     </BottomSheet>
+    // );
     return (
-        <BottomSheet
-            ref={sheetRef}
-            index={-1}
-            snapPoints={["75%"]}
-            // handleIndicatorStyle={{ display: "none" }}
-            enablePanDownToClose={true}
-            enableContentPanningGesture={true}
-            enableHandlePanningGesture={true}
-            onChange={handleSheetChange}
-            onAnimate={handleAnimate}
-            backdropComponent={(props) => (
-                <BottomSheetBackdrop
-                    {...props}
-                    pressBehavior="close" // 👈 this makes tapping the backdrop close the sheet
-                />
-            )}
-        >
-            <BottomSheetView style={styles.sheetContainer}>
-                <Text style={styles.sheetTitle}>
-                    Saved Locations
-                </Text>
+        <Modal visible={visible} transparent animationType="slide" style={styles.sheetContainer}>
+            <TouchableWithoutFeedback onPress={() => onClose()}>
+                <View style={styles.overlay} />
+            </TouchableWithoutFeedback>
 
+            <Animated.View
+                style={[
+                    styles.sheetContainer,
+                    { transform: [{ translateY }] },
+                ]}
+                {...panResponder.panHandlers}
+            >
                 <View style={styles.listWrapper}>
                     <ScrollView>
                         {locationsList.map((loc, index) => (
                             <>
-                                <SwipeableRow
+                                {/* <SwipeableRow
                                     key={loc.id}
                                     onDelete={() => deleteLocation(loc.id)}
                                     bounce={sheetIsOpen && index === 0}
-                                >
-                                    <BottomSheetLocationItem locations={loc} lastItem={locationsList.length === index} />
-                                </SwipeableRow>
+                                > */}
+                                <BottomSheetLocationItem locations={loc} lastItem={locationsList.length === index} onDelete={() => deleteLocation(loc.id)} />
+                                {/* </SwipeableRow> */}
                                 <View style={[styles.separator, index < locationsList.length - 1 && { marginBottom: 16 }]} />
                             </>
                         ))}
                     </ScrollView>
                 </View>
-            </BottomSheetView>
-        </BottomSheet>
+            </Animated.View>
+        </Modal>
     );
 };
 
 const styles = StyleSheet.create({
+    overlay: {
+        flex: 1,
+        backgroundColor: '#00000055',
+    },
     sheetContainer: {
-        paddingHorizontal: 16,
+        padding: 16,
         backgroundColor: "white",
         borderTopLeftRadius: 14,
         borderTopRightRadius: 14,
+        height: 0.75 * SCREEN_HEIGHT
     },
     sheetTitle: {
         fontSize: 24,

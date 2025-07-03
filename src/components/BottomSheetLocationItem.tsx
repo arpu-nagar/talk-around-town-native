@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons'
 
 type LocationList = {
     id: number,
@@ -13,19 +14,25 @@ type LocationList = {
 interface BottomSheetLocationItemProps {
     locations: LocationList;
     lastItem: boolean
+    onDelete: () => void
 }
 
-const BottomSheetLocationItem: React.FC<BottomSheetLocationItemProps> = ({ locations, lastItem }) => {
+const BottomSheetLocationItem: React.FC<BottomSheetLocationItemProps> = ({ locations, lastItem, onDelete }) => {
     return (
-        <View>
-            <Text style={styles.titleText}>{locations.title}</Text>
-            <Text style={styles.descriptionText}>
-                {locations.description === "" ? 'Home' : locations.description}
-            </Text>
-            <Text style={styles.addressText}>
-                {locations.address ?? 'Loading address...'}
-            </Text>
-            
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.titleText}>{locations.title}</Text>
+                <Text style={styles.descriptionText}>
+                    {locations.description === "" ? 'Home' : locations.description}
+                </Text>
+                <Text style={styles.addressText}>
+                    {locations.address.slice(0, -11) ?? 'Loading address...'}
+                </Text>
+            </View>
+
+            <TouchableWithoutFeedback onPress={() => onDelete()} style={[styles.deleteBG]}>
+                <Ionicons name="trash" size={20} color="red" />
+            </TouchableWithoutFeedback>
         </View>
     );
 };
@@ -44,6 +51,13 @@ const styles = StyleSheet.create({
     addressText: {
         fontSize: 14,
         color: "#333",
+    },
+    deleteBG: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 10,
     },
 });
 

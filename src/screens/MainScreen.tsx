@@ -46,7 +46,6 @@ import Notification from '../components/Notification';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fetchWithAuth } from '../api/auth';
-import BottomSheet from "@gorhom/bottom-sheet";
 import LocationBottomSheet from '../components/LocationBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomSheetContext } from '../context/BottomSheetContext';
@@ -131,8 +130,12 @@ const App: React.FC<Props> = ({ navigation }) => {
   const lastResult = useRef<string>('');
   const audioCache = useRef<Map<number, string>>(new Map());
 
-  const { setSheetIsOpen } = useContext(BottomSheetContext);
-  const bottomSheetRef = useRef<BottomSheet>(null);
+  const { sheetIsOpen, setSheetIsOpen } = useContext(BottomSheetContext);
+
+  useEffect(() => {
+    console.log("sheetIsOpen", sheetIsOpen)
+  }, [sheetIsOpen])
+
 
   // State hooks
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -168,6 +171,7 @@ const App: React.FC<Props> = ({ navigation }) => {
   const [currentQuery, setCurrentQuery] = useState<string>('');
   const [showAgeInput, setShowAgeInput] = useState(false);
   const [tempAge, setTempAge] = useState<string>('');
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   // Cache utilities (defined as useCallback)
   const loadFromCache = useCallback(async (key: string) => {
@@ -1342,10 +1346,7 @@ const App: React.FC<Props> = ({ navigation }) => {
                 }}
                 query={{ key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps', language: 'en' }}
                 renderRightButton={() => (
-                  <TouchableOpacity onPress={() => {
-                    setSheetIsOpen(true);
-                    bottomSheetRef.current?.expand();
-                  }}>
+                  <TouchableOpacity onPress={() => { setSheetVisible(true); setSheetIsOpen(true) }}>
                     <MaterialIcons name="bookmark" size={24} color={'#4A90E2'} />
                   </TouchableOpacity>
                 )}
@@ -1381,6 +1382,7 @@ const App: React.FC<Props> = ({ navigation }) => {
                     </React.Fragment>
                   ))}
                 </MapView>
+
               )}
             </View>
 
@@ -1596,9 +1598,7 @@ const App: React.FC<Props> = ({ navigation }) => {
             )}
           </View>
 
-          <LocationBottomSheet
-            sheetRef={bottomSheetRef}
-          />
+          <LocationBottomSheet visible={sheetVisible} onClose={() => {setSheetVisible(false); setSheetIsOpen(false)}} />
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
 
