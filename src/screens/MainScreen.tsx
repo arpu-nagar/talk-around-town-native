@@ -17,6 +17,7 @@ import {
   ScrollView,
   Modal,
   ActivityIndicator,
+  Appearance,
 } from 'react-native';
 import MapView, {
   PROVIDER_GOOGLE,
@@ -124,6 +125,10 @@ interface TipsModalProps {
   showTipsModal: boolean;
   setShowTipsModal: (value: boolean) => void;
 };
+
+const colorScheme = Appearance.getColorScheme(); // 'light' or 'dark'
+
+const isDark = colorScheme === 'dark';
 
 const App: React.FC<Props> = ({ navigation }) => {
   // ===== ALL HOOKS MUST BE AT THE TOP - NEVER AFTER CONDITIONAL RETURNS =====
@@ -1278,334 +1283,232 @@ const App: React.FC<Props> = ({ navigation }) => {
         </View>
       )}
 
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.container}>
-            <View style={[styles.assistantContainer, { top: Platform.OS === "ios" ? insets.top : insets.top + 35 }]}>
-              <GooglePlacesAutocomplete
-                placeholder="Search location..."
-                suppressDefaultStyles={true}
-                debounce={500}
-                renderLeftButton={() => <MaterialIcons name="search" size={20} color="#666" style={{ marginRight: 10 }} />}
-
-                styles={{
-                  textInputContainer: {
-                    backgroundColor: 'rgba(74, 144, 226, 0.05)',
-                    borderRadius: 14,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                  },
-                  textInput: {
-                    flex: 1,
-                    height: 40,
-                    fontSize: 16,
-                    color: '#000',
-                  },
-                  listView: {
-                    backgroundColor: 'rgba(74, 144, 226, 0.05)',
-                    borderRadius: 14,
-                    marginTop: 8,
-                    paddingVertical: 4,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 3,
-                    elevation: 2,
-                  },
-                  row: {
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    borderBottomColor: '#E0E0E0',
-                    borderBottomWidth: 1,
-                  },
-                  description: {
-                    fontSize: 15,
-                    color: '#000',
-                  },
-                  separator: {
-                    height: 0,
-                  },
-                  poweredContainer: {
-                    padding: 10
-                  }
-                }}
-                fetchDetails={true}
-                onPress={(data, details = null) => {
-                  if (details) {
-                    const latitude = details.geometry.location.lat;
-                    const longitude = details.geometry.location.lng;
-                    setNewLocation({
-                      latitude,
-                      longitude,
-                      latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
-                      longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
-                    });
-                  }
-                }}
-                query={{ key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps', language: 'en' }}
-                renderRightButton={() => (
-                  <TouchableOpacity onPress={() => { setSheetVisible(true); setSheetIsOpen(true) }}>
-                    <MaterialIcons name="bookmark" size={24} color={'#4A90E2'} />
-                  </TouchableOpacity>
-                )}
-                ref={ref}
-              />
-            </View>
-
-            <View style={styles.mapContainer}>
-              {location && location.latitude && location.longitude && (
-                <MapView
-                  provider={Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
-                  style={styles.map}
-                  initialRegion={location}
-                  region={newLocation || location}
-                  showsUserLocation
-                  mapType="standard"
-                  userInterfaceStyle="light">
-                  {locations && locations.length > 0 && locations.map((loc, index) => (
-                    <React.Fragment key={`location-${index}`}>
-                      <Marker
-                        coordinate={loc}
-                        title={details[index]?.title || `Location ${index + 1}`}
-                        description={details[index]?.description || ''}
-                        pinColor={details[index]?.pinColor || '#FF4B4B'}
-                      />
-                      <Circle
-                        center={loc}
-                        radius={100}
-                        strokeColor="rgba(65, 105, 225, 0.5)"
-                        fillColor="rgba(65, 105, 225, 0.1)"
-                        zIndex={2}
-                      />
-                    </React.Fragment>
-                  ))}
-                </MapView>
-
-              )}
-            </View>
-
-            {/* {newLocation && (
-              <LinearGradient
-                colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
-                style={styles.formContainer}>
-                <Text style={styles.formTitle}>Add New Location</Text>
-                <Dropdown
-                  style={styles.dropdown}
-                  placeholderStyle={styles.dropdownPlaceholder}
-                  selectedTextStyle={styles.dropdownSelected}
-                  data={options}
-                  maxHeight={300}
-                  labelField="label"
-                  valueField="value"
-                  placeholder="Select location type"
-                  value={selectedOption}
-                  onChange={item => setSelectedOption(item.value)}
-                  renderLeftIcon={() => (
-                    <AntDesign style={styles.dropdownLeftIcon} color="#333" name="Safety" size={20} />
-                  )}
-                />
-                <TextInput
-                  placeholder="Location name"
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholderTextColor="#666"
-                />
-                <TextInput
-                  placeholder="Description"
-                  style={[styles.input, styles.textArea]}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholderTextColor="#666"
-                  multiline
-                  numberOfLines={3}
-                />
-                <TouchableOpacity style={styles.addButton} onPress={addLocation}>
-                  <Text style={styles.addButtonText}>Add Location</Text>
-                </TouchableOpacity>
-              </LinearGradient>
-            )} */}
-
-            {/* {!newLocation && (
-              <LinearGradient
-                colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
-                style={styles.welcomeContainer}>
-                <View style={styles.welcomeContent}>
-                  <View style={styles.assistantContainer}>
-
-
-                    <View style={styles.assistantSearchContainer}>
-                      <View style={styles.assistantSearchWrapper}>
-                        <MaterialIcons name="search" size={20} color="#666" style={styles.assistantSearchIcon} />
-                        <TextInput
-                          style={styles.assistantSearchInput}
-                          value={searchText}
-                          onChangeText={setSearchText}
-                          placeholder={isListening ? 'Listening...' : 'Ask a parenting question...'}
-                          returnKeyType="search"
-                          onSubmitEditing={() => getTips()}
-                          editable={!isListening}
-                          placeholderTextColor="#999"
-                        />
-                        {searchText.length > 0 && !isListening && (
-                          <TouchableOpacity
-                            style={styles.assistantClearButton}
-                            onPress={() => setSearchText('')}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            <MaterialIcons name="clear" size={20} color="#999" />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                      <TouchableOpacity
-                        style={[styles.assistantMicButton, isListening && styles.assistantMicButtonActive]}
-                        onPress={toggleListening}>
-                        <MaterialIcons
-                          name={isListening ? 'mic-off' : 'mic'}
-                          size={20}
-                          color="white"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.assistantSubmitButton}
-                      onPress={() => getTips()}
-                      disabled={isAssistantLoading || isListening}>
-                      {isAssistantLoading ? (
-                        <ActivityIndicator color="white" size="small" />
-                      ) : (
-                        <>
-                          <MaterialIcons name="psychology" size={20} color="white" />
-                          <Text style={styles.assistantSubmitText}>Get Parenting Tips</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </LinearGradient>
-            )} */}
-
-            {newLocation && (
-              <LinearGradient
-                colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
-                style={[styles.formContainer, { bottom: Platform.OS === "ios" ? insets.bottom + 55 : insets.bottom + 80 }]}>
-                <Text style={styles.formTitle}>Add New Location</Text>
-                <Dropdown
-                  style={styles.dropdown}
-                  placeholderStyle={styles.dropdownPlaceholder}
-                  selectedTextStyle={styles.dropdownSelected}
-                  data={options}
-                  maxHeight={300}
-                  labelField="label"
-                  valueField="value"
-                  placeholder="Select location type"
-                  value={selectedOption}
-                  onChange={item => setSelectedOption(item.value)}
-                  renderLeftIcon={() => (
-                    <AntDesign style={styles.dropdownLeftIcon} color="#333" name="Safety" size={20} />
-                  )}
-                />
-                <TextInput
-                  placeholder="Location name"
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholderTextColor="#d3d3d3"
-                />
-                <TextInput
-                  placeholder="Description"
-                  style={[styles.input, styles.textArea]}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholderTextColor="#d3d3d3"
-                  multiline
-                  numberOfLines={3}
-                />
-                <TouchableOpacity style={styles.addButton} onPress={addLocation}>
-                  <Text style={styles.addButtonText}>Add Location</Text>
-                </TouchableOpacity>
-              </LinearGradient>
-            )}
-
-            {!newLocation && (
-              <View
-                style={[styles.assistantContainer, { bottom: Platform.OS === "ios" ? insets.bottom + 55 : insets.bottom + 80 }]}>
-                {/* <Text style={styles.assistantTitle}>🤖 Parenting Assistant</Text>
-                <Text style={styles.assistantSubtitle}>Ask any parenting question</Text> */}
-
-                <View style={{
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={styles.container}>
+          <View style={[styles.assistantContainer, { top: Platform.OS === "ios" ? insets.top : insets.top + 35 }]}>
+            <GooglePlacesAutocomplete
+              placeholder="Search location..."
+              suppressDefaultStyles={true}
+              debounce={500}
+              renderLeftButton={() => <MaterialIcons name="search" size={20} color="#666" style={{ marginRight: 10 }} />}
+              textInputProps={{
+                placeholderTextColor: '#d3d3d3'
+              }}
+              styles={{
+                textInputContainer: {
                   backgroundColor: 'rgba(74, 144, 226, 0.05)',
                   borderRadius: 14,
                   paddingHorizontal: 12,
                   paddingVertical: 8,
-                  flexDirection: 'row', alignItems: 'center'
-                }}>
-                  <MaterialIcons name="search" size={20} color="#666" style={styles.assistantSearchIcon} />
-
-                  <TextInput
-                    style={{
-                      flex: 1,
-                      height: 40,
-                      fontSize: 16,
-                      color: '#000',
-                      padding: 0,
-                    }}
-                    value={searchText}
-                    onChangeText={setSearchText}
-                    placeholder={isListening ? 'Listening...' : 'Ask a parenting question...'}
-                    returnKeyType="search"
-                    onSubmitEditing={() => getTips()}
-                    editable={!isListening}
-                    placeholderTextColor="#d3d3d3"
-                  />
-
-                  {searchText.length > 0 && !isListening && (
-                    <TouchableOpacity
-                      style={styles.assistantClearButton}
-                      onPress={() => setSearchText('')}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                      <MaterialIcons name="clear" size={20} color="#999" />
-                    </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity
-                    style={[isListening && styles.assistantMicButtonActive]}
-                    onPress={toggleListening}>
-                    <MaterialIcons
-                      name={isListening ? 'mic-off' : 'mic'}
-                      size={24}
-                      color="#4A90E2"
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.assistantSubmitButton}
-                  onPress={() => getTips()}
-                  disabled={isAssistantLoading || isListening}>
-                  {isAssistantLoading ? (
-                    <ActivityIndicator color="white" size="small" />
-                  ) : (
-                    <>
-                      <MaterialIcons name="psychology" size={20} color="white" />
-                      <Text style={styles.assistantSubmitText}>Get Parenting Tips</Text>
-                    </>
-                  )}
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                },
+                textInput: {
+                  flex: 1,
+                  height: 40,
+                  fontSize: 16,
+                  color: '#000',
+                },
+                listView: {
+                  backgroundColor: 'rgba(74, 144, 226, 0.05)',
+                  borderRadius: 14,
+                  marginTop: 8,
+                  paddingVertical: 4,
+                },
+                row: {
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderBottomColor: '#E0E0E0',
+                  borderBottomWidth: 1,
+                },
+                description: {
+                  fontSize: 15,
+                  color: '#000',
+                },
+                separator: {
+                  height: 0,
+                },
+                poweredContainer: {
+                  padding: 10
+                }
+              }}
+              fetchDetails={true}
+              onPress={(data, details = null) => {
+                if (details) {
+                  const latitude = details.geometry.location.lat;
+                  const longitude = details.geometry.location.lng;
+                  setNewLocation({
+                    latitude,
+                    longitude,
+                    latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
+                    longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
+                  });
+                }
+              }}
+              query={{ key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps', language: 'en' }}
+              renderRightButton={() => (
+                <TouchableOpacity onPress={() => { setSheetVisible(true); setSheetIsOpen(true) }}>
+                  <MaterialIcons name="bookmark" size={24} color={'#4A90E2'} />
                 </TouchableOpacity>
+              )}
+              ref={ref}
+            />
+          </View>
 
-              </View>
+          <View style={styles.mapContainer}>
+            {location && location.latitude && location.longitude && (
+              <MapView
+                provider={Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
+                style={styles.map}
+                initialRegion={location}
+                region={newLocation || location}
+                showsUserLocation
+                mapType="standard"
+                userInterfaceStyle="light">
+                {locations && locations.length > 0 && locations.map((loc, index) => (
+                  <React.Fragment key={`location-${index}`}>
+                    <Marker
+                      coordinate={loc}
+                      title={details[index]?.title || `Location ${index + 1}`}
+                      description={details[index]?.description || ''}
+                      pinColor={details[index]?.pinColor || '#FF4B4B'}
+                    />
+                    <Circle
+                      center={loc}
+                      radius={100}
+                      strokeColor="rgba(65, 105, 225, 0.5)"
+                      fillColor="rgba(65, 105, 225, 0.1)"
+                      zIndex={2}
+                    />
+                  </React.Fragment>
+                ))}
+              </MapView>
+
             )}
           </View>
 
-          <LocationBottomSheet visible={sheetVisible} onClose={() => { setSheetVisible(false); setSheetIsOpen(false) }} />
-        </KeyboardAvoidingView>
+          {newLocation && (
+            <View
+              style={[styles.formContainer, { bottom: Platform.OS === "ios" ? insets.bottom + 55 : insets.bottom + 80 }]}>
+              <Text style={styles.formTitle}>Add New Location</Text>
+              <Dropdown
+                style={styles.dropdown}
+                placeholderStyle={styles.dropdownPlaceholder}
+                selectedTextStyle={styles.dropdownSelected}
+                data={options}
+                maxHeight={300}
+                labelField="label"
+                valueField="value"
+                placeholder="Select location type"
+                value={selectedOption}
+                onChange={item => setSelectedOption(item.value)}
+                renderLeftIcon={() => (
+                  <AntDesign style={styles.dropdownLeftIcon} name="Safety" size={20} color="#333" />
+                )}
+                renderItem={item => (
+                  <View style={styles.dropDownItem}>
+                    <Text style={styles.dropDownItemText}>{item.label}</Text>
+                  </View>
+                )}
+              />
+              <TextInput
+                placeholder="Location name"
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholderTextColor="#d3d3d3"
+              />
+              <TextInput
+                placeholder="Description"
+                style={[styles.input, styles.textArea]}
+                value={description}
+                onChangeText={setDescription}
+                placeholderTextColor="#d3d3d3"
+                multiline
+                numberOfLines={3}
+              />
+              <TouchableOpacity style={styles.addButton} onPress={addLocation}>
+                <Text style={styles.addButtonText}>Add Location</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!newLocation && (
+            <View
+              style={[styles.assistantContainer, { bottom: Platform.OS === "ios" ? insets.bottom + 55 : insets.bottom + 80 }]}>
+              {/* <Text style={styles.assistantTitle}>🤖 Parenting Assistant</Text>
+                <Text style={styles.assistantSubtitle}>Ask any parenting question</Text> */}
+
+              <View style={{
+                backgroundColor: 'rgba(74, 144, 226, 0.05)',
+                borderRadius: 14,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                flexDirection: 'row', alignItems: 'center'
+              }}>
+                <MaterialIcons name="search" size={20} color="#666" style={styles.assistantSearchIcon} />
+
+                <TextInput
+                  style={{
+                    flex: 1,
+                    height: 40,
+                    fontSize: 16,
+                    color: '#000',
+                    padding: 0,
+                  }}
+                  value={searchText}
+                  onChangeText={setSearchText}
+                  placeholder={isListening ? 'Listening...' : 'Ask a parenting question...'}
+                  returnKeyType="search"
+                  onSubmitEditing={() => getTips()}
+                  editable={!isListening}
+                  placeholderTextColor="#d3d3d3"
+                />
+
+                {searchText.length > 0 && !isListening && (
+                  <TouchableOpacity
+                    style={styles.assistantClearButton}
+                    onPress={() => setSearchText('')}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <MaterialIcons name="clear" size={20} color="#999" />
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[isListening && styles.assistantMicButtonActive]}
+                  onPress={toggleListening}>
+                  <MaterialIcons
+                    name={isListening ? 'mic-off' : 'mic'}
+                    size={24}
+                    color="#4A90E2"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.assistantSubmitButton}
+                onPress={() => getTips()}
+                disabled={isAssistantLoading || isListening}>
+                {isAssistantLoading ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <>
+                    <MaterialIcons name="psychology" size={20} color="white" />
+                    <Text style={styles.assistantSubmitText}>Get Parenting Tips</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+            </View>
+          )}
+        </View>
       </TouchableWithoutFeedback>
+
+
+
+      <LocationBottomSheet visible={sheetVisible} onClose={() => { setSheetVisible(false); setSheetIsOpen(false) }} />
 
       {showTipsModal && (
         <TipsModal
@@ -1618,409 +1521,6 @@ const App: React.FC<Props> = ({ navigation }) => {
     </>
   );
 };
-
-// const styles = StyleSheet.create({
-//   loadingContainer: {
-//     flex: 1,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     backgroundColor: '#FFFFFF',
-//     padding: 20,
-//   },
-//   loadingText: {
-//     marginTop: 20,
-//     fontSize: 16,
-//     color: '#333',
-//     textAlign: 'center',
-//     fontWeight: '500',
-//   },
-//   loadingSubtext: {
-//     marginTop: 8,
-//     fontSize: 14,
-//     color: '#666',
-//     textAlign: 'center',
-//   },
-//   backgroundLoadingBanner: {
-//     position: 'absolute',
-//     top: Platform.OS === 'ios' ? 50 : 25,
-//     left: 0,
-//     right: 0,
-//     zIndex: 20,
-//     backgroundColor: 'rgba(74, 144, 226, 0.9)',
-//     paddingVertical: 8,
-//     paddingHorizontal: 16,
-//   },
-//   backgroundLoadingContent: {
-//     alignItems: 'center',
-//   },
-//   backgroundLoadingText: {
-//     color: '#FFFFFF',
-//     fontSize: 14,
-//     fontWeight: '500',
-//   },
-//   container: {
-//     flex: 1,
-//   },
-//   assistantContainer: {
-//     backgroundColor: 'white',
-//     borderRadius: 14,
-//     position: 'absolute',
-//     padding: 16,
-//     left: 16,
-//     right: 16,
-//     zIndex: 10,
-//   },
-//   clearButton: {
-//     padding: 12,
-//   },
-//   mapContainer: {
-//     flex: 1,
-//     padding: 0,
-//     margin: 0,
-//   },
-//   map: {
-//     ...StyleSheet.absoluteFillObject,
-//   },
-//   formContainer: {
-//     position: 'absolute',
-//     bottom: 20,
-//     left: 16,
-//     right: 16,
-//     backgroundColor: 'white',
-//     borderRadius: 16,
-//     padding: 20,
-//     shadowColor: '#000',
-//     shadowOffset: { width: 0, height: 2 },
-//     shadowOpacity: 0.25,
-//     shadowRadius: 3.84,
-//     elevation: 5,
-//   },
-//   formTitle: {
-//     fontSize: 20,
-//     fontWeight: '600',
-//     color: '#333',
-//     marginBottom: 16,
-//   },
-//   dropdown: {
-//     height: 50,
-//     borderColor: '#E8E8E8',
-//     borderWidth: 1,
-//     borderRadius: 12,
-//     paddingHorizontal: 12,
-//     marginBottom: 16,
-//   },
-//   dropdownPlaceholder: {
-//     fontSize: 16,
-//     color: '#666',
-//   },
-//   dropdownSelected: {
-//     fontSize: 16,
-//     color: '#333',
-//   },
-//   dropdownLeftIcon: {
-//     marginRight: 8,
-//   },
-//   input: {
-//     height: 50,
-//     borderColor: '#E8E8E8',
-//     borderWidth: 1,
-//     borderRadius: 12,
-//     paddingHorizontal: 16,
-//     fontSize: 16,
-//     color: '#333',
-//     backgroundColor: '#FFFFFF',
-//     marginBottom: 16,
-//   },
-//   textArea: {
-//     height: 100,
-//     textAlignVertical: 'top',
-//     paddingTop: 12,
-//   },
-//   addButton: {
-//     backgroundColor: '#4A90E2',
-//     borderRadius: 12,
-//     height: 50,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//   },
-//   addButtonText: {
-//     color: '#FFFFFF',
-//     fontSize: 16,
-//     fontWeight: '600',
-//   },
-//   welcomeContainer: {
-//     position: 'absolute',
-//     bottom: 20,
-//     left: 16,
-//     right: 16,
-//     borderRadius: 16,
-//     overflow: 'hidden',
-//   },
-//   welcomeContent: {
-//     padding: 20,
-//   },
-//   assistantTitle: {
-//     fontSize: 18,
-//     fontWeight: '600',
-//     color: '#4A90E2',
-//     textAlign: 'center',
-//     marginBottom: 4,
-//   },
-//   assistantSubtitle: {
-//     fontSize: 14,
-//     color: '#666',
-//     textAlign: 'center',
-//     marginBottom: 12,
-//   },
-//   assistantSearchContainer: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     marginBottom: 12,
-//   },
-//   assistantSearchWrapper: {
-//     flex: 1,
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     backgroundColor: 'white',
-//     borderRadius: 20,
-//     paddingHorizontal: 12,
-//     marginRight: 8,
-//     shadowColor: '#000',
-//     shadowOffset: { width: 0, height: 1 },
-//     shadowOpacity: 0.1,
-//     shadowRadius: 2,
-//     elevation: 2,
-//   },
-//   assistantSearchIcon: {
-//     marginRight: 8,
-//   },
-//   assistantSearchInput: {
-//     flex: 1,
-//     height: 40,
-//     fontSize: 14,
-//     color: '#333',
-//     paddingRight: 30,
-//   },
-//   assistantClearButton: {
-//     position: 'absolute',
-//     right: 12,
-//     top: 10,
-//     width: 20,
-//     height: 20,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//   },
-//   assistantMicButton: {
-//     width: 40,
-//     height: 40,
-//     borderRadius: 20,
-//     backgroundColor: '#4A90E2',
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     shadowColor: '#000',
-//     shadowOffset: { width: 0, height: 2 },
-//     shadowOpacity: 0.15,
-//     shadowRadius: 2,
-//     elevation: 3,
-//   },
-//   assistantMicButtonActive: {
-//     backgroundColor: '#FF3B30',
-//   },
-//   assistantSubmitButton: {
-//     backgroundColor: '#4A90E2',
-//     paddingVertical: 12,
-//     paddingHorizontal: 16,
-//     borderRadius: 8,
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     shadowColor: '#000',
-//     shadowOffset: { width: 0, height: 2 },
-//     shadowOpacity: 0.15,
-//     shadowRadius: 3,
-//     elevation: 3,
-//   },
-//   assistantSubmitText: {
-//     color: 'white',
-//     fontSize: 14,
-//     fontWeight: '600',
-//     marginLeft: 6,
-//   },
-//   modalContainer: {
-//     flex: 1,
-//     backgroundColor: '#f0f2f5',
-//   },
-//   modalHeader: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     alignItems: 'center',
-//     paddingHorizontal: 20,
-//     paddingVertical: 16,
-//     backgroundColor: 'white',
-//     borderBottomWidth: 1,
-//     borderBottomColor: '#E8E8E8',
-//   },
-//   modalTitle: {
-//     fontSize: 20,
-//     fontWeight: 'bold',
-//     color: '#333',
-//   },
-//   closeModalButton: {
-//     padding: 8,
-//   },
-//   modalContent: {
-//     flex: 1,
-//     paddingHorizontal: 16,
-//     paddingTop: 16,
-//   },
-//   tipItem: {
-//     marginBottom: 16,
-//   },
-//   tipGradient: {
-//     borderRadius: 16,
-//     padding: 20,
-//     shadowColor: '#000',
-//     shadowOffset: { width: 0, height: 2 },
-//     shadowOpacity: 0.1,
-//     shadowRadius: 3.84,
-//     elevation: 5,
-//   },
-//   tipHeader: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     marginBottom: 12,
-//   },
-//   tipIcon: {
-//     marginRight: 12,
-//   },
-//   tipTitle: {
-//     fontSize: 18,
-//     fontWeight: 'bold',
-//     color: '#333',
-//     flex: 1,
-//   },
-//   tipBody: {
-//     fontSize: 16,
-//     color: '#444',
-//     lineHeight: 24,
-//     marginBottom: 12,
-//   },
-//   tipDetails: {
-//     fontSize: 14,
-//     color: '#666',
-//     lineHeight: 20,
-//     marginBottom: 16,
-//   },
-//   playButton: {
-//     backgroundColor: '#007AFF',
-//     paddingVertical: 8,
-//     paddingHorizontal: 12,
-//     borderRadius: 6,
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     flex: 1,
-//   },
-//   stopButton: {
-//     backgroundColor: '#FF3B30',
-//   },
-//   loadingButton: {
-//     backgroundColor: '#999',
-//   },
-//   playButtonText: {
-//     color: 'white',
-//     fontSize: 12,
-//     fontWeight: '600',
-//     marginLeft: 4,
-//   },
-//   modalOverlay: {
-//     flex: 1,
-//     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     padding: 20,
-//   },
-//   modalIcon: {
-//     alignSelf: 'center',
-//     marginBottom: 16,
-//   },
-//   modalText: {
-//     fontSize: 16,
-//     textAlign: 'center',
-//     marginBottom: 24,
-//     color: '#666',
-//     lineHeight: 22,
-//   },
-//   primaryButton: {
-//     backgroundColor: '#4A90E2',
-//     paddingVertical: 14,
-//     paddingHorizontal: 20,
-//     borderRadius: 12,
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     marginBottom: 12,
-//     shadowColor: '#000',
-//     shadowOffset: { width: 0, height: 2 },
-//     shadowOpacity: 0.1,
-//     shadowRadius: 3,
-//     elevation: 3,
-//   },
-//   primaryButtonText: {
-//     color: 'white',
-//     fontSize: 16,
-//     fontWeight: '600',
-//     marginLeft: 8,
-//   },
-//   secondaryButton: {
-//     backgroundColor: 'white',
-//     paddingVertical: 14,
-//     paddingHorizontal: 20,
-//     borderRadius: 12,
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     marginBottom: 12,
-//     borderWidth: 2,
-//     borderColor: '#4A90E2',
-//   },
-//   secondaryButtonText: {
-//     color: '#4A90E2',
-//     fontSize: 16,
-//     fontWeight: '600',
-//     marginLeft: 8,
-//   },
-//   cancelButton: {
-//     backgroundColor: '#f0f0f0',
-//     paddingVertical: 14,
-//     paddingHorizontal: 20,
-//     borderRadius: 12,
-//     marginTop: 8,
-//   },
-//   cancelButtonText: {
-//     color: '#666',
-//     fontSize: 16,
-//     fontWeight: '600',
-//     textAlign: 'center',
-//   },
-//   ageInput: {
-//     borderWidth: 2,
-//     borderColor: '#E8E8E8',
-//     borderRadius: 12,
-//     paddingHorizontal: 16,
-//     paddingVertical: 12,
-//     fontSize: 18,
-//     textAlign: 'center',
-//     marginBottom: 20,
-//     backgroundColor: '#FFFFFF',
-//   },
-//   locationIconButton: {
-//     padding: 8,
-//     marginLeft: 4,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//   },
-// });
 
 const styles = StyleSheet.create({
   loadingContainer: {
@@ -2088,24 +1588,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mapContainer: {
-    flex: 1,
+    // flex: 1,
+    height: "100%",
+    width: "100%"
   },
   map: {
     ...StyleSheet.absoluteFillObject,
   },
   formContainer: {
     position: 'absolute',
-    bottom: 20,
     left: 16,
     right: 16,
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   formTitle: {
     fontSize: 20,
@@ -2128,9 +1624,21 @@ const styles = StyleSheet.create({
   dropdownSelected: {
     fontSize: 16,
     color: '#333',
+    fontWeight: '500',
   },
   dropdownLeftIcon: {
-    marginRight: 8,
+    marginRight: 10,
+  },
+  dropDownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
+  },
+  dropDownItemText: {
+    fontSize: 16,
+    color: '#333',
   },
   input: {
     height: 50,

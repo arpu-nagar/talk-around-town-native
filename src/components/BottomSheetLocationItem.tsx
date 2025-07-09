@@ -42,6 +42,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "600",
         marginBottom: 4,
+        color: "#000"
     },
     descriptionText: {
         fontSize: 14,
