@@ -19,7 +19,7 @@ interface BottomSheetLocationItemProps {
 
 const BottomSheetLocationItem: React.FC<BottomSheetLocationItemProps> = ({ locations, lastItem, onDelete }) => {
     return (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }} key={locations.id}>
             <View style={{ flex: 1 }}>
                 <Text style={styles.titleText}>{locations.title}</Text>
                 <Text style={styles.descriptionText}>

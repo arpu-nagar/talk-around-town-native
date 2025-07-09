@@ -120,6 +120,11 @@ interface Props {
   navigation: NativeStackNavigationProp<any>;
 }
 
+interface TipsModalProps {
+  showTipsModal: boolean;
+  setShowTipsModal: (value: boolean) => void;
+};
+
 const App: React.FC<Props> = ({ navigation }) => {
   // ===== ALL HOOKS MUST BE AT THE TOP - NEVER AFTER CONDITIONAL RETURNS =====
 
@@ -431,7 +436,7 @@ const App: React.FC<Props> = ({ navigation }) => {
     }
   }, [userInfo, saveToCache]);
 
-  const speakTip = useCallback(async (tip: Tip, index: number) => {
+  const speakTip = useCallback(async (tip: Tip, id: number) => {
     // Clean up any existing sound
     if (currentSound.current) {
       currentSound.current.stop();
@@ -439,18 +444,18 @@ const App: React.FC<Props> = ({ navigation }) => {
       currentSound.current = null;
     }
     setIsPlaying(false);
-    setActiveAudioIndex(index);
+    setActiveAudioIndex(id);
 
     try {
       // Load audio function (simplified for this example)
-      let audioUrl = audioCache.current.get(tip.id);
+      let audioUrl = audioCache.current.get(id);
 
       if (!audioUrl) {
         if (tip.audioUrl) {
           audioUrl = `${API_ENDPOINTS.ASSISTANT_BASE_URL}/audio${tip.audioUrl}`;
-          audioCache.current.set(tip.id, audioUrl);
+          audioCache.current.set(id, audioUrl);
         } else {
-          setAudioLoadingIndex(index);
+          setAudioLoadingIndex(id);
           try {
             const response = await fetch(`${API_ENDPOINTS.ASSISTANT_BASE_URL}/generate-tip-audio`, {
               method: 'POST',
@@ -458,7 +463,7 @@ const App: React.FC<Props> = ({ navigation }) => {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                tipId: tip.id,
+                tipId: id,
                 title: tip.title,
                 body: tip.body,
                 details: tip.details
@@ -473,7 +478,7 @@ const App: React.FC<Props> = ({ navigation }) => {
             audioUrl = `${API_ENDPOINTS.ASSISTANT_BASE_URL}/audio${newAudioUrl}`;
 
             tip.audioUrl = newAudioUrl;
-            audioCache.current.set(tip.id, audioUrl);
+            audioCache.current.set(id, audioUrl);
           } catch (error) {
             console.error('Audio generation error:', error);
             Alert.alert('Error', 'Failed to generate audio. Please try again.');
@@ -1108,8 +1113,8 @@ const App: React.FC<Props> = ({ navigation }) => {
   };
 
   // Render functions
-  const renderTipItem = (tip: Tip, index: number, source: 'search' | 'saved' | 'liked' = 'search') => (
-    <View key={`${source}-${index}`} style={styles.tipItem}>
+  const renderTipItem = (tip: Tip, id: number, source: 'search' | 'saved' | 'liked' = 'search') => (
+    <View key={`${source}-${id}`} style={styles.tipItem}>
       <LinearGradient colors={['#ffffff', '#f8f9fa']} style={styles.tipGradient}>
         <View style={styles.tipHeader}>
           <MaterialIcons name="lightbulb" size={24} color="#FFA726" style={styles.tipIcon} />
@@ -1121,30 +1126,30 @@ const App: React.FC<Props> = ({ navigation }) => {
           <TouchableOpacity
             style={[
               styles.playButton,
-              activeAudioIndex === index && isPlaying && styles.stopButton,
-              audioLoadingIndex === index && styles.loadingButton,
+              activeAudioIndex === id && isPlaying && styles.stopButton,
+              audioLoadingIndex === id && styles.loadingButton,
             ]}
             onPress={() => {
-              if (activeAudioIndex === index && isPlaying) {
+              if (activeAudioIndex === id && isPlaying) {
                 cleanupSound();
               } else {
-                speakTip(tip, index);
+                speakTip(tip, id);
               }
             }}
-            disabled={audioLoadingIndex === index}>
-            {audioLoadingIndex === index ? (
+            disabled={audioLoadingIndex === id}>
+            {audioLoadingIndex === id ? (
               <ActivityIndicator color="white" size="small" />
             ) : (
               <MaterialIcons
-                name={activeAudioIndex === index && isPlaying ? 'stop' : 'play-arrow'}
+                name={activeAudioIndex === id && isPlaying ? 'stop' : 'play-arrow'}
                 size={16}
                 color="white"
               />
             )}
             <Text style={styles.playButtonText}>
-              {audioLoadingIndex === index
+              {audioLoadingIndex === id
                 ? 'Loading...'
-                : activeAudioIndex === index && isPlaying
+                : activeAudioIndex === id && isPlaying
                   ? 'Stop'
                   : 'Play'}
             </Text>
@@ -1176,7 +1181,7 @@ const App: React.FC<Props> = ({ navigation }) => {
     </View>
   );
 
-  const TipsModal = () => (
+  const TipsModal: React.FC<TipsModalProps> = ({ showTipsModal, setShowTipsModal }) => (
     <Modal visible={showTipsModal} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
@@ -1188,7 +1193,7 @@ const App: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
         <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-          {tips.map((tip, index) => renderTipItem(tip, index, 'search'))}
+          {tips.map((tip, index) => { console.log("tip", tip); return renderTipItem(tip, tip.id, 'search') })}
           <View style={{ height: 20 }} />
         </ScrollView>
       </SafeAreaView>
@@ -1602,7 +1607,12 @@ const App: React.FC<Props> = ({ navigation }) => {
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
 
-      <TipsModal />
+      {showTipsModal && (
+        <TipsModal
+          showTipsModal={showTipsModal}
+          setShowTipsModal={setShowTipsModal}
+        />
+      )}
       <ChildPromptModal />
       <AgeInputModal />
     </>

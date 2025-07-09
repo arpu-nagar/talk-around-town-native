@@ -106,7 +106,7 @@ const LocationBottomSheet: React.FC<LocationBottomSheetProps> = ({
         useCallback(() => {
             fetchLocations();
             return () => { };
-        }, [userInfo])
+        }, [userInfo, visible])
     );
 
     const deleteLocation = async (id: number) => {
@@ -305,26 +305,35 @@ const LocationBottomSheet: React.FC<LocationBottomSheetProps> = ({
                 ]}
                 {...panResponder.panHandlers}
             >
-
-                <View style={{justifyContent: 'center', alignItems: 'center', marginBottom: 16}}>
-                    <Text style={styles.sheetTitle}>Saved Locations</Text>
-                </View>
-                <View style={styles.listWrapper}>
-                    <ScrollView>
-                        {locationsList.map((loc, index) => (
-                            <>
-                                {/* <SwipeableRow
+                {locationsList.length === 0 ? (
+                    <View style={{ justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+                        <Text style={styles.sheetTitle}>No location found</Text>
+                    </View>
+                ) : (
+                    <>
+                        <View style={{ justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+                            <Text style={styles.sheetTitle}>Saved Locations</Text>
+                        </View>
+                        <View style={styles.listWrapper}>
+                            <ScrollView>
+                                {locationsList.map((loc, index) => (
+                                    <>
+                                        {/* <SwipeableRow
                                     key={loc.id}
                                     onDelete={() => deleteLocation(loc.id)}
                                     bounce={sheetIsOpen && index === 0}
                                 > */}
-                                <BottomSheetLocationItem locations={loc} lastItem={locationsList.length === index} onDelete={() => deleteLocation(loc.id)} />
-                                {/* </SwipeableRow> */}
-                                <View style={[styles.separator, index < locationsList.length - 1 && { marginBottom: 16 }]} />
-                            </>
-                        ))}
-                    </ScrollView>
-                </View>
+                                        <BottomSheetLocationItem locations={loc} lastItem={locationsList.length === index} onDelete={() => deleteLocation(loc.id)} />
+                                        {/* </SwipeableRow> */}
+                                        <View style={[styles.separator, index < locationsList.length - 1 && { marginBottom: 16 }]} />
+                                    </>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    </>
+                )}
+
+
             </Animated.View>
         </Modal>
     );
