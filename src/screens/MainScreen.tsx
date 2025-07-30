@@ -51,7 +51,6 @@ import LocationBottomSheet from '../components/LocationBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomSheetContext } from '../context/BottomSheetContext';
 
-
 // Configuration constants
 const STARTUP_CONFIG = {
   MAX_STARTUP_TIME: 8000,
@@ -96,12 +95,16 @@ const DEFAULT_LOCATION = {
 
 // Type definitions
 interface Tip {
-  id: number;
+  id: number | string;
   title: string;
   body: string;
   details: string;
   audioUrl: string | null;
   categories?: string[];
+  similarity_score?: number;
+  query_relevance?: number;
+  personal_match?: number;
+  isGenerated?: boolean;
 }
 
 interface Child {
@@ -126,8 +129,11 @@ interface TipsModalProps {
   setShowTipsModal: (value: boolean) => void;
 };
 
-const colorScheme = Appearance.getColorScheme(); // 'light' or 'dark'
+interface UserPreferenceProfile {
+  liked_tips: number;
+}
 
+const colorScheme = Appearance.getColorScheme(); // 'light' or 'dark'
 const isDark = colorScheme === 'dark';
 
 const App: React.FC<Props> = ({ navigation }) => {
@@ -140,14 +146,7 @@ const App: React.FC<Props> = ({ navigation }) => {
   const lastResult = useRef<string>('');
   const audioCache = useRef<Map<number, string>>(new Map());
 
-  const { sheetIsOpen, setSheetIsOpen } = useContext(BottomSheetContext);
-
-  useEffect(() => {
-    console.log("sheetIsOpen", sheetIsOpen)
-  }, [sheetIsOpen])
-
-
-  // State hooks
+  // State hooks - ALL declared here at the top
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [mainLoading, setMainLoading] = useState(true);
   const [backgroundLoading, setBackgroundLoading] = useState(true);
@@ -182,6 +181,14 @@ const App: React.FC<Props> = ({ navigation }) => {
   const [showAgeInput, setShowAgeInput] = useState(false);
   const [tempAge, setTempAge] = useState<string>('');
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [personalizationEnabled, setPersonalizationEnabled] = useState(true);
+  const [generateMode, setGenerateMode] = useState<'hybrid' | 'database' | 'generate'>('hybrid');
+  const [lastTipSource, setLastTipSource] = useState<string>('');
+  const [userPreferenceProfile, setUserPreferenceProfile] = useState<UserPreferenceProfile | null>(null);
+
+  // Context hooks
+  const { sheetIsOpen, setSheetIsOpen } = useContext(BottomSheetContext);
+  const insets = useSafeAreaInsets();
 
   // Cache utilities (defined as useCallback)
   const loadFromCache = useCallback(async (key: string) => {
@@ -526,6 +533,117 @@ const App: React.FC<Props> = ({ navigation }) => {
     }
   }, []);
 
+  // Track tip interaction for personalization
+  const trackTipInteraction = useCallback(async (tipId: number, interactionType: string) => {
+    if (!personalizationEnabled || !userInfo?.access_token) return;
+    
+    try {
+      const response = await fetchWithAuth(
+        `${API_ENDPOINTS.BASE_URL}/api/personalization/interactions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
+          body: JSON.stringify({
+            tipId,
+            interactionType
+          })
+        }
+      );
+  
+      if (!response.ok) {
+        throw new Error(`Failed to track interaction: ${response.status}`);
+      }
+  
+      console.log(`Tracked ${interactionType} for tip ${tipId}`);
+    } catch (error) {
+      console.warn('Failed to track tip interaction:', error);
+    }
+  }, [personalizationEnabled, userInfo]);
+  
+  // Load user preference profile
+  const loadUserPreferenceProfile = useCallback(async () => {
+    if (!personalizationEnabled || !userInfo?.access_token) return;
+  
+    try {
+      const response = await fetchWithAuth(
+        `${API_ENDPOINTS.BASE_URL}/api/personalization/profile`,
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
+        }
+      );
+  
+      if (response.ok) {
+        const data = await response.json();
+        setUserPreferenceProfile(data.profile);
+        console.log('Loaded user preference profile:', data.profile);
+      }
+    } catch (error) {
+      console.warn('Failed to load user preference profile:', error);
+    }
+  }, [personalizationEnabled, userInfo]);
+  
+  // Get personalized recommendations
+  const getPersonalizedRecommendations = useCallback(async () => {
+    if (!personalizationEnabled || !userInfo?.access_token) return;
+  
+    try {
+      setIsAssistantLoading(true);
+      
+      const response = await fetchWithAuth(
+        `${API_ENDPOINTS.BASE_URL}/api/personalization/recommendations?limit=10`,
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
+        }
+      );
+  
+      if (response.ok) {
+        const data = await response.json();
+        if (data.tips.length > 0) {
+          setTips(data.tips);
+          setShowTipsModal(true);
+          Alert.alert(
+            'Personalized Tips', 
+            'These tips are tailored based on your preferences!'
+          );
+        } else {
+          Alert.alert(
+            'No Recommendations', 
+            'Like more tips to get personalized recommendations!'
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error getting personalized recommendations:', error);
+      Alert.alert('Error', 'Failed to get personalized recommendations');
+    } finally {
+      setIsAssistantLoading(false);
+    }
+  }, [personalizationEnabled, userInfo]);
+
+  // ALL useEffect hooks go here at the top level
+
+  // JWT Token logging - Log token whenever userInfo changes
+  useEffect(() => {
+    if (userInfo?.access_token) {
+      console.log('JWT TOKEN:', userInfo.access_token);
+      console.log('User Info:', JSON.stringify(userInfo, null, 2));
+    } else {
+      console.log('No JWT token available');
+    }
+  }, [userInfo]);
+
+  // Sheet open status logging
+  useEffect(() => {
+    console.log("sheetIsOpen", sheetIsOpen);
+  }, [sheetIsOpen]);
+
   // Startup initialization useEffect
   useEffect(() => {
     let mounted = true;
@@ -602,7 +720,7 @@ const App: React.FC<Props> = ({ navigation }) => {
       setIsPlaying(false);
       setActiveAudioIndex(null);
     };
-  }, [getQuickLocation, loadCachedDataFirst, improveLocationInBackground, refreshDataInBackground]);
+  }, [getQuickLocation, loadCachedDataFirst, improveLocationInBackground, refreshDataInBackground, mainLoading]);
 
   // Periodic location updates useEffect
   useEffect(() => {
@@ -690,6 +808,13 @@ const App: React.FC<Props> = ({ navigation }) => {
 
     initializeVoice();
   }, [isListening]);
+
+  // Load personalization profile when user info is available
+  useEffect(() => {
+    if (userInfo?.access_token) {
+      loadUserPreferenceProfile();
+    }
+  }, [userInfo, loadUserPreferenceProfile]);
 
   // ===== END OF ALL HOOKS - NOW SAFE TO DO CONDITIONAL RETURNS =====
 
@@ -830,7 +955,7 @@ const App: React.FC<Props> = ({ navigation }) => {
         await Voice.stop();
         setIsListening(false);
         if (searchText.trim()) {
-          await getTips(searchText);
+          await getTips(searchText, undefined);
         }
         lastResult.current = '';
       } else {
@@ -852,24 +977,25 @@ const App: React.FC<Props> = ({ navigation }) => {
   };
 
   // Assistant API Functions
-  const getTips = async (query = searchText, providedAge?: string) => {
+  // Replace your getTips function with this enhanced version:
+
+  const getTips = async (query: string = searchText, providedAge: string | undefined, mode: string = generateMode) => {
     if (!query.trim()) {
       Alert.alert('Input Required', 'Please enter a question or use voice input');
       return;
     }
-
+  
     setIsAssistantLoading(true);
     setTips([]);
-
+  
     const detectedChild = detectChildNameInQuery(query, userChildren);
     let finalQuery = query;
-
+    
     if (detectedChild) {
       const age = calculateAge(detectedChild.date_of_birth);
       finalQuery = `${query} for ${age} year old`;
     } else {
       const potentialChildName = detectPotentialChildName(query);
-
       if (potentialChildName && !providedAge) {
         setDetectedChildName(potentialChildName);
         setCurrentQuery(query);
@@ -879,7 +1005,6 @@ const App: React.FC<Props> = ({ navigation }) => {
       } else if (providedAge) {
         finalQuery = `${query} for ${providedAge} year old`;
       } else {
-        // No child name or age provided: prompt user to add child or provide age
         setDetectedChildName('');
         setCurrentQuery(query);
         setShowChildPrompt(true);
@@ -887,33 +1012,76 @@ const App: React.FC<Props> = ({ navigation }) => {
         return;
       }
     }
-
+  
     try {
-      const response = await fetch(`${API_ENDPOINTS.ASSISTANT_BASE_URL}/generate-tips`, {
+      const endpoint = personalizationEnabled && userInfo?.access_token 
+        ? `${API_ENDPOINTS.BASE_URL}/api/personalization/enhanced-tips`
+        : `${API_ENDPOINTS.ASSISTANT_BASE_URL}/generate-tips`;
+  
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(personalizationEnabled && userInfo?.access_token && {
+          Authorization: `Bearer ${userInfo.access_token}`
+        })
+      };
+  
+      console.log(`Requesting tips for: "${finalQuery}" (mode: ${mode})`);
+  
+      const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           prompt: finalQuery,
-          contentPreferences: contentPreferences
+          contentPreferences: contentPreferences,
+          generateMode: mode
         })
       });
-
+  
       if (!response.ok) {
         throw new Error(`Server responded with ${response.status}`);
       }
-
+  
       const data = await response.json();
-      setTips(data.tips);
-      setShowTipsModal(true);
-
+      
+      if (data.tips && data.tips.length > 0) {
+        setTips(data.tips);
+        setLastTipSource(data.source);
+        setShowTipsModal(true);
+  
+        // Show appropriate success message based on the source
+        let alertMessage = '';
+        
+        if (data.source === 'ai_generated' || data.source === 'ai_generated_fallback') {
+          alertMessage = data.isPersonalized 
+            ? `🤖✨ Generated ${data.tips.length} personalized tips about "${query}" based on your preferences!`
+            : `🤖 Generated ${data.tips.length} custom tips about "${query}"`;
+        } else if (data.source === 'database_found') {
+          alertMessage = data.isPersonalized 
+            ? `📚✨ Found ${data.tips.length} tips about "${query}" tailored to your preferences`
+            : `📚 Found ${data.tips.length} relevant tips about "${query}"`;
+        }
+  
+        console.log(alertMessage);
+        
+      } else {
+        Alert.alert('No Tips Found', data.message || 'No tips found for your query. Try rephrasing or asking about a different topic.');
+      }
+  
     } catch (error) {
       console.error('Error fetching tips:', error);
       Alert.alert('Error', 'Failed to fetch tips. Please check your connection and try again.');
     } finally {
       setIsAssistantLoading(false);
     }
+  };
+  
+  // Function to specifically generate AI tips
+  const generateAITips = async () => {
+    if (!searchText.trim()) {
+      Alert.alert('Input Required', 'Please enter a question first');
+      return;
+    }
+    await getTips(searchText, undefined, 'generate');
   };
 
   // Location management functions
@@ -1005,7 +1173,7 @@ const App: React.FC<Props> = ({ navigation }) => {
         setName('');
         setDescription('');
         setSelectedOption(null);
-        ref.current?.clear();
+        ref.current?.clear?.();
       } catch (error) {
         console.error('Error adding location:', error);
         Alert.alert('Error', 'Failed to add location. Please try again.');
@@ -1058,19 +1226,25 @@ const App: React.FC<Props> = ({ navigation }) => {
   const handleSaveTip = async (tip: Tip) => {
     try {
       const isAlreadySaved = savedTips.some(savedTip => savedTip.id === tip.id);
-
+      
       if (isAlreadySaved) {
         // Remove from saved
         const updatedSavedTips = savedTips.filter(savedTip => savedTip.id !== tip.id);
         setSavedTips(updatedSavedTips);
         await saveToCache('savedTips', updatedSavedTips);
         Alert.alert('Tip Removed', 'Tip removed from saved tips');
+        
+        // Track unsave interaction for personalization
+        await trackTipInteraction(Number(tip.id), 'unsave');
       } else {
         // Add to saved
         const updatedSavedTips = [tip, ...savedTips];
         setSavedTips(updatedSavedTips);
         await saveToCache('savedTips', updatedSavedTips);
         Alert.alert('Tip Saved', 'Tip saved for later reference');
+        
+        // Track save interaction for personalization
+        await trackTipInteraction(Number(tip.id), 'save');
       }
     } catch (error) {
       console.error('Error saving tip:', error);
@@ -1081,17 +1255,23 @@ const App: React.FC<Props> = ({ navigation }) => {
   const handleLikeTip = async (tip: Tip) => {
     try {
       const isAlreadyLiked = likedTips.some(likedTip => likedTip.id === tip.id);
-
+      
       if (isAlreadyLiked) {
         // Remove from liked
         const updatedLikedTips = likedTips.filter(likedTip => likedTip.id !== tip.id);
         setLikedTips(updatedLikedTips);
         await saveToCache('likedTips', updatedLikedTips);
+        
+        // Track dislike interaction for personalization
+        await trackTipInteraction(Number(tip.id), 'dislike');
       } else {
         // Add to liked
         const updatedLikedTips = [tip, ...likedTips];
         setLikedTips(updatedLikedTips);
         await saveToCache('likedTips', updatedLikedTips);
+        
+        // Track like interaction for personalization
+        await trackTipInteraction(Number(tip.id), 'like');
       }
     } catch (error) {
       console.error('Error liking tip:', error);
@@ -1117,17 +1297,72 @@ const App: React.FC<Props> = ({ navigation }) => {
     setActiveAudioIndex(null);
   };
 
-  // Render functions
-  const renderTipItem = (tip: Tip, id: number, source: 'search' | 'saved' | 'liked' = 'search') => (
+  const PersonalizedRecommendationsButton = () => (
+    <TouchableOpacity
+      style={styles.personalizedButton}
+      onPress={getPersonalizedRecommendations}
+      disabled={isAssistantLoading}>
+      <MaterialIcons name="psychology" size={20} color="white" />
+      <Text style={styles.personalizedButtonText}>Get Personal Tips</Text>
+    </TouchableOpacity>
+  );
+
+  const renderTipItem = (tip: Tip, id: number | string, source: string = 'search') => (
     <View key={`${source}-${id}`} style={styles.tipItem}>
-      <LinearGradient colors={['#ffffff', '#f8f9fa']} style={styles.tipGradient}>
+      <LinearGradient 
+        colors={tip.isGenerated ? ['#f0f8ff', '#e6f3ff'] : ['#ffffff', '#f8f9fa']} 
+        style={styles.tipGradient}
+      >
         <View style={styles.tipHeader}>
-          <MaterialIcons name="lightbulb" size={24} color="#FFA726" style={styles.tipIcon} />
+          <MaterialIcons 
+            name={tip.isGenerated ? "auto-awesome" : "lightbulb"} 
+            size={24} 
+            color={tip.isGenerated ? "#6C63FF" : "#FFA726"} 
+            style={styles.tipIcon} 
+          />
           <Text style={styles.tipTitle}>{tip.title || ''}</Text>
+          
+          {/* AI Generated Badge */}
+          {tip.isGenerated && (
+            <View style={styles.aiGeneratedBadge}>
+              <MaterialIcons name="auto-awesome" size={12} color="#6C63FF" />
+              <Text style={styles.aiGeneratedBadgeText}>AI Generated</Text>
+            </View>
+          )}
+          
+          {/* Existing badges */}
+          {tip.query_relevance && tip.query_relevance > 0.7 && !tip.isGenerated && (
+            <View style={styles.relevanceBadge}>
+              <MaterialIcons name="search" size={14} color="#4CAF50" />
+              <Text style={styles.relevanceBadgeText}>Relevant</Text>
+            </View>
+          )}
+          
+          {tip.personal_match && tip.personal_match > 0.7 && (
+            <View style={styles.personalizedBadge}>
+              <MaterialIcons name="psychology" size={14} color="#4A90E2" />
+              <Text style={styles.personalizedBadgeText}>For You</Text>
+            </View>
+          )}
         </View>
+        
         <Text style={styles.tipBody}>{tip.body || ''}</Text>
         <Text style={styles.tipDetails}>{tip.details || ''}</Text>
+        
+        {/* Show scoring details */}
+        {(tip.query_relevance || tip.personal_match) && (
+          <View style={styles.scoringDetails}>
+            <Text style={styles.scoringText}>
+              {tip.isGenerated ? 'AI Generated • ' : ''}
+              {tip.query_relevance ? `Relevance: ${(tip.query_relevance * 100).toFixed(0)}% • ` : ''}
+              {tip.personal_match ? `Personal Match: ${(tip.personal_match * 100).toFixed(0)}%` : ''}
+            </Text>
+          </View>
+        )}
+        
+        {/* Existing action buttons */}
         <View style={{ flexDirection: 'row', marginTop: 12, alignItems: 'center' }}>
+          {/* Play, Save, Like buttons remain the same */}
           <TouchableOpacity
             style={[
               styles.playButton,
@@ -1138,7 +1373,7 @@ const App: React.FC<Props> = ({ navigation }) => {
               if (activeAudioIndex === id && isPlaying) {
                 cleanupSound();
               } else {
-                speakTip(tip, id);
+                speakTip(tip, typeof id === 'string' ? parseInt(id.split('_')[1]) || 0 : id);
               }
             }}
             disabled={audioLoadingIndex === id}>
@@ -1155,36 +1390,78 @@ const App: React.FC<Props> = ({ navigation }) => {
               {audioLoadingIndex === id
                 ? 'Loading...'
                 : activeAudioIndex === id && isPlaying
-                  ? 'Stop'
-                  : 'Play'}
+                ? 'Stop'
+                : 'Play'}
             </Text>
           </TouchableOpacity>
+          
           <TouchableOpacity
             style={{ marginLeft: 10, padding: 6 }}
             onPress={() => handleSaveTip(tip)}
-            accessibilityLabel={isTipSaved(tip.id) ? 'Remove from saved tips' : 'Save tip'}
-          >
+            accessibilityLabel={isTipSaved(typeof tip.id === 'string' ? parseInt(tip.id.split('_')[1]) || 0 : tip.id) ? 'Remove from saved tips' : 'Save tip'}>
             <MaterialIcons
-              name={isTipSaved(tip.id) ? 'bookmark' : 'bookmark-border'}
+              name={isTipSaved(typeof tip.id === 'string' ? parseInt(tip.id.split('_')[1]) || 0 : tip.id) ? 'bookmark' : 'bookmark-border'}
               size={22}
-              color={isTipSaved(tip.id) ? '#4A90E2' : '#999'}
+              color={isTipSaved(typeof tip.id === 'string' ? parseInt(tip.id.split('_')[1]) || 0 : tip.id) ? '#4A90E2' : '#999'}
             />
           </TouchableOpacity>
+          
           <TouchableOpacity
             style={{ marginLeft: 4, padding: 6 }}
             onPress={() => handleLikeTip(tip)}
-            accessibilityLabel={isTipLiked(tip.id) ? 'Unlike tip' : 'Like tip'}
-          >
+            accessibilityLabel={isTipLiked(typeof tip.id === 'string' ? parseInt(tip.id.split('_')[1]) || 0 : tip.id) ? 'Unlike tip' : 'Like tip'}>
             <MaterialIcons
-              name={isTipLiked(tip.id) ? 'favorite' : 'favorite-border'}
+              name={isTipLiked(typeof tip.id === 'string' ? parseInt(tip.id.split('_')[1]) || 0 : tip.id) ? 'favorite' : 'favorite-border'}
               size={22}
-              color={isTipLiked(tip.id) ? '#FF3B30' : '#999'}
+              color={isTipLiked(typeof tip.id === 'string' ? parseInt(tip.id.split('_')[1]) || 0 : tip.id) ? '#FF3B30' : '#999'}
             />
           </TouchableOpacity>
         </View>
       </LinearGradient>
     </View>
   );
+  
+  // Add generation mode selector component
+  const GenerationModeSelector = () => (
+    <View style={styles.modeSelector}>
+      <Text style={styles.modeSelectorLabel}>Tip Source:</Text>
+      <View style={styles.modeButtons}>
+        <TouchableOpacity
+          style={[styles.modeButton, generateMode === 'hybrid' && styles.modeButtonActive]}
+          onPress={() => setGenerateMode('hybrid')}>
+          <Text style={[styles.modeButtonText, generateMode === 'hybrid' && styles.modeButtonTextActive]}>
+            Smart
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modeButton, generateMode === 'database' && styles.modeButtonActive]}
+          onPress={() => setGenerateMode('database')}>
+          <Text style={[styles.modeButtonText, generateMode === 'database' && styles.modeButtonTextActive]}>
+            Database
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modeButton, generateMode === 'generate' && styles.modeButtonActive]}
+          onPress={() => setGenerateMode('generate')}>
+          <Text style={[styles.modeButtonText, generateMode === 'generate' && styles.modeButtonTextActive]}>
+            AI Generate
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+  
+  // Enhanced AI Generation Button
+  const AIGenerationButton = () => (
+    <TouchableOpacity
+      style={styles.aiGenerateButton}
+      onPress={generateAITips}
+      disabled={isAssistantLoading}>
+      <MaterialIcons name="auto-awesome" size={20} color="white" />
+      <Text style={styles.aiGenerateButtonText}>Generate AI Tips</Text>
+    </TouchableOpacity>
+  );
+  
 
   const TipsModal: React.FC<TipsModalProps> = ({ showTipsModal, setShowTipsModal }) => (
     <Modal visible={showTipsModal} animationType="slide" presentationStyle="pageSheet">
@@ -1197,8 +1474,22 @@ const App: React.FC<Props> = ({ navigation }) => {
             <MaterialIcons name="close" size={24} color="#666" />
           </TouchableOpacity>
         </View>
+        
+        {/* Source Indicator */}
+        {lastTipSource && (
+          <View style={styles.sourceIndicator}>
+            <Text style={styles.sourceIndicatorText}>
+              {lastTipSource === 'ai_generated' || lastTipSource === 'ai_generated_fallback' 
+                ? '🤖 AI Generated Tips - Personalized for You'
+                : lastTipSource === 'database_found'
+                ? '📚 Database Tips - Matched to Your Preferences'  
+                : '💡 Tips from Database'}
+            </Text>
+          </View>
+        )}
+        
         <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-          {tips.map((tip, index) => { console.log("tip", tip); return renderTipItem(tip, tip.id, 'search') })}
+          {tips.map((tip, index) => renderTipItem(tip, tip.id, 'search'))}
           <View style={{ height: 20 }} />
         </ScrollView>
       </SafeAreaView>
@@ -1266,8 +1557,6 @@ const App: React.FC<Props> = ({ navigation }) => {
       </View>
     </Modal>
   );
-
-  const insets = useSafeAreaInsets();
 
   // Main component render
   return (
@@ -1385,7 +1674,6 @@ const App: React.FC<Props> = ({ navigation }) => {
                   </React.Fragment>
                 ))}
               </MapView>
-
             )}
           </View>
 
@@ -1438,9 +1726,12 @@ const App: React.FC<Props> = ({ navigation }) => {
           {!newLocation && (
             <View
               style={[styles.assistantContainer, { bottom: Platform.OS === "ios" ? insets.bottom + 55 : insets.bottom + 80 }]}>
-              {/* <Text style={styles.assistantTitle}>🤖 Parenting Assistant</Text>
-                <Text style={styles.assistantSubtitle}>Ask any parenting question</Text> */}
 
+              {/* Mode Selector */}
+          {personalizationEnabled && userPreferenceProfile && userPreferenceProfile.liked_tips > 2 && (
+            <GenerationModeSelector />
+          )}
+              
               <View style={{
                 backgroundColor: 'rgba(74, 144, 226, 0.05)',
                 borderRadius: 14,
@@ -1462,7 +1753,7 @@ const App: React.FC<Props> = ({ navigation }) => {
                   onChangeText={setSearchText}
                   placeholder={isListening ? 'Listening...' : 'Ask a parenting question...'}
                   returnKeyType="search"
-                  onSubmitEditing={() => getTips()}
+                  onSubmitEditing={() => getTips(searchText, undefined)}
                   editable={!isListening}
                   placeholderTextColor="#d3d3d3"
                 />
@@ -1489,7 +1780,7 @@ const App: React.FC<Props> = ({ navigation }) => {
 
               <TouchableOpacity
                 style={styles.assistantSubmitButton}
-                onPress={() => getTips()}
+                onPress={() => getTips(searchText, undefined)}
                 disabled={isAssistantLoading || isListening}>
                 {isAssistantLoading ? (
                   <ActivityIndicator color="white" size="small" />
@@ -1501,12 +1792,21 @@ const App: React.FC<Props> = ({ navigation }) => {
                 )}
               </TouchableOpacity>
 
+              {/* AI Generation Button - show when user has preferences and search text */}
+    {personalizationEnabled && userPreferenceProfile && userPreferenceProfile.liked_tips > 2 && searchText.trim() && (
+      <AIGenerationButton />
+    )}
+
+    {/* Existing personalized recommendations button */}
+    {userPreferenceProfile && userPreferenceProfile.liked_tips > 2 && (
+      <PersonalizedRecommendationsButton />
+    )}
+
             </View>
           )}
+
         </View>
       </TouchableWithoutFeedback>
-
-
 
       <LocationBottomSheet visible={sheetVisible} onClose={() => { setSheetVisible(false); setSheetIsOpen(false) }} />
 
@@ -1529,6 +1829,142 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     padding: 20,
+  },
+  relevanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E8',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginLeft: 4,
+  },
+  relevanceBadgeText: {
+    fontSize: 11,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginLeft: 3,
+  },
+  aiGeneratedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F0FF',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginLeft: 4,
+    borderWidth: 1,
+    borderColor: '#6C63FF',
+  },
+  aiGeneratedBadgeText: {
+    fontSize: 10,
+    color: '#6C63FF',
+    fontWeight: '700',
+    marginLeft: 3,
+  },
+
+  // Mode Selector
+  modeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  modeSelectorLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  modeButtons: {
+    flexDirection: 'row',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 6,
+    padding: 2,
+    flex: 1,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  modeButtonActive: {
+    backgroundColor: '#4A90E2',
+  },
+  modeButtonText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '600',
+  },
+  modeButtonTextActive: {
+    color: 'white',
+  },
+
+  // AI Generation Button
+  aiGenerateButton: {
+    backgroundColor: '#6C63FF',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 7,
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiGenerateButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+
+  // Enhanced scoring display
+  scoringDetails: {
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#E9ECEF',
+  },
+  scoringText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+  },
+
+  // Source indicator in modal
+  sourceIndicator: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 12,
+    alignSelf: 'center',
+  },
+  sourceIndicatorText: {
+    fontSize: 12,
+    color: '#1976D2',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  perfectMatchBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginLeft: 4,
+  },
+  perfectMatchBadgeText: {
+    fontSize: 11,
+    color: '#FF9800',
+    fontWeight: '600',
+    marginLeft: 3,
   },
   loadingText: {
     marginTop: 20,
@@ -1583,12 +2019,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
+  personalizedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  personalizedBadgeText: {
+    fontSize: 12,
+    color: '#4A90E2',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  personalizedButton: {
+    backgroundColor: '#6C63FF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 7,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  personalizedButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
   clearButton: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   mapContainer: {
-    // flex: 1,
     height: "100%",
     width: "100%"
   },

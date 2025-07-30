@@ -110,13 +110,12 @@ export const useChildrenInfo = (): UseChildrenInfoReturn => {
   const fetchFromAPI = useCallback(async (userToken: string): Promise<Child[]> => {
     debugLog(`Fetching from API (attempt ${retryCount.current + 1}/${maxRetries})`);
     
-    const response = await fetch(`${API_BASE_URL}/api/children`, {
+    const response = await fetch(`${API_BASE_URL}/endpoint/children`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${userToken}`,
         'Content-Type': 'application/json',
       },
-      // Removed timeout property as it is not supported in RequestInit
     });
 
     if (!response.ok) {

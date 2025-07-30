@@ -20,6 +20,7 @@ import { AuthContext, AuthContextType } from '../context/AuthContext';
 import { NavigationProp } from '@react-navigation/native';
 import messaging from '@react-native-firebase/messaging';
 import LinearGradient from 'react-native-linear-gradient';
+// Removed incorrect import of userInfo from 'os'
 
 interface LoginScreenProps {
   navigation: NavigationProp<any>;
@@ -44,6 +45,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const updateServerToken = useCallback(async (fcmToken: string, accessToken: string) => {
     try {
       console.log('SENDING TO SERVER - Token:', fcmToken?.substring(0, 20) + '...', 'Platform:', Platform.OS);
+      
+      const storedUserInfo = await AsyncStorage.getItem('userInfo');
+      if (storedUserInfo) {
+        const parsedUserInfo = JSON.parse(storedUserInfo);
+        console.log('JWT Token:', parsedUserInfo.access_token);
+      } else {
+        console.log('No user info found in AsyncStorage');
+      }
       
       const response = await fetch('http://68.183.102.75:1337/api/auth/token', {
         method: 'POST',
