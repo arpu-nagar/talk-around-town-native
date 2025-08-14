@@ -141,27 +141,16 @@ const ScreenWithNotification: React.FC<{ children: React.ReactNode }> = ({
 const TabNavigator = () => (
   <ScreenWithNotification>
     <MainTab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={({ route }) => ({
-        // tabBarIcon: ({focused, color, size}) => {
-        //   const iconName = getIconName(route.name, focused);
-        //   return <Ionicons name={iconName} size={size} color={color} />;
-        // },
-        // tabBarActiveTintColor: Platform.OS === 'ios' ? '#007AFF' : '#6200EE',
-        // tabBarInactiveTintColor: 'gray',
-        headerShown: false,
-        tabBarStyle: {
-          // paddingVertical: Platform.OS === 'ios' ? 10 : 0,
-          // height: Platform.OS === 'ios' ? 88 : 60,
-          // display: 'none'
-        },
-      })}>
+      screenOptions={{ headerShown: false }}
+      // Completely hide the tab bar
+      tabBar={() => null}
+    >
       <MainTab.Screen name="Home" component={MainScreen} />
-      {/* <MainTab.Screen name="Assistant" component={AssistantScreen} /> */}
       <MainTab.Screen name="Settings" component={SettingsScreen} />
     </MainTab.Navigator>
   </ScreenWithNotification>
 );
+
 
 // Auth Navigator
 const AuthNavigator = () => (
