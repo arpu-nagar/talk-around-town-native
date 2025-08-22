@@ -860,6 +860,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChildInfoModal from './ChildInfoModal';
 import { useChildrenInfo } from '../hooks/useChildrenInfo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import PersonalizationSurvey from '../components/PersonalizationSurvey';
+import { fetchWithAuth } from '../api/auth';
+
+const API_ENDPOINTS = {
+  BASE_URL: 'http://68.183.102.75:1337',
+};
 
 interface SettingsScreenProps {
   navigation: NavigationProp<any>;
@@ -890,6 +896,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const audioCache = React.useRef<Map<number, string>>(new Map());
   const currentSound = React.useRef<any>(null);
   const nav = useNavigation();
+
+  // Personalization survey state
+  const [showPersonalizationSurvey, setShowPersonalizationSurvey] = useState(false);
+  const [surveyCompleted, setSurveyCompleted] = useState(false);
+  const [surveyData, setSurveyData] = useState<any>(null);
+  const [hasSurveyPersonalization, setHasSurveyPersonalization] = useState(false);
 
   // Use the enhanced children info hook
   const {
@@ -964,6 +976,42 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error loading content preferences:', error);
+    }
+  };
+
+  // Survey completion handler
+  const handleSurveyComplete = async (completedSurveyData: any) => {
+    try {
+      const response = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}/api/personalization/survey`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo.access_token}`,
+        },
+        body: JSON.stringify({
+          surveyData: completedSurveyData,
+          completedAt: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save survey');
+      }
+
+      setSurveyData(completedSurveyData);
+      setSurveyCompleted(true);
+      setHasSurveyPersonalization(true);
+      setShowPersonalizationSurvey(false);
+
+      Alert.alert(
+        'Thank you! 🎉',
+        'Your preferences have been saved. You\'ll now receive more personalized parenting tips!',
+        [{ text: 'Great!' }]
+      );
+    } catch (error) {
+      console.error('Survey completion error:', error);
+      Alert.alert('Error', `Failed to save your preferences: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -1411,6 +1459,16 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
               <Text style={styles.menuText}>View Liked Tips</Text>
               <Icon name="chevron-right" size={24} color="#ccc" />
             </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => setShowPersonalizationSurvey(true)}>
+              <Icon name="psychology" size={24} color="#FF6B6B" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Personalization Survey</Text>
+              {surveyCompleted && (
+                <View style={styles.completedBadge}>
+                  <Icon name="check-circle" size={16} color="#4CAF50" />
+                </View>
+              )}
+              <Icon name="chevron-right" size={24} color="#ccc" />
+            </TouchableOpacity>
           </View>
 
           {/* Error banner for children info */}
@@ -1465,6 +1523,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       
       {/* <SavedTipsModal /> */}
       <LikedTipsModal />
+      
+      {/* Personalization Survey Modal */}
+      <PersonalizationSurvey
+        visible={showPersonalizationSurvey}
+        onClose={() => setShowPersonalizationSurvey(false)}
+        onComplete={handleSurveyComplete}
+        isOptional={true}
+      />
     </View>
   );
 };
@@ -1757,6 +1823,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  
+  completedBadge: {
+    marginLeft: 8,
   },
 });
 

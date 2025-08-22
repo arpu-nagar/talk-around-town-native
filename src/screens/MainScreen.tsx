@@ -14,6 +14,8 @@ import {
   Modal,
   ActivityIndicator,
   Dimensions,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Marker, Circle, PROVIDER_DEFAULT } from 'react-native-maps';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -30,6 +32,7 @@ import Voice from '@react-native-voice/voice';
 import Sound from 'react-native-sound';
 import { AuthContext } from '../context/AuthContext';
 import Notification from '../components/Notification';
+
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fetchWithAuth } from '../api/auth';
 
@@ -368,6 +371,26 @@ const [ageYearsInput, setAgeYearsInput] = useState<string>('');
 const [ageMonthsInput, setAgeMonthsInput] = useState<string>('');
 const [pendingUnknownName, setPendingUnknownName] = useState<string | null>(null);
 const [tempChildContext, setTempChildContext] = useState<Array<{ name: string; agePretty: string; ageYears: number }>>([]);
+const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+
+
+// Keyboard listeners
+useEffect(() => {
+  const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+    setIsKeyboardVisible(true);
+  });
+  const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+    setIsKeyboardVisible(false);
+  });
+
+  return () => {
+    keyboardDidShowListener?.remove();
+    keyboardDidHideListener?.remove();
+  };
+}, []);
+
+
 
 // --- helper to compute pretty/years from inputs ---
 function buildAgeFromInputs(yy: string, mm: string) {
@@ -554,6 +577,8 @@ function buildAgeFromInputs(yy: string, mm: string) {
 
         // Background refresh
         refreshDataInBackground();
+
+
       } catch (e) {
         console.error('startup error', e);
         if (mounted) {
@@ -922,7 +947,7 @@ function resolveChildrenAndUnknownNames(query: string, children: Child[]) {
     }
   }
 
-  // De-dupe unknowns, and remove anything that equals “my”, “kid”, etc.
+  // De-dupe unknowns, and remove anything that equals "my", "kid", etc.
   const STOP = new Set(['my','kid','child','daughter','son','the','a','an','baby','toddler','teen','years','year','old']);
   const uniqUnknown = Array.from(new Set(unknown.filter(n => !STOP.has(n))));
 
@@ -937,7 +962,7 @@ const getPersonalizedTips = async () => {
   if (isDrugMisuseIntent(query)) {
     Alert.alert(
       "I can't help with that",
-      "We don’t provide guidance on drugs. If you’re worried about a child, I can share general tips on talking with kids about substance use.",
+      "We don't provide guidance on drugs. If you're worried about a child, I can share general tips on talking with kids about substance use.",
       [
         { text: "Talk to my child about drugs", onPress: () => setSearchText("How do I talk to my child about drugs?") },
         { text: "Cancel", style: "cancel" }
@@ -946,7 +971,6 @@ const getPersonalizedTips = async () => {
     return;
   }
   
-  // (keep your guardrails here)
   if (hasDangerousIntent(query)) {
     Alert.alert('Sorry', 'We only provide parenting tips.');
     return;
@@ -961,55 +985,45 @@ const getPersonalizedTips = async () => {
   setTips([]);
 
   try {
-    
-    // NEW: detect which child(ren) are referenced by name
+    // Your existing child detection code
     const mentioned = resolveChildrenFromQuery(query, userChildren);
-
-    // Build contextual child info
     const childLines = (mentioned.length ? mentioned : userChildren).map((c) => {
       const nm = c.nickname || 'Child';
       return `${nm}: ${ageYMMM(c.date_of_birth)} old`;
     });
 
-
-    // Prefer targeting *mentioned* child(ren); else include all saved kids
     const childContext = childLines.join(', ');
-    // const prompt =
-    //   mentioned.length > 0
-    //     ? `${query} (Focus on: ${childContext}).`
-    //     : `${query}. Child context: ${childContext}.`;
-
-    // send a structured context too (optional but handy for your backend/service)
     const childrenContext = (mentioned.length ? mentioned : userChildren).map((c) => ({
       name: c.nickname,
       dob: c.date_of_birth,
       agePretty: ageYMMM(c.date_of_birth),
       ageYears: calculateAge(c.date_of_birth),
     }));
+
     const explicitlyChildish =
-  CHILD_TERMS.some(w => normalize(query).includes(w)) ||
-  AGE_PATTERNS.some(re => re.test(query));
+      CHILD_TERMS.some(w => normalize(query).includes(w)) ||
+      AGE_PATTERNS.some(re => re.test(query));
 
-// If the query was ambiguous but allowed via default, nudge the model:
-const ambiguityHint = explicitlyChildish ? '' : ' Please tailor this for kids.';
+    const ambiguityHint = explicitlyChildish ? '' : ' Please tailor this for kids.';
+    const prompt =
+      mentioned.length > 0
+        ? `${query}${ambiguityHint} (Focus on: ${childContext}).`
+        : `${query}${ambiguityHint}. Child context: ${childContext}.`;
 
-// Prompt:
-const prompt =
-  mentioned.length > 0
-    ? `${query}${ambiguityHint} (Focus on: ${childContext}).`
-    : `${query}${ambiguityHint}. Child context: ${childContext}.`;
+    const endpoint = '/api/personalization/enhanced-tips';
 
+    const enhancedContext = {
+      prompt,
+      contentPreferences,
+      generateMode: 'hybrid',
+      strictParenting: true,
+      childrenContext,
+    };
 
-    const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}/api/personalization/enhanced-tips`, {
+    const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userInfo.access_token}` },
-      body: JSON.stringify({
-        prompt,
-        contentPreferences,
-        generateMode: 'hybrid',
-        strictParenting: true,
-        childrenContext, // <— optional structured context
-      }),
+      body: JSON.stringify(enhancedContext),
     });
 
     const data = await res.json();
@@ -1024,6 +1038,11 @@ const prompt =
     if (Array.isArray(data.tips) && data.tips.length) {
       setTips(data.tips);
       setShowTipsModal(true);
+      
+      // Log personalization success
+      if (data.hasSurveyPersonalization) {
+        console.log('🎯 Tips personalized using survey data!');
+      }
     } else {
       Alert.alert('No Tips Found', 'Try asking about bedtime routines, tantrums, potty training, language activities, or milestones.');
     }
@@ -1402,7 +1421,11 @@ const prompt =
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       <Notification />
 
-      {/* <SafeAreaView style={styles.container}> */}
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
         {/* Blue header only behind ENACT */}
         <View style={styles.headerShadow}>
           <LinearGradient
@@ -1427,7 +1450,7 @@ const prompt =
             styles.sheet,
             {
               top: headerHeight +15, // slightly overlaps the header radius
-              bottom: 100 + insets.bottom, // keep space for pill nav
+              bottom: isKeyboardVisible ? 20 : 100 + insets.bottom, // adjust for keyboard
             },
           ]}
         >
@@ -1502,6 +1525,8 @@ const prompt =
             </View>
           </View>
 
+
+
           {/* Ask your companion Card */}
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
@@ -1511,6 +1536,8 @@ const prompt =
                 <Text style={styles.cardSub}>Get personalized advice</Text>
               </View>
             </View>
+
+
 
             <View style={styles.inputField}>
               <MaterialIcons name="chat-bubble-outline" size={18} color="#9AA0A6" />
@@ -1522,6 +1549,12 @@ const prompt =
                 placeholderTextColor="#9AA0A6"
                 multiline
                 editable={!isListening}
+                onFocus={() => {
+                  // Ensure the input is visible when focused
+                  setTimeout(() => {
+                    // This helps with keyboard handling
+                  }, 100);
+                }}
               />
               <TouchableOpacity style={styles.micPill} onPress={toggleListening} activeOpacity={0.8}>
                 <MaterialIcons name={isListening ? 'mic-off' : 'mic'} size={18} color={isListening ? '#FF3B30' : '#6366F1'} />
@@ -1537,18 +1570,21 @@ const prompt =
         </View>
 
         {/* Floating pill nav */}
-        <View style={styles.pillNav}>
-          <TouchableOpacity style={[styles.pillItem, styles.pillItemActive]}>
-            <Text style={[styles.pillText, styles.pillTextActive]}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.pillItem} onPress={() => navigation.navigate('Settings')}>
-            <Text style={styles.pillText}>Settings</Text>
-          </TouchableOpacity>
-        </View>
-      {/* </SafeAreaView> */}
+        {!isKeyboardVisible && (
+          <View style={styles.pillNav}>
+            <TouchableOpacity style={[styles.pillItem, styles.pillItemActive]}>
+              <Text style={[styles.pillText, styles.pillTextActive]}>Home</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.pillItem} onPress={() => navigation.navigate('Settings')}>
+              <Text style={styles.pillText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </KeyboardAvoidingView>
 
       {/* Modals */}
       <TipsModal />
+
       <MapViewModal
         visible={showMapView}
         onClose={() => setShowMapView(false)}
@@ -1794,6 +1830,44 @@ const styles = StyleSheet.create({
   textArea: { height: 100, textAlignVertical: 'top', paddingTop: 12 },
   addButton: { backgroundColor: '#4A90E2', borderRadius: 12, height: 50, justifyContent: 'center', alignItems: 'center' },
   addButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+
+
+
+  // Survey button
+  surveyPromptButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+  surveyButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  surveyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  personalizationIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF5FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  personalizationText: {
+    fontSize: 12,
+    color: '#4A90E2',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
 });
 
 export default MainScreen;
