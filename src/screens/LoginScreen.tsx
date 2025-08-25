@@ -340,13 +340,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient
-        colors={['#3B82F6', '#8B5CF6']}
-        style={styles.gradientBackground}
-        useAngle={true}
-        angle={135}>
+    <LinearGradient
+      colors={['#3B82F6', '#8B5CF6']}
+      style={styles.gradientBackground}
+      useAngle={true}
+      angle={135}>
+      <View>
+        <StatusBar barStyle="light-content" />
+
         <View style={styles.scrollContent}>
           {/* Header Section */}
           <View style={styles.headerContainer}>
@@ -436,8 +437,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
 
         {/* Loading Spinner */}
         <Spinner visible={isLoading} />
-      </LinearGradient>
-    </SafeAreaView>
+      </View>
+    </LinearGradient>
   );
 };
 
@@ -570,7 +571,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     height: 20,
-
   },
   forgotPasswordText: {
     color: '#8B5CF6',

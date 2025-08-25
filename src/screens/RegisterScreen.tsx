@@ -713,13 +713,14 @@ const RegisterScreen = ({navigation}: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient
-        colors={['#3B82F6', '#8B5CF6']}
-        style={styles.gradient}
-        useAngle={true}
-        angle={135}>
+    <LinearGradient
+      colors={['#3B82F6', '#8B5CF6']}
+      style={styles.gradientBackground}
+      useAngle={true}
+      angle={135}>
+      <View style={{flex: 1}}>
+        <StatusBar barStyle="light-content" />
+
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -746,7 +747,9 @@ const RegisterScreen = ({navigation}: any) => {
                       ? styles.buttonDisabled
                       : null,
                   ]}
-                  colors={['#3B82F6', '#8B5CF6']}>
+                  colors={['#3B82F6', '#8B5CF6']}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 0}}>
                   <Text style={styles.nextButtonText}>
                     {step === 6 ? 'Complete Registration' : 'Continue'}
                   </Text>
@@ -755,8 +758,8 @@ const RegisterScreen = ({navigation}: any) => {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </LinearGradient>
-    </SafeAreaView>
+      </View>
+    </LinearGradient>
   );
 };
 
@@ -930,9 +933,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#4A90E2',
-  },
-  gradient: {
-    flex: 1,
   },
   keyboardView: {
     flex: 1,

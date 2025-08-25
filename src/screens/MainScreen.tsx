@@ -55,6 +55,7 @@ import Notification from '../components/Notification';
 
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {fetchWithAuth} from '../api/auth';
+import PersonalizationSurvey from '../components/PersonalizationSurvey';
 
 const STARTUP_CONFIG = {
   MAX_STARTUP_TIME: 8000,
@@ -444,6 +445,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     Array<{name: string; agePretty: string; ageYears: number}>
   >([]);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [showSurvey, setShowSurvey] = useState(false);
 
   // --- Animation Setup ---
   // 1. Use a ref to hold the animated value. 0 = blurred, 1 = focused.
@@ -516,6 +518,11 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       keyboardDidShowListener?.remove();
       keyboardDidHideListener?.remove();
     };
+  }, []);
+
+  useEffect(() => {
+    // Trigger when app loads
+    setShowSurvey(true);
   }, []);
 
   // --- helper to compute pretty/years from inputs ---
@@ -1978,9 +1985,16 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       />
       <Notification />
 
+      <PersonalizationSurvey
+        visible={showSurvey}
+        onClose={() => setShowSurvey(false)}
+        onComplete={data => {
+          console.log('Survey completed:', data);
+          setShowSurvey(false);
+        }}
+      />
+
       <View style={{flex: 1}}>
-        {/*behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}*/}
         {/* Blue header only behind ENACT */}
         <LinearGradient
           colors={['#3B82F6', '#8B5CF6']}
