@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,8 @@ import {
   StatusBar,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
-import { NavigationProp } from '@react-navigation/native';
+import {MaterialIcons} from '@expo/vector-icons';
+import {NavigationProp} from '@react-navigation/native';
 
 const API_URL = 'http://68.183.102.75:1337/api';
 
@@ -22,7 +22,9 @@ interface ForgotPasswordScreenProps {
   navigation: NavigationProp<any>;
 }
 
-const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation }) => {
+const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
+  navigation,
+}) => {
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,7 +61,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({email}),
       });
 
       const data = await response.json();
@@ -72,16 +74,16 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
         'Success',
         'Password reset instructions have been sent to your email.',
         [
-          { 
-            text: 'Enter Reset Code', 
-            onPress: () => navigation.navigate('ResetPassword', { token: '' })
-          }
-        ]
+          {
+            text: 'Enter Reset Code',
+            onPress: () => navigation.navigate('ResetPassword', {token: ''}),
+          },
+        ],
       );
     } catch (error: any) {
       Alert.alert(
         'Error',
-        error.message || 'Failed to send reset email. Please try again.'
+        error.message || 'Failed to send reset email. Please try again.',
       );
     } finally {
       setIsSubmitting(false);
@@ -92,17 +94,14 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <LinearGradient
-        colors={['#4A90E2', '#357ABD']}
-        style={styles.gradientBackground}
-      >
+        colors={['#3B82F6', '#8B5CF6']}
+        style={styles.gradientBackground}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => navigation.goBack()}
-          >
+          style={styles.keyboardView}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}>
             <MaterialIcons name="arrow-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -110,7 +109,8 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
             <View style={styles.formContainer}>
               <Text style={styles.title}>Reset Password</Text>
               <Text style={styles.subtitle}>
-                Enter your email address and we'll send you instructions to reset your password.
+                Enter your email address and we'll send you instructions to
+                reset your password.
               </Text>
 
               <View style={styles.inputContainer}>
@@ -131,23 +131,27 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                 ) : null}
               </View>
 
-              <TouchableOpacity
-                style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-                onPress={handleSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.submitButtonText}>Send Reset Instructions</Text>
-                )}
+              <TouchableOpacity onPress={handleSubmit} disabled={isSubmitting}>
+                <LinearGradient
+                  colors={['#3B82F6', '#8B5CF6']}
+                  style={[
+                    styles.submitButton,
+                    isSubmitting && styles.submitButtonDisabled,
+                  ]}>
+                  {isSubmitting ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>
+                      Send Reset Instructions
+                    </Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.backTextButton}
                 onPress={() => navigation.navigate('Login')}
-                disabled={isSubmitting}
-              >
+                disabled={isSubmitting}>
                 <Text style={styles.backButtonText}>Back to Login</Text>
               </TouchableOpacity>
             </View>
@@ -189,7 +193,7 @@ const styles = StyleSheet.create({
     padding: 24,
     elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.1,
     shadowRadius: 12,
   },
@@ -253,7 +257,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   backButtonText: {
-    color: '#4A90E2',
+    color: '#8B5CF6',
     fontSize: 14,
   },
 });

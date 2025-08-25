@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -15,15 +15,15 @@ import {
   Linking,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import {Ionicons} from '@expo/vector-icons';
+import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 // Import the AuthStackParamList from your navigation types
 type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
-  ResetPassword: { token: string };
+  ResetPassword: {token: string};
 };
 
 // Use NativeStackScreenProps to correctly type the screen props
@@ -34,9 +34,9 @@ type ResetPasswordScreenProps = NativeStackScreenProps<
 
 const API_URL = 'http://68.183.102.75:1337/api';
 
-const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({ 
-  navigation, 
-  route 
+const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
+  navigation,
+  route,
 }) => {
   const [resetToken, setResetToken] = useState(route.params?.token || '');
   const [newPassword, setNewPassword] = useState('');
@@ -46,7 +46,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const handleDeepLink = (event: { url: string }) => {
+    const handleDeepLink = (event: {url: string}) => {
       if (event.url) {
         const token = event.url.split('/').pop();
         if (token) {
@@ -57,7 +57,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
 
     Linking.getInitialURL().then((url: string | null) => {
       if (url) {
-        handleDeepLink({ url });
+        handleDeepLink({url});
       }
     });
 
@@ -135,31 +135,33 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
         throw new Error(data.message || 'Password reset failed');
       }
 
-      Alert.alert(
-        'Success',
-        'Your password has been reset successfully',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-      );
+      Alert.alert('Success', 'Your password has been reset successfully', [
+        {text: 'OK', onPress: () => navigation.navigate('Login')},
+      ]);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to reset password. Please try again.');
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to reset password. Please try again.',
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={['#4A90E2', '#357ABD']} style={styles.gradientBackground}>
+      <LinearGradient
+        colors={['#3B82F6', '#8B5CF6']}
+        style={styles.gradientBackground}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
+          style={styles.keyboardView}>
           <View style={styles.contentContainer}>
             <View style={styles.formContainer}>
               <Text style={styles.title}>Reset Password</Text>
-              
+
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Reset Code</Text>
                 <View style={styles.tokenInputContainer}>
@@ -173,8 +175,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                   />
                   <TouchableOpacity
                     onPress={handlePasteToken}
-                    style={styles.pasteButton}
-                  >
+                    style={styles.pasteButton}>
                     <Text style={styles.pasteButtonText}>Paste</Text>
                   </TouchableOpacity>
                 </View>
@@ -193,8 +194,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
-                    style={styles.eyeButton}
-                  >
+                    style={styles.eyeButton}>
                     <Ionicons
                       name={showPassword ? 'eye-off' : 'eye'}
                       size={24}
@@ -223,10 +223,12 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
               ) : null}
 
               <TouchableOpacity
-                style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+                style={[
+                  styles.submitButton,
+                  isSubmitting && styles.submitButtonDisabled,
+                ]}
                 onPress={handleSubmit}
-                disabled={isSubmitting}
-              >
+                disabled={isSubmitting}>
                 {isSubmitting ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
@@ -236,8 +238,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
 
               <TouchableOpacity
                 style={styles.backButton}
-                onPress={() => navigation.navigate('Login')}
-              >
+                onPress={() => navigation.navigate('Login')}>
                 <Text style={styles.backButtonText}>Back to Login</Text>
               </TouchableOpacity>
             </View>
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
     padding: 24,
     elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.1,
     shadowRadius: 12,
   },

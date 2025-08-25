@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useCallback } from 'react';
+import React, {useContext, useState, useEffect, useCallback} from 'react';
 import {
   ActivityIndicator,
   Text,
@@ -16,8 +16,8 @@ import {
 } from 'react-native';
 import Spinner from 'react-native-loading-spinner-overlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AuthContext, AuthContextType } from '../context/AuthContext';
-import { NavigationProp } from '@react-navigation/native';
+import {AuthContext, AuthContextType} from '../context/AuthContext';
+import {NavigationProp} from '@react-navigation/native';
 import messaging from '@react-native-firebase/messaging';
 import LinearGradient from 'react-native-linear-gradient';
 // Removed incorrect import of userInfo from 'os'
@@ -32,171 +32,212 @@ interface TokenData {
 }
 
 // Use exact width values instead of percentage-based calculations
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 const inputWidth = Math.min(width * 0.85, 400);
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fcmTokenStatus, setFcmTokenStatus] = useState<'loading' | 'success' | 'error' | 'skipped'>('loading');
-  const { isLoading, login } = useContext<AuthContextType>(AuthContext);
+  const [fcmTokenStatus, setFcmTokenStatus] = useState<
+    'loading' | 'success' | 'error' | 'skipped'
+  >('loading');
+  const {isLoading, login} = useContext<AuthContextType>(AuthContext);
 
-  const updateServerToken = useCallback(async (fcmToken: string, accessToken: string) => {
-    try {
-      console.log('SENDING TO SERVER - Token:', fcmToken?.substring(0, 20) + '...', 'Platform:', Platform.OS);
-      
-      const storedUserInfo = await AsyncStorage.getItem('userInfo');
-      if (storedUserInfo) {
-        const parsedUserInfo = JSON.parse(storedUserInfo);
-        console.log('JWT Token:', parsedUserInfo.access_token);
-      } else {
-        console.log('No user info found in AsyncStorage');
+  const updateServerToken = useCallback(
+    async (fcmToken: string, accessToken: string) => {
+      try {
+        console.log(
+          'SENDING TO SERVER - Token:',
+          fcmToken?.substring(0, 20) + '...',
+          'Platform:',
+          Platform.OS,
+        );
+
+        const storedUserInfo = await AsyncStorage.getItem('userInfo');
+        if (storedUserInfo) {
+          const parsedUserInfo = JSON.parse(storedUserInfo);
+          console.log('JWT Token:', parsedUserInfo.access_token);
+        } else {
+          console.log('No user info found in AsyncStorage');
+        }
+
+        const response = await fetch(
+          'http://68.183.102.75:1337/api/auth/token',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              token: fcmToken,
+              platform: Platform.OS,
+            }),
+          },
+        );
+
+        const responseData = await response.json();
+        console.log('SERVER RESPONSE:', responseData);
+
+        if (!response.ok) throw new Error('Failed to update token on server');
+      } catch (error) {
+        console.error('Error updating token on server:', error);
+        // Don't throw - this shouldn't prevent login
       }
-      
-      const response = await fetch('http://68.183.102.75:1337/api/auth/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          token: fcmToken,
-          platform: Platform.OS,
-        }),
-      });
-      
-      const responseData = await response.json();
-      console.log('SERVER RESPONSE:', responseData);
-      
-      if (!response.ok) throw new Error('Failed to update token on server');
-    } catch (error) {
-      console.error('Error updating token on server:', error);
-      // Don't throw - this shouldn't prevent login
-    }
-  }, []);
+    },
+    [],
+  );
 
   // Enhanced FCM token handling with iOS-specific fixes
-  const getAndStoreToken = useCallback(async (retryCount = 0) => {
-    const maxRetries = 3;
-    
-    try {
-      console.log(`Attempting to get FCM token (attempt ${retryCount + 1}/${maxRetries + 1})`);
-      
-      // Step 1: Check if messaging is available (especially important for iOS simulator)
-      if (Platform.OS === 'ios') {
-        console.log('iOS: Registering device for remote messages...');
-        await messaging().registerDeviceForRemoteMessages();
-      }
+  const getAndStoreToken = useCallback(
+    async (retryCount = 0) => {
+      const maxRetries = 3;
 
-      // Step 2: Request permission with iOS-specific handling
-      let authStatus;
       try {
-        authStatus = await messaging().requestPermission();
-        console.log('Permission status:', authStatus);
-      } catch (permissionError) {
-        console.error('Permission request failed:', permissionError);
-        
+        console.log(
+          `Attempting to get FCM token (attempt ${retryCount + 1}/${
+            maxRetries + 1
+          })`,
+        );
+
+        // Step 1: Check if messaging is available (especially important for iOS simulator)
         if (Platform.OS === 'ios') {
-          // On iOS, try alternative permission approach
-          try {
-            authStatus = await messaging().requestPermission({
-              alert: true,
-              badge: true,
-              sound: true,
-            });
-          } catch (altPermissionError) {
-            console.error('Alternative permission request failed:', altPermissionError);
+          console.log('iOS: Registering device for remote messages...');
+          await messaging().registerDeviceForRemoteMessages();
+        }
+
+        // Step 2: Request permission with iOS-specific handling
+        let authStatus;
+        try {
+          authStatus = await messaging().requestPermission();
+          console.log('Permission status:', authStatus);
+        } catch (permissionError) {
+          console.error('Permission request failed:', permissionError);
+
+          if (Platform.OS === 'ios') {
+            // On iOS, try alternative permission approach
+            try {
+              authStatus = await messaging().requestPermission({
+                alert: true,
+                badge: true,
+                sound: true,
+              });
+            } catch (altPermissionError) {
+              console.error(
+                'Alternative permission request failed:',
+                altPermissionError,
+              );
+              setFcmTokenStatus('error');
+              return;
+            }
+          } else {
             setFcmTokenStatus('error');
             return;
           }
-        } else {
+        }
+
+        const enabled =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+        if (!enabled) {
+          console.log('Push notifications not enabled');
+          setFcmTokenStatus('skipped');
+          return;
+        }
+
+        // Step 3: Get FCM token with iOS-specific error handling
+        let fcmToken;
+        try {
+          // Add a delay for iOS to ensure APNs token is ready
+          if (Platform.OS === 'ios') {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+
+          fcmToken = await messaging().getToken();
+
+          if (!fcmToken) {
+            throw new Error('No FCM token received');
+          }
+
+          console.log(
+            'FCM TOKEN RECEIVED:',
+            fcmToken?.substring(0, 20) + '...',
+          );
+        } catch (tokenError) {
+          console.error('FCM token retrieval failed:', tokenError);
+
+          // iOS-specific retry logic
+          if (Platform.OS === 'ios' && retryCount < maxRetries) {
+            console.log(
+              `iOS: Retrying FCM token retrieval in ${
+                (retryCount + 1) * 2
+              } seconds...`,
+            );
+            await new Promise(resolve =>
+              setTimeout(resolve, (retryCount + 1) * 2000),
+            );
+            return getAndStoreToken(retryCount + 1);
+          }
+
+          // Handle specific iOS errors
+          if (
+            tokenError instanceof Error &&
+            tokenError.message.includes('cannot parse response')
+          ) {
+            console.error(
+              'iOS FCM Configuration Error: This usually indicates an issue with APNs or Firebase setup',
+            );
+            Alert.alert(
+              'Notification Setup',
+              'Push notifications may not work properly. Please check your Firebase configuration.',
+              [{text: 'OK', style: 'default'}],
+            );
+          }
+
           setFcmTokenStatus('error');
           return;
         }
-      }
 
-      const enabled = 
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+        // Step 4: Store token
+        const tokenData: TokenData = {
+          os: Platform.OS,
+          token: fcmToken,
+        };
 
-      if (!enabled) {
-        console.log('Push notifications not enabled');
-        setFcmTokenStatus('skipped');
-        return;
-      }
+        await AsyncStorage.setItem('deviceToken', JSON.stringify(tokenData));
+        console.log('TOKEN SAVED TO ASYNC STORAGE');
 
-      // Step 3: Get FCM token with iOS-specific error handling
-      let fcmToken;
-      try {
-        // Add a delay for iOS to ensure APNs token is ready
-        if (Platform.OS === 'ios') {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        // Step 5: Send to server
+        const userInfo = await AsyncStorage.getItem('userInfo');
+        if (userInfo) {
+          const {access_token} = JSON.parse(userInfo);
+          await updateServerToken(fcmToken, access_token);
         }
-        
-        fcmToken = await messaging().getToken();
-        
-        if (!fcmToken) {
-          throw new Error('No FCM token received');
-        }
-        
-        console.log('FCM TOKEN RECEIVED:', fcmToken?.substring(0, 20) + '...');
-        
-      } catch (tokenError) {
-        console.error('FCM token retrieval failed:', tokenError);
-        
-        // iOS-specific retry logic
-        if (Platform.OS === 'ios' && retryCount < maxRetries) {
-          console.log(`iOS: Retrying FCM token retrieval in ${(retryCount + 1) * 2} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+
+        setFcmTokenStatus('success');
+      } catch (error) {
+        console.error('Unexpected error in getAndStoreToken:', error);
+
+        // Final retry for unexpected errors
+        if (retryCount < maxRetries) {
+          console.log(
+            `Retrying due to unexpected error in ${
+              (retryCount + 1) * 2
+            } seconds...`,
+          );
+          await new Promise(resolve =>
+            setTimeout(resolve, (retryCount + 1) * 2000),
+          );
           return getAndStoreToken(retryCount + 1);
         }
-        
-        // Handle specific iOS errors
-        if (tokenError instanceof Error && tokenError.message.includes('cannot parse response')) {
-          console.error('iOS FCM Configuration Error: This usually indicates an issue with APNs or Firebase setup');
-          Alert.alert(
-            'Notification Setup',
-            'Push notifications may not work properly. Please check your Firebase configuration.',
-            [{ text: 'OK', style: 'default' }]
-          );
-        }
-        
-        setFcmTokenStatus('error');
-        return;
-      }
 
-      // Step 4: Store token
-      const tokenData: TokenData = {
-        os: Platform.OS,
-        token: fcmToken,
-      };
-      
-      await AsyncStorage.setItem('deviceToken', JSON.stringify(tokenData));
-      console.log('TOKEN SAVED TO ASYNC STORAGE');
-      
-      // Step 5: Send to server
-      const userInfo = await AsyncStorage.getItem('userInfo');
-      if (userInfo) {
-        const { access_token } = JSON.parse(userInfo);
-        await updateServerToken(fcmToken, access_token);
+        setFcmTokenStatus('error');
       }
-      
-      setFcmTokenStatus('success');
-      
-    } catch (error) {
-      console.error('Unexpected error in getAndStoreToken:', error);
-      
-      // Final retry for unexpected errors
-      if (retryCount < maxRetries) {
-        console.log(`Retrying due to unexpected error in ${(retryCount + 1) * 2} seconds...`);
-        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-        return getAndStoreToken(retryCount + 1);
-      }
-      
-      setFcmTokenStatus('error');
-    }
-  }, [updateServerToken]);
+    },
+    [updateServerToken],
+  );
 
   // Initialize FCM token on component mount
   useEffect(() => {
@@ -212,20 +253,20 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   // Listen for token refresh (important for iOS)
   useEffect(() => {
-    const unsubscribe = messaging().onTokenRefresh(async (token) => {
+    const unsubscribe = messaging().onTokenRefresh(async token => {
       console.log('FCM Token refreshed:', token?.substring(0, 20) + '...');
-      
+
       const tokenData: TokenData = {
         os: Platform.OS,
         token,
       };
-      
+
       await AsyncStorage.setItem('deviceToken', JSON.stringify(tokenData));
-      
+
       // Update server with new token
       const userInfo = await AsyncStorage.getItem('userInfo');
       if (userInfo) {
-        const { access_token } = JSON.parse(userInfo);
+        const {access_token} = JSON.parse(userInfo);
         await updateServerToken(token, access_token);
       }
     });
@@ -242,7 +283,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     setIsSubmitting(true);
     try {
       await login(email, password);
-      
+
       // Try to get FCM token after successful login if not already obtained
       if (fcmTokenStatus !== 'success') {
         await getAndStoreToken();
@@ -260,26 +301,37 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     if (__DEV__) {
       const getStatusColor = () => {
         switch (fcmTokenStatus) {
-          case 'success': return '#34C759';
-          case 'error': return '#FF3B30';
-          case 'loading': return '#FF9500';
-          case 'skipped': return '#8E8E93';
-          default: return '#8E8E93';
+          case 'success':
+            return '#34C759';
+          case 'error':
+            return '#FF3B30';
+          case 'loading':
+            return '#FF9500';
+          case 'skipped':
+            return '#8E8E93';
+          default:
+            return '#8E8E93';
         }
       };
 
       const getStatusText = () => {
         switch (fcmTokenStatus) {
-          case 'success': return '✓ Push notifications ready';
-          case 'error': return '⚠️ Push notifications error';
-          case 'loading': return '⏳ Setting up notifications...';
-          case 'skipped': return '➖ Push notifications disabled';
-          default: return '';
+          case 'success':
+            return '✓ Push notifications ready';
+          case 'error':
+            return '⚠️ Push notifications error';
+          case 'loading':
+            return '⏳ Setting up notifications...';
+          case 'skipped':
+            return '➖ Push notifications disabled';
+          default:
+            return '';
         }
       };
 
       return (
-        <View style={[styles.statusIndicator, { backgroundColor: getStatusColor() }]}>
+        <View
+          style={[styles.statusIndicator, {backgroundColor: getStatusColor()}]}>
           <Text style={styles.statusText}>{getStatusText()}</Text>
         </View>
       );
@@ -291,22 +343,18 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <LinearGradient
-        colors={['#4A90E2', '#357ABD']}
+        colors={['#3B82F6', '#8B5CF6']}
         style={styles.gradientBackground}
         useAngle={true}
-        angle={135}
-      >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
+        angle={135}>
+        <View style={styles.scrollContent}>
           {/* Header Section */}
           <View style={styles.headerContainer}>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>ENACT</Text>
-              <Text style={styles.subtitle}>Discover learning moments everywhere</Text>
+              <Text style={styles.subtitle}>
+                Discover learning moments everywhere
+              </Text>
               <View style={styles.versionBadge}>
                 <Text style={styles.version}>v1.0</Text>
               </View>
@@ -328,7 +376,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               autoComplete="email"
               editable={!isSubmitting}
             />
-            
+
             <InputField
               label="Password"
               value={password}
@@ -341,21 +389,31 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             />
 
             <TouchableOpacity
-              style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
+              // style={[
+              //   styles.loginButton,
+              //   isSubmitting && styles.loginButtonDisabled,
+              // ]}
               onPress={handleLogin}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.loginButtonText}>Sign In</Text>
-              )}
+              disabled={isSubmitting}>
+              <LinearGradient
+                colors={['#3B82F6', '#8B5CF6']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 0}}
+                style={[
+                  styles.loginButton,
+                  isSubmitting && styles.loginButtonDisabled,
+                ]}>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.loginButtonText}>Sign In</Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.forgotPassword}
-              onPress={() => navigation.navigate('ForgotPassword')}
-            >
+              onPress={() => navigation.navigate('ForgotPassword')}>
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
 
@@ -369,14 +427,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               <Text style={styles.registerText}>New to ENACT? </Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate('Register')}
-                disabled={isSubmitting}
-              >
+                disabled={isSubmitting}>
                 <Text style={styles.link}>Create Account</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
-        
+        </View>
+
         {/* Loading Spinner */}
         <Spinner visible={isLoading} />
       </LinearGradient>
@@ -388,14 +445,10 @@ interface InputFieldProps extends React.ComponentProps<typeof TextInput> {
   label: string;
 }
 
-const InputField: React.FC<InputFieldProps> = ({ label, ...props }) => (
+const InputField: React.FC<InputFieldProps> = ({label, ...props}) => (
   <View style={styles.inputContainer}>
     <Text style={styles.inputLabel}>{label}</Text>
-    <TextInput
-      style={styles.input}
-      placeholderTextColor="#A0A0A0"
-      {...props}
-    />
+    <TextInput style={styles.input} placeholderTextColor="#A0A0A0" {...props} />
   </View>
 );
 
@@ -468,7 +521,7 @@ const styles = StyleSheet.create({
     padding: 24,
     elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.1,
     shadowRadius: 12,
     alignSelf: 'center',
@@ -500,7 +553,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
     shadowColor: '#4A90E2',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
@@ -517,9 +570,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     height: 20,
+
   },
   forgotPasswordText: {
-    color: '#4A90E2',
+    color: '#8B5CF6',
     fontSize: 14,
   },
   divider: {
@@ -548,7 +602,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   link: {
-    color: '#4A90E2',
+    color: '#8B5CF6',
     fontSize: 14,
     fontWeight: '600',
   },
