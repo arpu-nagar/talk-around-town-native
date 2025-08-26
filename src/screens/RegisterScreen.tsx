@@ -31,6 +31,7 @@ import {
   GooglePlacesAutocompleteRef,
 } from 'react-native-google-places-autocomplete';
 import ProgressBar from '../components/Register/ProgressBar';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 const {width, height} = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -712,10 +713,12 @@ const RegisterScreen = ({navigation}: any) => {
     }
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
     <LinearGradient
       colors={['#3B82F6', '#8B5CF6']}
-      style={styles.gradientBackground}
+      style={[styles.gradientBackground, {paddingTop: insets.top + 5}]}
       useAngle={true}
       angle={135}>
       <View style={{flex: 1}}>

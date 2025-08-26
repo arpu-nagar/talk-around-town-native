@@ -1,4 +1,4 @@
-import React, {useState, useContext} from 'react';
+import React, {useState, useContext, useEffect} from 'react';
 import {
   View,
   Text,
@@ -37,8 +37,9 @@ const PersonalizationSurvey: React.FC<{
   visible: boolean;
   onClose: () => void;
   onComplete: (data: SurveyData) => void;
+  onSkip?: () => void;
   isOptional?: boolean;
-}> = ({visible, onClose, onComplete, isOptional = true}) => {
+}> = ({visible, onClose, onComplete, onSkip, isOptional = true}) => {
   const {userInfo} = useContext<any>(AuthContext);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -186,13 +187,31 @@ const PersonalizationSurvey: React.FC<{
     }
   };
 
+  // const handleSkip = () => {
+  //   Alert.alert(
+  //     'Skip Personalization?',
+  //     'You can always complete this later in Settings to get more personalized tips.',
+  //     [
+  //       {text: 'Complete Now', style: 'default'},
+  //       {text: 'Skip for Now', style: 'destructive', onPress: onClose},
+  //     ],
+  //   );
+  // };
+
   const handleSkip = () => {
     Alert.alert(
       'Skip Personalization?',
       'You can always complete this later in Settings to get more personalized tips.',
       [
         {text: 'Complete Now', style: 'default'},
-        {text: 'Skip for Now', style: 'destructive', onPress: onClose},
+        {
+          text: 'Skip for Now',
+          style: 'destructive',
+          onPress: () => {
+            onSkip?.(); // <-- notify Home that this was a skip
+            onClose();
+          },
+        },
       ],
     );
   };

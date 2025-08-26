@@ -377,6 +377,29 @@ const MapViewModal = React.memo(function MapViewModal({
   );
 });
 
+interface SurveyData {
+  contentPreferences: string[];
+  challengeAreas: string[];
+  parentingGoals: string[]; // kept for forward-compat; not used in UI steps right now
+  engagementFrequency: string;
+  currentChallenge?: string;
+  additionalNotes?: string;
+}
+
+// ---- helpers
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const REMIND_EVERY_DAYS = 2;
+
+const surveyKeys = (userKey: string) => ({
+  completed: `survey_completed:${userKey}`,
+  lastPrompt: `survey_last_prompt:${userKey}`,
+});
+
+const isDue = (lastPromptTs?: number | null, days = REMIND_EVERY_DAYS) => {
+  if (!lastPromptTs) return true; // never prompted → show
+  return Date.now() - Number(lastPromptTs) >= days * MS_PER_DAY;
+};
+
 const MainScreen: React.FC<Props> = ({navigation}) => {
   const insets = useSafeAreaInsets();
 
@@ -445,7 +468,96 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     Array<{name: string; agePretty: string; ageYears: number}>
   >([]);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
   const [showSurvey, setShowSurvey] = useState(false);
+  const [surveyCompleted, setSurveyCompleted] = useState(false);
+  const [bootChecked, setBootChecked] = useState(false); // ensure we decide once per mount
+
+  const userKey =
+    userInfo?.user?.id?.toString?.() ||
+    userInfo?.id?.toString?.() ||
+    userInfo?.email ||
+    'anon';
+
+  const KEYS = surveyKeys(userKey);
+
+  const loadStatus = useCallback(async () => {
+    // 1) server completion check (optional but nice for cross-device)
+    let completed = false;
+    try {
+      const res = await fetchWithAuth(
+        `http://68.183.102.75:1337/api/personalization/survey/me`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo?.access_token}`,
+          },
+        },
+      );
+      if (res.ok) {
+        const json = await res.json();
+        // shape depends on your API; adapt as needed:
+        // expect json.data?.completed === true/false
+        completed = !!json?.data?.completed;
+      }
+    } catch (_) {
+      // ignore network errors; we’ll fall back to local flags
+    }
+
+    // 2) fallback to local flag if server didn’t say completed
+    if (!completed) {
+      const localCompleted = await AsyncStorage.getItem(KEYS.completed);
+      completed = localCompleted === 'true';
+    }
+
+    setSurveyCompleted(completed);
+
+    if (completed) {
+      setShowSurvey(false);
+      setBootChecked(true);
+      return;
+    }
+
+    // 3) cadence check
+    const lastPromptStr = await AsyncStorage.getItem(KEYS.lastPrompt);
+    const lastPromptTs = lastPromptStr ? Number(lastPromptStr) : undefined;
+
+    if (isDue(lastPromptTs, REMIND_EVERY_DAYS)) {
+      setShowSurvey(true);
+    } else {
+      setShowSurvey(false);
+    }
+    setBootChecked(true);
+  }, [userInfo?.access_token, KEYS.completed, KEYS.lastPrompt]);
+
+  // First mount → decide whether to show
+  useEffect(() => {
+    loadStatus();
+  }, [loadStatus]);
+
+  // Optional: re-evaluate when screen regains focus (prevents accidental double prompts)
+  useFocusEffect(
+    useCallback(() => {
+      if (!bootChecked) return;
+      // re-check on focus only if not completed & we're not already showing it
+      if (!surveyCompleted && !showSurvey) {
+        loadStatus();
+      }
+    }, [bootChecked, surveyCompleted, showSurvey, loadStatus]),
+  );
+
+  // Handlers coming from the survey
+  const handleSurveyComplete = async (_data: any) => {
+    await AsyncStorage.setItem(KEYS.completed, 'true');
+    setSurveyCompleted(true);
+    setShowSurvey(false);
+  };
+
+  const handleSurveySkip = async () => {
+    await AsyncStorage.setItem(KEYS.lastPrompt, String(Date.now()));
+    setShowSurvey(false);
+  };
 
   // --- Animation Setup ---
   // 1. Use a ref to hold the animated value. 0 = blurred, 1 = focused.
@@ -520,12 +632,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     };
   }, []);
 
-  useEffect(() => {
-    // Trigger when app loads
-    setShowSurvey(true);
-  }, []);
-
-  // --- helper to compute pretty/years from inputs ---
   function buildAgeFromInputs(yy: string, mm: string) {
     const y = Math.max(0, parseInt(yy || '0', 10) || 0);
     const m = Math.max(0, Math.min(11, parseInt(mm || '0', 10) || 0));
@@ -1669,7 +1775,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
               <MaterialIcons
                 name="auto-awesome"
                 size={24}
-                color="#6C63FF"
+                color="#8B5CF6"
                 style={{marginRight: 12}}
               />
               <Text style={styles.tipTitle}>{tip.title || ''}</Text>
@@ -1687,7 +1793,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                 }}>
                 <MaterialIcons
                   name={playing ? 'stop' : 'play-arrow'}
-                  size={16}
+                  size={20}
                   color="#fff"
                 />
                 <Text style={styles.playButtonText}>
@@ -1721,7 +1827,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                     isTipDisliked(tip) ? 'thumb-down' : 'thumb-down-off-alt'
                   }
                   size={22}
-                  color={isTipDisliked(tip) ? '#6C63FF' : '#999'}
+                  color={isTipDisliked(tip) ? '#8B5CF6' : '#999'}
                 />
               </TouchableOpacity>
             </View>
@@ -1975,6 +2081,10 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     );
   }
 
+  if (!bootChecked) {
+    return <View style={{flex: 1, backgroundColor: 'white'}} />; // or skeleton
+  }
+
   // Main render (no ScrollView)
   return (
     <>
@@ -1987,11 +2097,10 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
       <PersonalizationSurvey
         visible={showSurvey}
-        onClose={() => setShowSurvey(false)}
-        onComplete={data => {
-          console.log('Survey completed:', data);
-          setShowSurvey(false);
-        }}
+        onClose={() => setShowSurvey(false)} // close from back button/etc
+        onComplete={handleSurveyComplete}
+        onSkip={handleSurveySkip}
+        isOptional
       />
 
       <View style={{flex: 1}}>
@@ -2490,10 +2599,10 @@ const styles = StyleSheet.create({
   tipDetails: {fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 16},
   tipActions: {flexDirection: 'row', alignItems: 'center', marginTop: 6},
   playButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#3B82F6',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

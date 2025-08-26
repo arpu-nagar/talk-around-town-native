@@ -20,6 +20,7 @@ import {AuthContext, AuthContextType} from '../context/AuthContext';
 import {NavigationProp} from '@react-navigation/native';
 import messaging from '@react-native-firebase/messaging';
 import LinearGradient from 'react-native-linear-gradient';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 // Removed incorrect import of userInfo from 'os'
 
 interface LoginScreenProps {
@@ -339,10 +340,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
     return null;
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
     <LinearGradient
       colors={['#3B82F6', '#8B5CF6']}
-      style={styles.gradientBackground}
+      style={[styles.gradientBackground, {paddingTop: insets.top + 5}]}
       useAngle={true}
       angle={135}>
       <View>

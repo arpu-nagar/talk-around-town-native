@@ -864,6 +864,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import PersonalizationSurvey from '../components/PersonalizationSurvey';
 import {fetchWithAuth} from '../api/auth';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import {LayoutDashboard} from 'lucide-react-native';
 
 const API_ENDPOINTS = {
   BASE_URL: 'http://68.183.102.75:1337',
@@ -1468,49 +1469,57 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
                 <Text style={styles.sectionTitle}>Admin Settings</Text>
 
                 <View style={styles.menuItem}>
-                  <Icon
-                    name="verified-user"
-                    size={24}
-                    color="#4CAF50"
-                    style={styles.menuIcon}
-                  />
-                  <Text style={styles.menuText}>Admin Status</Text>
+                  <View style={styles.itemLeft}>
+                    <Icon
+                      name="verified-user"
+                      size={22}
+                      color="#4CAF50"
+                      style={styles.menuIcon}
+                    />
+                    <Text style={styles.menuText}>Admin Status</Text>
+                  </View>
+
                   <View style={styles.adminBadge}>
-                    <Icon name="verified-user" size={16} color="#fff" />
+                    <Icon name="verified-user" size={14} color="#fff" />
                     <Text style={styles.adminBadgeText}>Admin</Text>
                   </View>
                 </View>
 
-                <TouchableOpacity
+                <Pressable
                   style={styles.menuItem}
                   onPress={() => navigation.navigate('Dashboard')}>
-                  <Icon
-                    name="dashboard"
-                    size={24}
-                    color="#4A90E2"
-                    style={styles.menuIcon}
-                  />
-                  <Text style={styles.menuText}>Admin Dashboard</Text>
-                  <Icon name="chevron-right" size={20} color="#1F2937" />
-                </TouchableOpacity>
+                  <View style={styles.itemLeft}>
+                    <LayoutDashboard
+                      size={22}
+                      color="#6366F1"
+                      style={styles.menuIcon}
+                    />
+                    <Text style={styles.menuText}>Admin Dashboard</Text>
+                  </View>
 
-                <TouchableOpacity
-                  style={styles.menuItem}
+                  <Icon name="chevron-right" size={20} color="#1F2937" />
+                </Pressable>
+
+                <Pressable
+                  style={styles.dangerMenuItem}
                   onPress={() =>
                     Alert.alert(
                       'Feature Coming Soon',
                       'User management will be available in the next update.',
                     )
                   }>
-                  <Icon
-                    name="people"
-                    size={24}
-                    color="#4A90E2"
-                    style={styles.menuIcon}
-                  />
-                  <Text style={styles.menuText}>Manage Users</Text>
+                  <View style={styles.itemLeft}>
+                    <Icon
+                      name="people-outline"
+                      size={22}
+                      color="#6366F1"
+                      style={styles.menuIcon}
+                    />
+                    <Text style={styles.menuText}>Manage Users</Text>
+                  </View>
+
                   <Icon name="chevron-right" size={20} color="#1F2937" />
-                </TouchableOpacity>
+                </Pressable>
               </View>
             )}
 
