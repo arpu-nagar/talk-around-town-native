@@ -91,7 +91,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       <LinearGradient
         colors={['#3B82F6', '#8B5CF6']}
@@ -99,15 +99,25 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}>
-            <MaterialIcons name="arrow-back" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-
           <View style={styles.contentContainer}>
             <View style={styles.formContainer}>
-              <Text style={styles.title}>Reset Password</Text>
+              <View style={styles.headerRow}>
+                {/* Left: Back */}
+                <TouchableOpacity
+                  style={styles.backHitbox}
+                  onPress={() => navigation.goBack()}>
+                  <MaterialIcons name="arrow-back" size={20} color="#000" />
+                </TouchableOpacity>
+
+                {/* Middle: Title */}
+                <View style={styles.headerCenter}>
+                  <Text style={styles.title}>Reset Password</Text>
+                </View>
+
+                {/* Right: Spacer to keep title centered */}
+                <View style={styles.backHitbox} />
+              </View>
+
               <Text style={styles.subtitle}>
                 Enter your email address and we'll send you instructions to
                 reset your password.
@@ -158,7 +168,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
           </View>
         </KeyboardAvoidingView>
       </LinearGradient>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -172,12 +182,32 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
-  backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 20,
-    left: 20,
-    zIndex: 1,
-    padding: 8,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4, // tighter gap before subtitle
+  },
+
+  // Matches both left and right columns so the center truly centers
+  backHitbox: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  // optional: tighten title's bottom spacing since subtitle sits right under it
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333333',
+    textAlign: 'center',
+    marginBottom: 4,
   },
   contentContainer: {
     flex: 1,
@@ -196,13 +226,6 @@ const styles = StyleSheet.create({
     shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.1,
     shadowRadius: 12,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333333',
-    textAlign: 'center',
-    marginBottom: 12,
   },
   subtitle: {
     fontSize: 14,

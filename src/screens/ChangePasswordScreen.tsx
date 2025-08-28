@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, {useState, useContext} from 'react';
 import {
   View,
   Text,
@@ -14,9 +14,9 @@ import {
   ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
-import { NavigationProp } from '@react-navigation/native';
-import { AuthContext, AuthContextType } from '../context/AuthContext';
+import {MaterialIcons} from '@expo/vector-icons';
+import {NavigationProp} from '@react-navigation/native';
+import {AuthContext, AuthContextType} from '../context/AuthContext';
 
 const API_URL = 'http://68.183.102.75:1337/api';
 
@@ -24,19 +24,21 @@ interface ChangePasswordScreenProps {
   navigation: NavigationProp<any>;
 }
 
-const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navigation }) => {
-  const { userInfo } = useContext<AuthContextType>(AuthContext);
+const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
+  navigation,
+}) => {
+  const {userInfo} = useContext<AuthContextType>(AuthContext);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmError, setConfirmError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const validatePassword = (password: string): boolean => {
     return password.length >= 8;
   };
-  
+
   const handlePasswordChange = (text: string) => {
     setNewPassword(text);
     if (text && !validatePassword(text)) {
@@ -44,7 +46,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navigation 
     } else {
       setPasswordError('');
     }
-    
+
     // Check if confirm password matches
     if (confirmPassword && text !== confirmPassword) {
       setConfirmError('Passwords do not match');
@@ -52,7 +54,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navigation 
       setConfirmError('');
     }
   };
-  
+
   const handleConfirmChange = (text: string) => {
     setConfirmPassword(text);
     if (text && text !== newPassword) {
@@ -61,96 +63,90 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navigation 
       setConfirmError('');
     }
   };
-  
+
   const handleSubmit = async () => {
     // Validate inputs
     if (!currentPassword) {
       Alert.alert('Error', 'Please enter your current password');
       return;
     }
-    
+
     if (!newPassword) {
       Alert.alert('Error', 'Please enter a new password');
       return;
     }
-    
+
     if (!validatePassword(newPassword)) {
       setPasswordError('Password must be at least 8 characters long');
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       setConfirmError('Passwords do not match');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const response = await fetch(`${API_URL}/auth/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userInfo.access_token}`,
+          Authorization: `Bearer ${userInfo.access_token}`,
         },
         body: JSON.stringify({
           currentPassword,
           newPassword,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to change password');
       }
-      
-      Alert.alert(
-        'Success',
-        'Your password has been changed successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+
+      Alert.alert('Success', 'Your password has been changed successfully.', [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
     } catch (error: any) {
       Alert.alert(
         'Error',
-        error.message || 'Failed to change password. Please try again.'
+        error.message || 'Failed to change password. Please try again.',
       );
     } finally {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       <LinearGradient
         colors={['#3B82F6', '#8B5CF6']}
-        style={styles.gradientBackground}
-      >
+        style={styles.gradientBackground}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
+          style={styles.keyboardView}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
+            onPress={() => navigation.goBack()}>
             <MaterialIcons name="arrow-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
-          
+
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <View style={styles.contentContainer}>
               <View style={styles.formContainer}>
                 <Text style={styles.title}>Change Password</Text>
                 <Text style={styles.subtitle}>
-                  Enter your current password and a new password to update your account.
+                  Enter your current password and a new password to update your
+                  account.
                 </Text>
-                
+
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Current Password</Text>
                   <TextInput
@@ -165,7 +161,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navigation 
                     editable={!isSubmitting}
                   />
                 </View>
-                
+
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>New Password</Text>
                   <TextInput
@@ -183,7 +179,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navigation 
                     <Text style={styles.errorText}>{passwordError}</Text>
                   ) : null}
                 </View>
-                
+
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Confirm New Password</Text>
                   <TextInput
@@ -201,26 +197,31 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navigation 
                     <Text style={styles.errorText}>{confirmError}</Text>
                   ) : null}
                 </View>
-                
+
                 <TouchableOpacity
-                  style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+                  style={[isSubmitting && styles.submitButtonDisabled]}
                   onPress={handleSubmit}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.submitButtonText}>Update Password</Text>
-                  )}
+                  disabled={isSubmitting}>
+                  <LinearGradient
+                    colors={['#3B82F6', '#7C4DFF']}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 1}}
+                    style={styles.ctaGradient}>
+                    {isSubmitting ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.submitButtonText}>
+                        Update Password
+                      </Text>
+                    )}
+                  </LinearGradient>
                 </TouchableOpacity>
-                
-                
               </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </LinearGradient>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -260,7 +261,7 @@ const styles = StyleSheet.create({
     padding: 24,
     elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.1,
     shadowRadius: 12,
   },
@@ -319,6 +320,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  // CTA
+  ctaGradient: {
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaText: {color: '#fff', fontWeight: '700', fontSize: 15},
   forgotPasswordButton: {
     alignItems: 'center',
     marginTop: 16,
