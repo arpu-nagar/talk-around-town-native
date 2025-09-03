@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect, useContext, useMemo} from 'react';
+import React, {useState, useRef, useEffect, useContext} from 'react';
 import {
   View,
   Text,
@@ -10,21 +10,14 @@ import {
   Platform,
   Dimensions,
   Alert,
-  SafeAreaView,
   StatusBar,
-  Animated,
-  Easing,
-  ColorValue,
-  Pressable,
 } from 'react-native';
 import {AuthContext} from '../context/AuthContext';
 import {Ionicons} from '@expo/vector-icons';
 import {MaterialIcons} from '@expo/vector-icons';
-// import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import {Icon} from 'react-native-elements';
 import MapView, {Circle, Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import Spinner from 'react-native-loading-spinner-overlay';
-import {Picker} from '@react-native-picker/picker';
 import LinearGradient from 'react-native-linear-gradient';
 import {
   GooglePlacesAutocomplete,
@@ -32,6 +25,8 @@ import {
 } from 'react-native-google-places-autocomplete';
 import ProgressBar from '../components/Register/ProgressBar';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import NumberOfChildren from '../components/Register/NumberOfChildren';
+import ChildrenDetailsStep from '../components/Register/ChildrenDetailsStep';
 
 const {width, height} = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -42,12 +37,7 @@ interface ChildDetail {
   nickname: string;
   birthMonth: string;
   birthYear: string;
-}
-
-interface ChildrenDetailsStepProps {
-  numberOfChildren: number;
-  childrenDetails: ChildDetail[];
-  onChildDetailChange: (index: number, field: string, value: string) => void;
+  id: string;
 }
 
 const HomeAddress: React.FC<{onLocationChange: (location: any) => void}> = ({
@@ -90,7 +80,12 @@ const HomeAddress: React.FC<{onLocationChange: (location: any) => void}> = ({
         {/* Using GooglePlacesAutocomplete directly like in the example */}
         <GooglePlacesAutocomplete
           ref={placesRef}
-          placeholder="Search for your home location"
+          placeholder="Search for your home"
+          textInputProps={{
+            placeholderTextColor: '#1F2937',
+            autoCorrect: false,
+            returnKeyType: 'search',
+          }}
           fetchDetails={true}
           styles={{
             container: {
@@ -102,8 +97,7 @@ const HomeAddress: React.FC<{onLocationChange: (location: any) => void}> = ({
               borderWidth: 0,
             },
             textInput: {
-              height: 45,
-              color: '#333',
+              color: '#1F2937',
               fontSize: 16,
               borderRadius: 12,
               paddingHorizontal: 15,
@@ -112,10 +106,14 @@ const HomeAddress: React.FC<{onLocationChange: (location: any) => void}> = ({
               backgroundColor: 'white',
               borderRadius: 12,
               marginTop: 5,
+              color: 'black',
             },
             row: {
               padding: 13,
               height: 50,
+            },
+            description: {
+              color: '#1F2937',
             },
           }}
           onPress={(data, details = null) => {
@@ -325,60 +323,7 @@ const RegisterScreen = ({navigation}: any) => {
     }
   };
 
-  const [childrenDetails, setChildrenDetails] = useState<
-    Array<{
-      nickname: string;
-      birthYear: string;
-      birthMonth: string;
-    }>
-  >([]);
-
-  // Update the number of children handler
-  const handleNumberOfChildrenChange = (text: string) => {
-    const numericValue = text.replace(/[^0-9]/g, '');
-    setNumberOfChildren(numericValue);
-
-    const num = parseInt(numericValue) || 0;
-    setChildrenDetails(prevDetails => {
-      if (num > prevDetails.length) {
-        return [
-          ...prevDetails,
-          ...Array(num - prevDetails.length).fill({
-            nickname: '',
-            birthYear: new Date().getFullYear().toString(),
-            birthMonth: '01',
-          }),
-        ];
-      } else {
-        return prevDetails.slice(0, num);
-      }
-    });
-  };
-
-  // Add handler for child details changes
-  const handleChildDetailChange = (
-    index: number,
-    field: string,
-    value: string,
-  ) => {
-    setChildrenDetails(prevDetails => {
-      const newDetails = [...prevDetails];
-      newDetails[index] = {
-        ...newDetails[index],
-        [field]: value,
-      };
-      return newDetails;
-    });
-  };
-
-  const handleChildAgeChange = (index: number, age: string) => {
-    const numericAge = age.replace(/[^0-9]/g, '');
-    setChildrenAges(prevAges => {
-      const newAges = [...prevAges];
-      newAges[index] = numericAge;
-      return newAges;
-    });
-  };
+  const [childrenDetails, setChildrenDetails] = useState<ChildDetail[]>([]);
 
   const RenderBackButton = () => {
     return (
@@ -389,143 +334,6 @@ const RegisterScreen = ({navigation}: any) => {
         hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
         <MaterialIcons name="arrow-back" size={20} color="#333333" />
       </TouchableOpacity>
-    );
-  };
-
-  const ChildrenDetailsStep: React.FC<ChildrenDetailsStepProps> = ({
-    numberOfChildren,
-    childrenDetails,
-    onChildDetailChange,
-  }) => {
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({length: 18}, (_, i) =>
-      (currentYear - i).toString(),
-    );
-    const months = [
-      {value: '01', label: 'January'},
-      {value: '02', label: 'February'},
-      {value: '03', label: 'March'},
-      {value: '04', label: 'April'},
-      {value: '05', label: 'May'},
-      {value: '06', label: 'June'},
-      {value: '07', label: 'July'},
-      {value: '08', label: 'August'},
-      {value: '09', label: 'September'},
-      {value: '10', label: 'October'},
-      {value: '11', label: 'November'},
-      {value: '12', label: 'December'},
-    ];
-
-    return (
-      <View style={styles.stepContainer}>
-        <View style={styles.stepHeader}>
-          <RenderBackButton />
-
-          <View style={{flexDirection: 'column', alignItems: 'center'}}>
-            <Text style={styles.stepTitle}>Children Details</Text>
-            <Text style={styles.stepDescription}>
-              Enter details for each child
-            </Text>
-          </View>
-
-          <View style={{width: 22}} />
-        </View>
-
-        <ScrollView
-          style={styles.childrenScrollView}
-          contentContainerStyle={styles.scrollContentContainer}
-          showsVerticalScrollIndicator={true}>
-          {childrenDetails.map((child, index) => (
-            <View key={index} style={styles.childDetailCard}>
-              <Text style={styles.childNumber}>Child {index + 1}</Text>
-
-              <TextInput
-                style={styles.childInput}
-                placeholder="Nickname (optional)"
-                value={child.nickname}
-                onChangeText={value =>
-                  onChildDetailChange(index, 'nickname', value)
-                }
-                placeholderTextColor="#A0A0A0"
-              />
-
-              <View style={styles.dateSelectionContainer}>
-                <View style={styles.pickerWrapper}>
-                  <Text style={styles.pickerLabel}>Birth Month</Text>
-                  {Platform.OS === 'ios' ? (
-                    <View style={styles.pickerContainer}>
-                      <Picker
-                        selectedValue={child.birthMonth}
-                        onValueChange={value =>
-                          onChildDetailChange(index, 'birthMonth', value)
-                        }
-                        style={[styles.picker, styles.iosPicker]}
-                        itemStyle={styles.iosPickerItem}>
-                        {months.map(month => (
-                          <Picker.Item
-                            key={month.value}
-                            label={month.label}
-                            value={month.value}
-                          />
-                        ))}
-                      </Picker>
-                    </View>
-                  ) : (
-                    <View style={styles.pickerContainer}>
-                      <Picker
-                        selectedValue={child.birthMonth}
-                        onValueChange={value =>
-                          onChildDetailChange(index, 'birthMonth', value)
-                        }
-                        style={styles.picker}>
-                        {months.map(month => (
-                          <Picker.Item
-                            key={month.value}
-                            label={month.label}
-                            value={month.value}
-                          />
-                        ))}
-                      </Picker>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.pickerWrapper}>
-                  <Text style={styles.pickerLabel}>Birth Year</Text>
-                  {Platform.OS === 'ios' ? (
-                    <View style={styles.pickerContainer}>
-                      <Picker
-                        selectedValue={child.birthYear}
-                        onValueChange={value =>
-                          onChildDetailChange(index, 'birthYear', value)
-                        }
-                        style={[styles.picker, styles.iosPicker]}
-                        itemStyle={styles.iosPickerItem}>
-                        {years.map(year => (
-                          <Picker.Item key={year} label={year} value={year} />
-                        ))}
-                      </Picker>
-                    </View>
-                  ) : (
-                    <View style={styles.pickerContainer}>
-                      <Picker
-                        selectedValue={child.birthYear}
-                        onValueChange={value =>
-                          onChildDetailChange(index, 'birthYear', value)
-                        }
-                        style={styles.picker}>
-                        {years.map(year => (
-                          <Picker.Item key={year} label={year} value={year} />
-                        ))}
-                      </Picker>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
     );
   };
 
@@ -654,39 +462,19 @@ const RegisterScreen = ({navigation}: any) => {
         );
       case 4:
         return (
-          <View style={styles.stepContainer}>
-            <View style={styles.stepHeader}>
-              <RenderBackButton />
-
-              <View style={{flexDirection: 'column', alignItems: 'center'}}>
-                <Text style={styles.stepTitle}>Family Information</Text>
-                <Text style={styles.stepDescription}>
-                  How many children do you have?
-                </Text>
-              </View>
-
-              <View style={{width: 22}} />
-            </View>
-
-            <View style={styles.childrenCountContainer}>
-              <TextInput
-                style={[commonInputStyle, styles.childrenCountInput]}
-                placeholder="Number of children"
-                value={numberOfChildren}
-                onChangeText={handleNumberOfChildrenChange}
-                keyboardType="numeric"
-                maxLength={2}
-                placeholderTextColor="#A0A0A0"
-              />
-            </View>
-          </View>
+          <NumberOfChildren
+            numberOfChildren={numberOfChildren}
+            setNumberOfChildren={setNumberOfChildren}
+            setChildrenDetails={setChildrenDetails}
+            RenderBackButton={RenderBackButton}
+          />
         );
       case 5:
         return (
           <ChildrenDetailsStep
-            numberOfChildren={parseInt(numberOfChildren, 10)}
             childrenDetails={childrenDetails}
-            onChildDetailChange={handleChildDetailChange}
+            setChildrenDetails={setChildrenDetails}
+            RenderBackButton={RenderBackButton}
           />
         );
       case 6:
@@ -879,6 +667,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
     fontSize: 16,
+    color: '#1F2937',
   },
   dateSelectionContainer: {
     flexDirection: 'row',
@@ -1026,6 +815,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
+    color: '#1F2937',
   },
   nextButton: {
     paddingVertical: 16,
