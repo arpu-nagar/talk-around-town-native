@@ -170,7 +170,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     value={resetToken}
                     onChangeText={setResetToken}
                     placeholder="Enter reset code from email"
-                    placeholderTextColor="#A0A0A0"
+                    placeholderTextColor="#1F2937"
                     autoCapitalize="none"
                   />
                   <TouchableOpacity
@@ -190,7 +190,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     onChangeText={setNewPassword}
                     secureTextEntry={!showPassword}
                     placeholder="Enter new password"
-                    placeholderTextColor="#A0A0A0"
+                    placeholderTextColor="#1F2937"
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
@@ -198,7 +198,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     <Ionicons
                       name={showPassword ? 'eye-off' : 'eye'}
                       size={24}
-                      color="#666666"
+                      color="#1F2937"
                     />
                   </TouchableOpacity>
                 </View>
@@ -212,7 +212,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showPassword}
                   placeholder="Confirm new password"
-                  placeholderTextColor="#A0A0A0"
+                  placeholderTextColor="#1F2937"
                 />
               </View>
 
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   pasteButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#3B82F6',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   submitButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#3B82F6',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -376,9 +376,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButtonText: {
-    color: '#4A90E2',
+    color: '#8B5CF6',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
 

@@ -77,7 +77,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
 
       Alert.alert(
         'Success',
-        'Password reset instructions have been sent to your email.',
+        'Password reset instructions have been sent to your email. Please check your SPAM if you can not find the email.',
         [
           {
             text: 'Enter Reset Code',
