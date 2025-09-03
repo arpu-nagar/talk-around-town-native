@@ -2151,7 +2151,8 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
               top: 0,
               left: 0,
               right: 0,
-              paddingTop: insets.top + 15,
+              paddingTop:
+                Platform.OS === 'ios' ? insets.top + 5 : insets.top + 15,
               height: 230,
             },
           ]}>
