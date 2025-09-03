@@ -56,6 +56,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
 
     setIsSubmitting(true);
     try {
+      console.log("inside try")
       const response = await fetch(`${API_URL}/auth/request-reset`, {
         method: 'POST',
         headers: {
@@ -64,7 +65,11 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         body: JSON.stringify({email}),
       });
 
+      console.log("response", response)
+
       const data = await response.json();
+
+      console.log('data', data);
 
       if (!response.ok) {
         throw new Error(data.message || 'Failed to send reset email');
@@ -85,6 +90,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         'Error',
         error.message || 'Failed to send reset email. Please try again.',
       );
+      setIsSubmitting(false);
     } finally {
       setIsSubmitting(false);
     }

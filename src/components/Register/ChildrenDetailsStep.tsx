@@ -224,6 +224,7 @@ const styles = StyleSheet.create({
   picker: {
     height: 50,
     backgroundColor: '#FFFFFF',
+    color: '#1F2937',
   },
 
   stepContainer: {
@@ -252,6 +253,7 @@ const styles = StyleSheet.create({
   },
   iosPicker: {
     height: 200, // Increased height for iOS
+    color: '#1F2937',
   },
   iosPickerItem: {
     fontSize: 16,
