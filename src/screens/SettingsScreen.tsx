@@ -25,6 +25,7 @@ import PersonalizationSurvey from '../components/PersonalizationSurvey';
 import {fetchWithAuth} from '../api/auth';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {LayoutDashboard} from 'lucide-react-native';
+import LikedTipsModal from '../components/SettingsScreen/LikedTipsModal';
 
 const API_ENDPOINTS = {
   BASE_URL: 'http://68.183.102.75:1337',
@@ -508,71 +509,71 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
   // );
 
   // Liked Tips Modal
-  const LikedTipsModal = () => (
-    <Modal
-      visible={showLikedTipsModal}
-      animationType="slide"
-      presentationStyle="pageSheet">
-      <SafeAreaView style={{flex: 1, backgroundColor: '#f0f2f5'}}>
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingHorizontal: 20,
-            paddingVertical: 16,
-            backgroundColor: 'white',
-            borderBottomWidth: 1,
-            borderBottomColor: '#E8E8E8',
-          }}>
-          <Text style={{fontSize: 20, fontWeight: 'bold', color: '#333'}}>
-            Liked Tips ({likedTips.length})
-          </Text>
-          <TouchableOpacity
-            style={{padding: 8}}
-            onPress={() => setShowLikedTipsModal(false)}>
-            <Icon name="close" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-        <ScrollView
-          style={{flex: 1, paddingHorizontal: 16, paddingTop: 16}}
-          showsVerticalScrollIndicator={false}>
-          {likedTips.length > 0 ? (
-            likedTips.map((tip, index) => renderTipItem(tip, index))
-          ) : (
-            <View
-              style={{
-                alignItems: 'center',
-                paddingVertical: 40,
-                paddingHorizontal: 20,
-              }}>
-              <Icon name="favorite-border" size={64} color="#ccc" />
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: '600',
-                  color: '#999',
-                  marginTop: 16,
-                }}>
-                No Liked Tips
-              </Text>
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: '#ccc',
-                  textAlign: 'center',
-                  marginTop: 8,
-                  lineHeight: 20,
-                }}>
-                Like tips by tapping the heart icon on any tip
-              </Text>
-            </View>
-          )}
-          <View style={{height: 20}} />
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
-  );
+  // const LikedTipsModal = () => (
+  //   <Modal
+  //     visible={showLikedTipsModal}
+  //     animationType="slide"
+  //     presentationStyle="pageSheet">
+  //     <SafeAreaView style={{flex: 1, backgroundColor: '#f0f2f5'}}>
+  //       <View
+  //         style={{
+  //           flexDirection: 'row',
+  //           justifyContent: 'space-between',
+  //           alignItems: 'center',
+  //           paddingHorizontal: 20,
+  //           paddingVertical: 16,
+  //           backgroundColor: 'white',
+  //           borderBottomWidth: 1,
+  //           borderBottomColor: '#E8E8E8',
+  //         }}>
+  //         <Text style={{fontSize: 20, fontWeight: 'bold', color: '#333'}}>
+  //           Liked Tips ({likedTips.length})
+  //         </Text>
+  //         <TouchableOpacity
+  //           style={{padding: 8}}
+  //           onPress={() => setShowLikedTipsModal(false)}>
+  //           <Icon name="close" size={24} color="#666" />
+  //         </TouchableOpacity>
+  //       </View>
+  //       <ScrollView
+  //         style={{flex: 1, paddingHorizontal: 16, paddingTop: 16}}
+  //         showsVerticalScrollIndicator={false}>
+  //         {likedTips.length > 0 ? (
+  //           likedTips.map((tip, index) => renderTipItem(tip, index))
+  //         ) : (
+  //           <View
+  //             style={{
+  //               alignItems: 'center',
+  //               paddingVertical: 40,
+  //               paddingHorizontal: 20,
+  //             }}>
+  //             <Icon name="favorite-border" size={64} color="#ccc" />
+  //             <Text
+  //               style={{
+  //                 fontSize: 18,
+  //                 fontWeight: '600',
+  //                 color: '#999',
+  //                 marginTop: 16,
+  //               }}>
+  //               No Liked Tips
+  //             </Text>
+  //             <Text
+  //               style={{
+  //                 fontSize: 14,
+  //                 color: '#ccc',
+  //                 textAlign: 'center',
+  //                 marginTop: 8,
+  //                 lineHeight: 20,
+  //               }}>
+  //               Like tips by tapping the heart icon on any tip
+  //             </Text>
+  //           </View>
+  //         )}
+  //         <View style={{height: 20}} />
+  //       </ScrollView>
+  //     </SafeAreaView>
+  //   </Modal>
+  // );
 
   useEffect(() => {
     if (!userInfo || !userInfo.access_token) {
@@ -910,7 +911,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
         )}
 
         {/* <SavedTipsModal /> */}
-        <LikedTipsModal />
+        <LikedTipsModal
+          likedTips={likedTips}
+          setShowLikedTipsModal={setShowLikedTipsModal}
+          showLikedTipsModal={showLikedTipsModal}
+        />
 
         {/* Personalization Survey Modal */}
         <PersonalizationSurvey
