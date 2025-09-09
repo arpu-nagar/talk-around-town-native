@@ -476,6 +476,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   const [isAssistantLoading, setIsAssistantLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [tips, setTips] = useState<Tip[]>([]);
+  const tipLookupRef = useRef<Map<string | number, Tip>>(new Map());
 
   // Preferences
   const [contentPreferences, setContentPreferences] = useState<string[]>([
@@ -519,21 +520,19 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     let completed = false;
     try {
       const res = await fetchWithAuth(
-        `http://68.183.102.75:1337/api/personalization/survey/me`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo?.access_token}`,
-          },
-        },
-      );
-      if (res.ok) {
-        const json = await res.json();
-        // shape depends on your API; adapt as needed:
-        // expect json.data?.completed === true/false
-        completed = !!json?.data?.completed;
-      }
+           `${API_ENDPOINTS.BASE_URL}/api/personalization/survey-status`,
+           {
+             method: 'GET',
+             headers: {
+               'Content-Type': 'application/json',
+               Authorization: `Bearer ${userInfo?.access_token}`,
+             },
+           },
+         );
+         if (res.ok) {
+           const json = await res.json();
+           completed = !!json?.hasCompletedSurvey;   // ← backend returns this
+         }
     } catch (_) {
       // ignore network errors; we’ll fall back to local flags
     }
@@ -919,22 +918,29 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   const flushAIReactionsQueue = useCallback(async () => {
     const queue = (await loadFromCache('aiReactionsQueue')) ?? [];
     if (!queue.length || !userInfo?.access_token) return;
+      const remaining = [];
+  for (const item of queue) {
     try {
-      const res = await fetchWithAuth(
-        `${API_ENDPOINTS.BASE_URL}/api/personalization/ai-interactions/batch`,
+      await fetchWithAuth(
+        `${API_ENDPOINTS.BASE_URL}/api/personalization/interactions`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${userInfo.access_token}`,
           },
-          body: JSON.stringify({interactions: queue}),
-        },
+          body: JSON.stringify({
+            tipId: item.tipId || `generated_${item.key}`, // fallback
+            interactionType: item.reaction,
+            tipPayload: item.tipPayload,
+          }),
+        }
       );
-      if (res.ok) await saveToCache('aiReactionsQueue', []);
-    } catch (e) {
-      console.warn('AI reaction sync error:', e);
+    } catch {
+      remaining.push(item); // keep for next time
     }
+  }
+  await saveToCache('aiReactionsQueue', remaining);
   }, [userInfo, loadFromCache, saveToCache]);
 
   useEffect(() => {
@@ -944,6 +950,30 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     flushAIReactionsQueue();
     return () => unsub();
   }, [flushAIReactionsQueue]);
+
+  const enqueueAIReaction = useCallback(
+    async (tipId: string | number, interactionType: 'like'|'dislike'|'save'|'unsave') => {
+      // Pull full tip for generated items so the backend can upsert+embed
+      const tip = tipLookupRef.current.get(tipId);
+      const item: any = {
+        tipId,
+        interactionType,
+      };
+      if (tip?.isGenerated || (typeof tipId === 'string' && String(tipId).startsWith('generated_'))) {
+        item.title = tip?.title;
+        item.body = tip?.body;
+        item.details = tip?.details;
+        item.categories = tip?.categories;
+      }
+      const queue = (await loadFromCache('aiReactionsQueue')) ?? [];
+      queue.push(item);
+      await saveToCache('aiReactionsQueue', queue);
+      // Try to flush immediately if online
+      flushAIReactionsQueue();
+    },
+    [flushAIReactionsQueue, loadFromCache, saveToCache]
+  );
+  
 
   // Helpers
   const calculateAge = (dob: string) => {
@@ -1495,7 +1525,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
           ? `${query}${ambiguityHint} (Focus on: ${childContext}).`
           : `${query}${ambiguityHint}. Child context: ${childContext}.`;
 
-      const endpoint = '/api/personalization/enhanced-tips';
+        const endpoint = '/api/personalization/enhanced-tips-survey';
 
       const enhancedContext = {
         prompt,
@@ -1532,6 +1562,10 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
       if (Array.isArray(data.tips) && data.tips.length) {
         setTips(data.tips);
+        tipLookupRef.current = new Map(
+          (data.tips || []).map((t: Tip) => [t.id, t])
+        );
+        
         Keyboard.dismiss();
         setShowTipsModal(true);
 
@@ -2096,6 +2130,10 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
         currentSound={currentSound}
         showTipsModal={showTipsModal}
         setShowTipsModal={setShowTipsModal}
+        onReact={(tipId: string | number, type: 'like'|'dislike'|'save'|'unsave') => {
+          enqueueAIReaction(tipId, type);
+        }
+      }
       />
 
       <MapViewModal
