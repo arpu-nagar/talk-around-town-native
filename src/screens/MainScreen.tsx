@@ -365,6 +365,7 @@ const MapViewModal = React.memo(function MapViewModal({
                 style={styles.dropdown}
                 placeholderStyle={styles.dropdownPlaceholder}
                 selectedTextStyle={styles.dropdownSelected}
+                itemTextStyle={{ color: '#1F2937' }}
                 data={[
                   {label: 'Grocery Store', value: 'Grocery Store'},
                   {label: 'Bus/Walk', value: 'Bus/Walk'},
@@ -2401,7 +2402,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   dropdownPlaceholder: {fontSize: 16, color: '#666'},
-  dropdownSelected: {fontSize: 16, color: '#333', fontWeight: '500'},
+  dropdownSelected: {fontSize: 16, color: '#1F2937', fontWeight: '500'},
   input: {
     height: 50,
     borderColor: '#E8E8E8',
