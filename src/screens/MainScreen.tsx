@@ -365,7 +365,7 @@ const MapViewModal = React.memo(function MapViewModal({
                 style={styles.dropdown}
                 placeholderStyle={styles.dropdownPlaceholder}
                 selectedTextStyle={styles.dropdownSelected}
-                itemTextStyle={{ color: '#1F2937' }}
+                itemTextStyle={{color: '#1F2937'}}
                 data={[
                   {label: 'Grocery Store', value: 'Grocery Store'},
                   {label: 'Bus/Walk', value: 'Bus/Walk'},
@@ -434,6 +434,92 @@ const isDue = (lastPromptTs?: number | null, days = REMIND_EVERY_DAYS) => {
   return Date.now() - Number(lastPromptTs) >= days * MS_PER_DAY;
 };
 
+// ===== Age-based child resolution helpers =====
+type AgeParseResult = {
+  months: number; // age in months
+  granularity: 'years' | 'months';
+};
+
+const MONTHS_PER_YEAR = 12;
+
+function ageInMonthsFromDob(dobIso: string, at: Date = new Date()): number {
+  const dob = new Date(dobIso);
+  let months =
+    (at.getFullYear() - dob.getFullYear()) * MONTHS_PER_YEAR +
+    (at.getMonth() - dob.getMonth());
+  if (at.getDate() < dob.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+// Parse "1 year old", "1y", "18 months", "1y 6m", "1 and 6 months", "1-yr-old", etc.
+function parseAgeMention(queryRaw: string): AgeParseResult | null {
+  const q = queryRaw.toLowerCase();
+
+  const yearsAndMonths = q.match(
+    /\b(\d+)\s*(?:years?|yrs?|y\/?o?)\s*(?:and|&|\+)\s*(\d+)\s*(?:months?|mos?|m\/?o?)\b/,
+  );
+  if (yearsAndMonths) {
+    const y = Number(yearsAndMonths[1]);
+    const m = Number(yearsAndMonths[2]);
+    return {months: y * MONTHS_PER_YEAR + m, granularity: 'months'};
+  }
+
+  const ySpaceM = q.match(
+    /\b(\d+)\s*(?:y|yrs?|years?)\s+(\d+)\s*(?:m|mos?|months?)\b/,
+  );
+  if (ySpaceM) {
+    const y = Number(ySpaceM[1]);
+    const m = Number(ySpaceM[2]);
+    return {months: y * MONTHS_PER_YEAR + m, granularity: 'months'};
+  }
+
+  const monthsOnly = q.match(/\b(\d+)\s*(?:months?|mos?|m\/?o?)\b/);
+  if (monthsOnly) {
+    const m = Number(monthsOnly[1]);
+    return {months: m, granularity: 'months'};
+  }
+
+  // "1yo", "1 yo", "1 yr old", "1-year-old"
+  const yearsOnly = q.match(
+    /\b(\d+)\s*(?:years?|yrs?|y\/?o?|yo)\b|\b(\d+)\s*-\s*year\s*-\s*old\b|\b(\d+)\s*year\s*old\b/,
+  );
+  if (yearsOnly) {
+    const y = Number(yearsOnly[1] || yearsOnly[2] || yearsOnly[3]);
+    return {months: y * MONTHS_PER_YEAR, granularity: 'years'};
+  }
+
+  return null;
+}
+
+function matchChildrenByAge(
+  expressedAgeMonths: number,
+  children: {nickname: string; date_of_birth: string}[],
+  granularity: 'years' | 'months',
+): {exact: Child[]; close: Child[]} {
+  // Tighter if user gave months; looser if they gave only years
+  const tolerance = granularity === 'months' ? 2 : 6; // months
+  const exactCutoff = Math.max(0, Math.floor(tolerance / 2));
+
+  const exact: Child[] = [];
+  const close: Child[] = [];
+
+  for (const c of children) {
+    const childAgeMonths = ageInMonthsFromDob(c.date_of_birth);
+    const diff = Math.abs(childAgeMonths - expressedAgeMonths);
+    if (diff <= exactCutoff) exact.push(c as Child);
+    else if (diff <= tolerance) close.push(c as Child);
+  }
+  return {exact, close};
+}
+
+function monthsToPretty(m: number): string {
+  const y = Math.floor(m / 12);
+  const mm = m % 12;
+  if (y > 0 && mm > 0) return `${y}y ${mm}m`;
+  if (y > 0) return `${y}y`;
+  return `${mm}m`;
+}
+
 const MainScreen: React.FC<Props> = ({navigation}) => {
   const insets = useSafeAreaInsets();
 
@@ -479,6 +565,20 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   const [tips, setTips] = useState<Tip[]>([]);
   const tipLookupRef = useRef<Map<string | number, Tip>>(new Map());
 
+  // Disambiguation state
+  const [showChildDisambiguationModal, setShowChildDisambiguationModal] =
+    useState(false);
+  const [childDisambigReason, setChildDisambigReason] = useState<
+    'multiple' | 'none'
+  >('none');
+  const [childCandidates, setChildCandidates] = useState<Child[]>([]);
+  const [expressedAgeMonths, setExpressedAgeMonths] = useState<number | null>(
+    null,
+  );
+
+  // When user selects a child in the modal, we’ll stash it here to resume the flow
+  const selectedChildRef = useRef<Child | null>(null);
+
   // Preferences
   const [contentPreferences, setContentPreferences] = useState<string[]>([
     'language',
@@ -521,19 +621,19 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     let completed = false;
     try {
       const res = await fetchWithAuth(
-           `${API_ENDPOINTS.BASE_URL}/api/personalization/survey-status`,
-           {
-             method: 'GET',
-             headers: {
-               'Content-Type': 'application/json',
-               Authorization: `Bearer ${userInfo?.access_token}`,
-             },
-           },
-         );
-         if (res.ok) {
-           const json = await res.json();
-           completed = !!json?.hasCompletedSurvey;   // ← backend returns this
-         }
+        `${API_ENDPOINTS.BASE_URL}/api/personalization/survey-status`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo?.access_token}`,
+          },
+        },
+      );
+      if (res.ok) {
+        const json = await res.json();
+        completed = !!json?.hasCompletedSurvey; // ← backend returns this
+      }
     } catch (_) {
       // ignore network errors; we’ll fall back to local flags
     }
@@ -919,29 +1019,29 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   const flushAIReactionsQueue = useCallback(async () => {
     const queue = (await loadFromCache('aiReactionsQueue')) ?? [];
     if (!queue.length || !userInfo?.access_token) return;
-      const remaining = [];
-  for (const item of queue) {
-    try {
-      await fetchWithAuth(
-        `${API_ENDPOINTS.BASE_URL}/api/personalization/interactions`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo.access_token}`,
+    const remaining = [];
+    for (const item of queue) {
+      try {
+        await fetchWithAuth(
+          `${API_ENDPOINTS.BASE_URL}/api/personalization/interactions`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${userInfo.access_token}`,
+            },
+            body: JSON.stringify({
+              tipId: item.tipId || `generated_${item.key}`, // fallback
+              interactionType: item.reaction,
+              tipPayload: item.tipPayload,
+            }),
           },
-          body: JSON.stringify({
-            tipId: item.tipId || `generated_${item.key}`, // fallback
-            interactionType: item.reaction,
-            tipPayload: item.tipPayload,
-          }),
-        }
-      );
-    } catch {
-      remaining.push(item); // keep for next time
+        );
+      } catch {
+        remaining.push(item); // keep for next time
+      }
     }
-  }
-  await saveToCache('aiReactionsQueue', remaining);
+    await saveToCache('aiReactionsQueue', remaining);
   }, [userInfo, loadFromCache, saveToCache]);
 
   useEffect(() => {
@@ -953,14 +1053,20 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   }, [flushAIReactionsQueue]);
 
   const enqueueAIReaction = useCallback(
-    async (tipId: string | number, interactionType: 'like'|'dislike'|'save'|'unsave') => {
+    async (
+      tipId: string | number,
+      interactionType: 'like' | 'dislike' | 'save' | 'unsave',
+    ) => {
       // Pull full tip for generated items so the backend can upsert+embed
       const tip = tipLookupRef.current.get(tipId);
       const item: any = {
         tipId,
         interactionType,
       };
-      if (tip?.isGenerated || (typeof tipId === 'string' && String(tipId).startsWith('generated_'))) {
+      if (
+        tip?.isGenerated ||
+        (typeof tipId === 'string' && String(tipId).startsWith('generated_'))
+      ) {
         item.title = tip?.title;
         item.body = tip?.body;
         item.details = tip?.details;
@@ -972,9 +1078,8 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       // Try to flush immediately if online
       flushAIReactionsQueue();
     },
-    [flushAIReactionsQueue, loadFromCache, saveToCache]
+    [flushAIReactionsQueue, loadFromCache, saveToCache],
   );
-  
 
   // Helpers
   const calculateAge = (dob: string) => {
@@ -1496,7 +1601,82 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
     try {
       // Your existing child detection code
-      const mentioned = resolveChildrenFromQuery(query, userChildren);
+      // const mentioned = resolveChildrenFromQuery(query, userChildren);
+      // const childLines = (mentioned.length ? mentioned : userChildren).map(
+      //   c => {
+      //     const nm = c.nickname || 'Child';
+      //     return `${nm}: ${ageYMMM(c.date_of_birth)} old`;
+      //   },
+      // );
+
+      // const childContext = childLines.join(', ');
+      // const childrenContext = (mentioned.length ? mentioned : userChildren).map(
+      //   c => ({
+      //     name: c.nickname,
+      //     dob: c.date_of_birth,
+      //     agePretty: ageYMMM(c.date_of_birth),
+      //     ageYears: calculateAge(c.date_of_birth),
+      //   }),
+      // );
+
+      // const explicitlyChildish =
+      //   CHILD_TERMS.some(w => normalize(query).includes(w)) ||
+      //   AGE_PATTERNS.some(re => re.test(query));
+
+      // const ambiguityHint = explicitlyChildish
+      //   ? ''
+      //   : ' Please tailor this for kids.';
+      // const prompt =
+      //   mentioned.length > 0
+      //     ? `${query}${ambiguityHint} (Focus on: ${childContext}).`
+      //     : `${query}${ambiguityHint}. Child context: ${childContext}.`;
+      // 1) Try your existing name-based resolution
+      let mentioned = resolveChildrenFromQuery(query, userChildren);
+
+      // 2) If no names found, try age-based resolution
+      if (mentioned.length === 0) {
+        const ageMention = parseAgeMention(query);
+        if (ageMention) {
+          const {months, granularity} = ageMention;
+          const {exact, close} = matchChildrenByAge(
+            months,
+            userChildren,
+            granularity,
+          );
+
+          if (exact.length === 1) {
+            mentioned = exact;
+          } else if (exact.length > 1) {
+            // ambiguous: multiple very close matches (e.g., twins)
+            setChildDisambigReason('multiple');
+            setChildCandidates(exact);
+            setExpressedAgeMonths(months);
+            setShowChildDisambiguationModal(true);
+            setIsAssistantLoading(false);
+            return;
+          } else if (close.length === 1) {
+            // single “close” match — accept
+            mentioned = close;
+          } else if (close.length > 1) {
+            // ambiguous among close matches
+            setChildDisambigReason('multiple');
+            setChildCandidates(close);
+            setExpressedAgeMonths(months);
+            setShowChildDisambiguationModal(true);
+            setIsAssistantLoading(false);
+            return;
+          } else {
+            // no one near that age — ask who they mean
+            setChildDisambigReason('none');
+            setChildCandidates(userChildren); // let them pick from existing kids
+            setExpressedAgeMonths(months);
+            setShowChildDisambiguationModal(true);
+            setIsAssistantLoading(false);
+            return;
+          }
+        }
+      }
+
       const childLines = (mentioned.length ? mentioned : userChildren).map(
         c => {
           const nm = c.nickname || 'Child';
@@ -1526,7 +1706,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
           ? `${query}${ambiguityHint} (Focus on: ${childContext}).`
           : `${query}${ambiguityHint}. Child context: ${childContext}.`;
 
-        const endpoint = '/api/personalization/enhanced-tips-survey';
+      const endpoint = '/api/personalization/enhanced-tips-survey';
 
       const enhancedContext = {
         prompt,
@@ -1564,9 +1744,9 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       if (Array.isArray(data.tips) && data.tips.length) {
         setTips(data.tips);
         tipLookupRef.current = new Map(
-          (data.tips || []).map((t: Tip) => [t.id, t])
+          (data.tips || []).map((t: Tip) => [t.id, t]),
         );
-        
+
         Keyboard.dismiss();
         setShowTipsModal(true);
 
@@ -1839,6 +2019,8 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     return <View style={{flex: 1, backgroundColor: 'white'}} />; // or skeleton
   }
 
+  console.log('childCandidates', childCandidates);
+
   // Main render (no ScrollView)
   return (
     <>
@@ -1848,7 +2030,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
         backgroundColor="transparent"
       />
       <Notification />
-
       <PersonalizationSurvey
         visible={showSurvey}
         onClose={() => setShowSurvey(false)} // close from back button/etc
@@ -1856,7 +2037,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
         onSkip={handleSurveySkip}
         isOptional
       />
-
       <View style={{flex: 1}}>
         {/* Blue header only behind ENACT */}
         <LinearGradient
@@ -2120,7 +2300,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
           </View>
         )}
       </View>
-
       {/* Modals */}
       <TipsModal
         tips={tips}
@@ -2131,12 +2310,13 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
         currentSound={currentSound}
         showTipsModal={showTipsModal}
         setShowTipsModal={setShowTipsModal}
-        onReact={(tipId: string | number, type: 'like'|'dislike'|'save'|'unsave') => {
+        onReact={(
+          tipId: string | number,
+          type: 'like' | 'dislike' | 'save' | 'unsave',
+        ) => {
           enqueueAIReaction(tipId, type);
-        }
-      }
+        }}
       />
-
       <MapViewModal
         visible={showMapView}
         onClose={() => setShowMapView(false)}
@@ -2146,6 +2326,200 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
         token={userInfo?.access_token || ''}
         onRefresh={refreshDataInBackground}
       />
+
+      <Modal
+        visible={showChildDisambiguationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowChildDisambiguationModal(false)}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.35)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}>
+          <View
+            style={{
+              width: '100%',
+              borderRadius: 16,
+              backgroundColor: '#fff',
+              paddingHorizontal: 16,
+            }}>
+            <Text style={{fontSize: 16, fontWeight: '600', marginBottom: 8}}>
+              {childDisambigReason === 'multiple'
+                ? 'Which child do you mean?'
+                : `Who is your ${monthsToPretty(expressedAgeMonths || 0)} old?`}
+            </Text>
+
+            {childDisambigReason === 'none' && (
+              <Text
+                style={{color: '#6b7280', fontWeight: '600', marginBottom: 16}}>
+                Couldn't find your child around that age. Select a child.
+              </Text>
+            )}
+
+            {childDisambigReason === 'multiple' && (
+              <Text style={{color: '#1F2937', marginBottom: 12}}>
+                We found multiple children around that age. Pick the right one:
+              </Text>
+            )}
+
+            {/* Candidate list */}
+            <View style={{marginVertical: 4, flexDirection: 'column', gap: 8}}>
+              {childCandidates.map((c, idx) => (
+                <TouchableOpacity
+                  key={`${c.id || c.nickname}-${idx}`}
+                  onPress={() => {
+                    selectedChildRef.current = c;
+                    // Close modal and immediately continue with this selection
+                    setShowChildDisambiguationModal(false);
+
+                    // Re-run the request with this single 'mentioned' child:
+                    (async () => {
+                      try {
+                        setIsAssistantLoading(true);
+
+                        const nm = c.nickname || 'Child';
+                        const childLines = [
+                          `${nm}: ${ageYMMM(c.date_of_birth)} old`,
+                        ];
+                        const childContext = childLines.join(', ');
+                        const childrenContext = [
+                          {
+                            name: c.nickname,
+                            dob: c.date_of_birth,
+                            agePretty: ageYMMM(c.date_of_birth),
+                            ageYears: calculateAge(c.date_of_birth),
+                          },
+                        ];
+
+                        const q = searchText.trim();
+                        const explicitlyChildish =
+                          CHILD_TERMS.some(w => normalize(q).includes(w)) ||
+                          AGE_PATTERNS.some(re => re.test(q));
+                        const ambiguityHint = explicitlyChildish
+                          ? ''
+                          : ' Please tailor this for kids.';
+                        const prompt = `${q}${ambiguityHint} (Focus on: ${childContext}).`;
+
+                        const endpoint =
+                          '/api/personalization/enhanced-tips-survey';
+                        const enhancedContext = {
+                          prompt,
+                          contentPreferences,
+                          generateMode: 'hybrid',
+                          strictParenting: true,
+                          childrenContext,
+                        };
+
+                        const res = await fetchWithAuth(
+                          // use your current base (you had a local IP hardcoded in your sample)
+                          `http://192.168.0.160:1337${endpoint}`,
+                          {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              Authorization: `Bearer ${userInfo.access_token}`,
+                            },
+                            body: JSON.stringify(enhancedContext),
+                          },
+                        );
+
+                        const data = await res.json();
+                        if (!res.ok) {
+                          if (
+                            data.error === 'safety' ||
+                            data.error === 'non_parenting'
+                          ) {
+                            Alert.alert(
+                              'We only provide parenting tips',
+                              data.message ||
+                                'Please ask a parenting-related question.',
+                            );
+                            return;
+                          }
+                          throw new Error(
+                            `Server responded with ${res.status}: ${
+                              data.message || 'Unknown error'
+                            }`,
+                          );
+                        }
+
+                        if (Array.isArray(data.tips) && data.tips.length) {
+                          setTips(data.tips);
+                          tipLookupRef.current = new Map(
+                            (data.tips || []).map((t: Tip) => [t.id, t]),
+                          );
+                          Keyboard.dismiss();
+                          setShowTipsModal(true);
+                          if (data.hasSurveyPersonalization) {
+                            console.log(
+                              '🎯 Tips personalized using survey data!',
+                            );
+                          }
+                        } else {
+                          Alert.alert(
+                            'No Tips Found',
+                            'Try asking about bedtime routines, tantrums, potty training, language activities, or milestones.',
+                          );
+                        }
+                      } catch (e) {
+                        console.error('tips error', e);
+                        Alert.alert(
+                          'Error',
+                          'Failed to get advice. Please check your connection and try again.',
+                        );
+                      } finally {
+                        setIsAssistantLoading(false);
+                      }
+                    })();
+                  }}
+                  style={{
+                    paddingVertical: 12,
+                    paddingHorizontal: 12,
+                    borderWidth: 1,
+                    borderColor: '#e5e7eb',
+                    borderRadius: 10,
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}>
+                  <Text style={{color: '#1F2937', fontSize: 15}}>
+                    {c.nickname || 'Child'} — {ageYMMM(c.date_of_birth)}
+                  </Text>
+                  <MaterialIcons
+                    name="chevron-right"
+                    size={20}
+                    color="#9AA0A6"
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+              }}>
+              <TouchableOpacity
+                onPress={() => setShowChildDisambiguationModal(false)}
+                style={{paddingVertical: 16}}>
+                <Text
+                  style={{
+                    color: '#FFF',
+                    backgroundColor: '#FF3B30',
+                    padding: 12,
+                    borderRadius: 8,
+                  }}>
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
