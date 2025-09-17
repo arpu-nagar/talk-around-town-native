@@ -1,4 +1,10 @@
-import React, {useContext, useState, useEffect, useCallback} from 'react';
+import React, {
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  Children,
+} from 'react';
 import {
   View,
   Text,
@@ -62,6 +68,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
   const [audioLoadingIndex, setAudioLoadingIndex] = useState<number | null>(
     null,
   );
+  const [childDataShouldLoadFromCache, setChildDataShouldLoadFromCache] =
+    useState<boolean>(true);
   const audioCache = React.useRef<Map<number, string>>(new Map());
   const currentSound = React.useRef<any>(null);
   const nav = useNavigation();
@@ -80,6 +88,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
     isLoading: childrenLoading,
     error: childrenError,
     isFromCache,
+    loadFromCache: childrenLoadFromCache,
     fetchChildren,
     updateChildren,
     clearError,
@@ -217,12 +226,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
   };
 
   // Fixed: Create a wrapper function that matches the expected ChildInfoModal signature
-  const handleChildrenUpdateWrapper = () => {
-    // This function will be called by ChildInfoModal after it updates children
-    // The actual update logic is handled by the ChildInfoModal itself
-    // We just need to refresh our data after the modal closes
-    fetchChildren(true); // Force refresh after update
-  };
+  // const handleChildrenUpdateWrapper = () => {
+  //   // This function will be called by ChildInfoModal after it updates children
+  //   // The actual update logic is handled by the ChildInfoModal itself
+  //   // We just need to refresh our data after the modal closes
+  //   fetchChildren(true); // Force refresh after update
+  // };
 
   // Render children info menu item with status indicators
   const renderChildrenInfoMenuItem = () => {
@@ -231,7 +240,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
       if (childrenError && !isFromCache) return 'error';
       if (isFromCache) return 'cached';
       if (needsProfileCompletion) return 'warning';
-      return 'child-care-outline';
+      return 'child-care';
     };
 
     const getStatusColor = () => {
@@ -877,14 +886,15 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
           </ScrollView>
         </View>
 
-        {/* Fixed: Use wrapper function that matches ChildInfoModal interface */}
         {userInfo?.access_token ? (
           <ChildInfoModal
+            onChildrenUpdate={() => fetchChildren(true)}
             visible={showChildInfo}
             onClose={handleChildInfoClose}
             children={childrenInfo}
+            setChildDataShouldLoadFromCache={setChildDataShouldLoadFromCache}
+            childDataShouldLoadFromCache={childDataShouldLoadFromCache}
             userToken={userInfo.access_token}
-            onChildrenUpdate={handleChildrenUpdateWrapper}
           />
         ) : (
           showChildInfo && (

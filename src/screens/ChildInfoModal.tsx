@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   Modal,
   View,
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {Picker} from '@react-native-picker/picker';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 interface Child {
   id: number;
@@ -30,6 +31,8 @@ interface ChildInfoModalProps {
   onClose: () => void;
   children: Child[];
   userToken: string;
+  setChildDataShouldLoadFromCache: (_arg0: boolean) => void;
+  childDataShouldLoadFromCache: boolean;
   onChildrenUpdate: () => void;
 }
 
@@ -38,6 +41,8 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
   onClose,
   children,
   userToken,
+  setChildDataShouldLoadFromCache,
+  childDataShouldLoadFromCache,
   onChildrenUpdate,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -186,6 +191,7 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
           birthMonth: '01',
         });
         onChildrenUpdate();
+        setChildDataShouldLoadFromCache(!childDataShouldLoadFromCache);
       } catch (e) {
         throw new Error('Invalid server response');
       }
@@ -194,6 +200,52 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
       Alert.alert(
         'Error',
         error instanceof Error ? error.message : 'Failed to add child',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async (child: Child) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Log the request data for debugging
+      console.log('Deleting child with data:', child);
+
+      const response = await fetch(
+        `http://68.183.102.75:1337/endpoint/children/${child.id}`,
+        {
+          method: 'DELETE', // Changed from PUT to POST based on your router setup
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userToken}`,
+          },
+        },
+      );
+
+      // Log the response for debugging
+      console.log('Server response:', await response.clone().text());
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || 'Failed to update child information',
+        );
+      }
+
+      const data = await response.json();
+
+      Alert.alert('Success', "Child's data deleted successfully");
+      onChildrenUpdate();
+    } catch (error) {
+      console.error('Update child error:', error);
+      Alert.alert(
+        'Error',
+        error instanceof Error
+          ? error.message
+          : "Failed to delete child's data",
       );
     } finally {
       setIsLoading(false);
@@ -373,11 +425,38 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
                           )}
                         </Text>
                       </View>
-                      <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => handleEdit(child)}>
-                        <Text style={styles.editButtonText}>Edit</Text>
-                      </TouchableOpacity>
+
+                      <View style={{flexDirection: 'row', gap: 6}}>
+                        <TouchableOpacity onPress={() => handleEdit(child)}>
+                          <Icon name="pencil" size={22} color="#007AFF" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={() => {
+                            console.log('inside press,', child);
+                            Alert.alert(
+                              'Delete Child',
+                              `Are you sure you want to delete ${
+                                child.nickname || 'this child'
+                              }?`,
+                              [
+                                {text: 'Cancel', style: 'cancel'},
+                                {
+                                  text: 'Yes',
+                                  style: 'destructive',
+                                  onPress: () => handleDelete(child), // ← pass child directly
+                                },
+                              ],
+                              {cancelable: true},
+                            );
+                          }}>
+                          <Icon
+                            name="delete-outline"
+                            size={22}
+                            color="#FF3B30"
+                          />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   ))
                 ) : (
@@ -452,17 +531,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 4,
-    color: "#1F2937"
+    color: '#1F2937',
   },
   childDate: {
     fontSize: 14,
     color: '#1F2937',
   },
   editButton: {
-    backgroundColor: '#3B82F6',
-    padding: 8,
-    borderRadius: 6,
-    marginLeft: 10,
+    // backgroundColor: '#3B82F6',
+    // padding: 8,
+    // borderRadius: 6,
+    // marginLeft: 10,
   },
   editButtonText: {
     color: 'white',
@@ -506,7 +585,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
     fontSize: 16,
-    color: "#1F2937"
+    color: '#1F2937',
   },
   dateContainer: {
     flexDirection: 'row',
@@ -522,7 +601,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: 8,
-    color: "#1F2937"
+    color: '#1F2937',
   },
   buttonRow: {
     flexDirection: 'row',

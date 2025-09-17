@@ -58,14 +58,14 @@
 //   if (!childrenInfo || childrenInfo.length === 0) {
 //     return null;
 //   }
-  
+
 //   const normalizedQuery = query.toLowerCase();
-  
+
 //   for (const child of childrenInfo) {
 //     const nickname = child.nickname?.toLowerCase();
-    
+
 //     if (!nickname) continue;
-    
+
 //     const patterns = [
 //       ` for ${nickname}`,
 //       ` ${nickname}'s `,
@@ -74,12 +74,12 @@
 //       ` ${nickname}$`,
 //       `^${nickname}$`
 //     ];
-    
+
 //     if (patterns.some(pattern => normalizedQuery.match(pattern))) {
 //       return child;
 //     }
 //   }
-  
+
 //   return null;
 // };
 
@@ -220,14 +220,14 @@
 //     try {
 //       setIsPreferencesLoading(true);
 //       console.log('Fetching content preferences...');
-      
+
 //       const savedPreferences = await AsyncStorage.getItem('contentPreferences');
 //       console.log('Raw stored preferences:', savedPreferences);
-      
+
 //       if (savedPreferences) {
 //         const parsedPreferences = JSON.parse(savedPreferences);
 //         console.log('Parsed preferences:', parsedPreferences);
-        
+
 //         // Ensure we have a valid array
 //         if (Array.isArray(parsedPreferences) && parsedPreferences.length > 0) {
 //           setContentPreferences(parsedPreferences);
@@ -458,31 +458,31 @@
 //       );
 //       return;
 //     }
-  
+
 //     // Enhanced child name detection with better error handling
 //     const detectedChild = detectChildNameInQuery(query, childrenInfo);
-    
+
 //     if (detectedChild) {
 //       const age = calculateAge(detectedChild.date_of_birth);
 //       query = `${query} for ${age} year old`;
 //       console.log(`Detected child: ${detectedChild.nickname}, age: ${age}`);
 //     }
-  
+
 //     setIsLoading(true);
 //     try {
 //       console.log('Sending request with preferences:', contentPreferences);
-      
+
 //       const response = await fetch(`${API_BASE_URL}/generate-tips`, {
 //         method: 'POST',
 //         headers: {
 //           'Content-Type': 'application/json',
 //         },
-//         body: JSON.stringify({ 
-//           prompt: query, 
+//         body: JSON.stringify({
+//           prompt: query,
 //           contentPreferences: contentPreferences
 //         }),
 //       });
-  
+
 //       if (!response.ok) {
 //         const errorData = await response.json();
 //         if (errorData.error === 'age_required') {
@@ -492,7 +492,7 @@
 //         }
 //         throw new Error(`Server responded with ${response.status}`);
 //       }
-  
+
 //       const data = await response.json();
 //       setTips(data.tips);
 //       setHasSearched(true);
@@ -509,11 +509,11 @@
 
 //   const renderCategoryBadges = (categories: string[] = []) => {
 //     if (!categories || categories.length === 0) return null;
-    
+
 //     return (
 //       <View style={styles.categoryContainer}>
 //         {categories.map((category, index) => (
-//           <View 
+//           <View
 //             key={index}
 //             style={[
 //               styles.categoryBadge,
@@ -532,13 +532,13 @@
 //   // Enhanced ContentPreferenceBanner with better debugging and logic
 //   const ContentPreferenceBanner = () => {
 //     if (isPreferencesLoading) return null;
-    
+
 //     console.log('Rendering ContentPreferenceBanner with preferences:', contentPreferences);
-    
+
 //     let focusText = '';
 //     let backgroundColor = '#E3F2FD'; // Default blue
 //     let textColor = '#0D47A1';
-    
+
 //     // Enhanced logic to handle all cases
 //     if (contentPreferences.includes('language') && contentPreferences.includes('science')) {
 //       focusText = 'Language & Science';
@@ -562,16 +562,16 @@
 //       backgroundColor = '#F3E5F5'; // Light purple
 //       textColor = '#7B1FA2';
 //     }
-    
+
 //     console.log('Computed focus text:', focusText);
-    
+
 //     return (
 //       <View style={[styles.preferenceBanner, { backgroundColor }]}>
 //         <Icon name="school" size={16} color={textColor} style={styles.bannerIcon} />
 //         <Text style={[styles.bannerText, { color: textColor }]}>
 //           Focus: <Text style={styles.bannerHighlight}>{focusText}</Text>
 //         </Text>
-//         <TouchableOpacity 
+//         <TouchableOpacity
 //           onPress={() => {
 //             console.log('Navigating to ContentSelection...');
 //             // @ts-ignore
@@ -588,7 +588,7 @@
 //   // Enhanced children info status banner
 //   // const ChildrenInfoBanner = () => {
 //   //   if (childrenLoading || !childrenError) return null;
-    
+
 //   //   return (
 //   //     <View style={styles.childrenErrorBanner}>
 //   //       <Icon name="warning" size={16} color="#FF9500" style={styles.bannerIcon} />
@@ -667,10 +667,10 @@
 //           <Text style={styles.headerTitle}>Parenting Assistant</Text>
 //           <Text style={styles.headerSubtitle}>Ask any parenting question</Text>
 //         </View>
-        
+
 //         <ContentPreferenceBanner />
 //         {/* <ChildrenInfoBanner /> */}
-        
+
 //         <View style={styles.searchContainer}>
 //           <View style={styles.searchWrapper}>
 //             <Icon
@@ -1130,7 +1130,7 @@ import React, {
   useRef,
   useContext,
 } from 'react';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {
   View,
   Text,
@@ -1152,8 +1152,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Loader from './Loader';
 import ChildInfoModal from '../ChildInfoModal';
 import {AuthContext, AuthContextType} from '../../context/AuthContext';
-import { useChildrenInfo } from '../../hooks/useChildrenInfo';
-import { Child } from '../../services/ChildrenInfoService';
+import {useChildrenInfo} from '../../hooks/useChildrenInfo';
+import {Child} from '../../services/ChildrenInfoService';
 
 interface Tip {
   id: number;
@@ -1183,28 +1183,28 @@ const detectChildNameInQuery = (query: string, childrenInfo: Child[]) => {
   if (!childrenInfo || childrenInfo.length === 0) {
     return null;
   }
-  
+
   const normalizedQuery = query.toLowerCase();
-  
+
   for (const child of childrenInfo) {
     const nickname = child.nickname?.toLowerCase();
-    
+
     if (!nickname) continue;
-    
+
     const patterns = [
       ` for ${nickname}`,
       ` ${nickname}'s `,
       ` ${nickname} `,
       `^${nickname} `,
       ` ${nickname}$`,
-      `^${nickname}$`
+      `^${nickname}$`,
     ];
-    
+
     if (patterns.some(pattern => normalizedQuery.match(pattern))) {
       return child;
     }
   }
-  
+
   return null;
 };
 
@@ -1277,7 +1277,9 @@ const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
 // Enhanced Skeleton Loading Component
 const TipSkeleton = () => (
   <View style={styles.tipItem}>
-    <LinearGradient colors={['#f0f0f0', '#e0e0e0']} style={styles.skeletonGradient}>
+    <LinearGradient
+      colors={['#f0f0f0', '#e0e0e0']}
+      style={styles.skeletonGradient}>
       <View style={styles.skeletonHeader}>
         <View style={styles.skeletonIcon} />
         <View style={styles.skeletonTitle} />
@@ -1297,16 +1299,26 @@ const MainScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeAudioIndex, setActiveAudioIndex] = useState<number | null>(null);
-  const [audioLoadingIndex, setAudioLoadingIndex] = useState<number | null>(null);
+  const [audioLoadingIndex, setAudioLoadingIndex] = useState<number | null>(
+    null,
+  );
   const [showAgePrompt, setShowAgePrompt] = useState(false);
   const [lastQuery, setLastQuery] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
   const [showChildInfo, setShowChildInfo] = useState(false);
-  const [contentPreferences, setContentPreferences] = useState<string[]>(['language']);
+  const [contentPreferences, setContentPreferences] = useState<string[]>([
+    'language',
+  ]);
   const [isPreferencesLoading, setIsPreferencesLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [childDataShouldLoadFromCache, setChildDataShouldLoadFromCache] =
+    useState<boolean>(true);
 
-  const { userInfo, isLoading: contextLoading, isAdmin } = useContext<AuthContextType>(AuthContext);
+  const {
+    userInfo,
+    isLoading: contextLoading,
+    isAdmin,
+  } = useContext<AuthContextType>(AuthContext);
   const currentSound = useRef<Sound | null>(null);
   const lastResult = useRef<string>('');
   const audioCache = useRef<Map<number, string>>(new Map());
@@ -1341,7 +1353,7 @@ const MainScreen: React.FC = () => {
         return prev + Math.random() * 15;
       });
     }, 200);
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -1350,14 +1362,14 @@ const MainScreen: React.FC = () => {
     try {
       setIsPreferencesLoading(true);
       console.log('Fetching content preferences...');
-      
+
       const savedPreferences = await AsyncStorage.getItem('contentPreferences');
       console.log('Raw stored preferences:', savedPreferences);
-      
+
       if (savedPreferences) {
         const parsedPreferences = JSON.parse(savedPreferences);
         console.log('Parsed preferences:', parsedPreferences);
-        
+
         if (Array.isArray(parsedPreferences) && parsedPreferences.length > 0) {
           setContentPreferences(parsedPreferences);
         } else {
@@ -1377,7 +1389,7 @@ const MainScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       fetchContentPreferences();
-    }, [fetchContentPreferences])
+    }, [fetchContentPreferences]),
   );
 
   useEffect(() => {
@@ -1420,7 +1432,8 @@ const MainScreen: React.FC = () => {
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
           {
             title: 'Microphone Permission',
-            message: 'This app needs access to your microphone for voice recognition.',
+            message:
+              'This app needs access to your microphone for voice recognition.',
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
             buttonPositive: 'OK',
@@ -1535,13 +1548,13 @@ const MainScreen: React.FC = () => {
         throw new Error('Failed to generate audio');
       }
 
-      const { audioUrl } = await response.json();
+      const {audioUrl} = await response.json();
       const fullAudioUrl = `${API_BASE_URL}/audio${audioUrl}`;
-      
+
       // Update tip and cache
       tip.audioUrl = audioUrl;
       audioCache.current.set(tip.id, fullAudioUrl);
-      
+
       return fullAudioUrl;
     } catch (error) {
       console.error('Audio generation error:', error);
@@ -1599,7 +1612,9 @@ const MainScreen: React.FC = () => {
           />
           <Text style={styles.tipTitle}>{tip.title}</Text>
         </View>
-        {tip.categories && tip.categories.length > 0 && renderCategoryBadges(tip.categories)}
+        {tip.categories &&
+          tip.categories.length > 0 &&
+          renderCategoryBadges(tip.categories)}
         <Text style={styles.tipBody}>{tip.body}</Text>
         <Text style={styles.tipDetails}>{tip.details}</Text>
         <View style={styles.buttonContainerGap}>
@@ -1622,17 +1637,19 @@ const MainScreen: React.FC = () => {
             ) : (
               <Icon
                 name={
-                  activeAudioIndex === index && isPlaying ? 'stop' : 'play-arrow'
+                  activeAudioIndex === index && isPlaying
+                    ? 'stop'
+                    : 'play-arrow'
                 }
                 size={20}
                 color="white"
               />
             )}
             <Text style={styles.buttonText}>
-              {audioLoadingIndex === index 
-                ? 'Loading...' 
-                : activeAudioIndex === index && isPlaying 
-                ? 'Stop' 
+              {audioLoadingIndex === index
+                ? 'Loading...'
+                : activeAudioIndex === index && isPlaying
+                ? 'Stop'
                 : 'Play Audio'}
             </Text>
           </TouchableOpacity>
@@ -1647,7 +1664,7 @@ const MainScreen: React.FC = () => {
     if (!query.trim()) {
       Alert.alert(
         'Input Required',
-        'Please enter a question or use voice input'
+        'Please enter a question or use voice input',
       );
       return;
     }
@@ -1656,13 +1673,13 @@ const MainScreen: React.FC = () => {
     setIsLoading(true);
     setTips([]); // Clear previous tips
     setHasSearched(false);
-    
+
     // Start progress simulation
     const cleanupProgress = simulateProgress();
 
     // Enhanced child name detection
     const detectedChild = detectChildNameInQuery(query, childrenInfo);
-    
+
     if (detectedChild) {
       const age = calculateAge(detectedChild.date_of_birth);
       query = `${query} for ${age} year old`;
@@ -1674,9 +1691,9 @@ const MainScreen: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          prompt: query, 
-          contentPreferences: contentPreferences
+        body: JSON.stringify({
+          prompt: query,
+          contentPreferences: contentPreferences,
         }),
       });
 
@@ -1691,19 +1708,18 @@ const MainScreen: React.FC = () => {
       }
 
       const data = await response.json();
-      
+
       // Complete the progress
       setLoadingProgress(100);
-      
+
       // Show tips immediately (without audio)
       setTips(data.tips);
       setHasSearched(true);
-      
     } catch (error) {
       console.error('Error fetching tips:', error);
       Alert.alert(
         'Error',
-        'Failed to fetch tips. Please check your connection and try again.'
+        'Failed to fetch tips. Please check your connection and try again.',
       );
     } finally {
       cleanupProgress();
@@ -1714,17 +1730,19 @@ const MainScreen: React.FC = () => {
 
   const renderCategoryBadges = (categories: string[] = []) => {
     if (!categories || categories.length === 0) return null;
-    
+
     return (
       <View style={styles.categoryContainer}>
         {categories.map((category, index) => (
-          <View 
+          <View
             key={index}
             style={[
               styles.categoryBadge,
-              { backgroundColor: category === 'language' ? '#007AFF' : '#34C759' }
-            ]}
-          >
+              {
+                backgroundColor:
+                  category === 'language' ? '#007AFF' : '#34C759',
+              },
+            ]}>
             <Text style={styles.categoryText}>
               {category === 'language' ? 'Language' : 'Science'}
             </Text>
@@ -1736,20 +1754,29 @@ const MainScreen: React.FC = () => {
 
   const ContentPreferenceBanner = () => {
     if (isPreferencesLoading) return null;
-    
+
     let focusText = '';
     let backgroundColor = '#E3F2FD';
     let textColor = '#0D47A1';
-    
-    if (contentPreferences.includes('language') && contentPreferences.includes('science')) {
+
+    if (
+      contentPreferences.includes('language') &&
+      contentPreferences.includes('science')
+    ) {
       focusText = 'Language & Science';
       backgroundColor = '#E8F5E8';
       textColor = '#2E7D2E';
-    } else if (contentPreferences.includes('language') && !contentPreferences.includes('science')) {
+    } else if (
+      contentPreferences.includes('language') &&
+      !contentPreferences.includes('science')
+    ) {
       focusText = 'Language Development';
       backgroundColor = '#E3F2FD';
       textColor = '#0D47A1';
-    } else if (contentPreferences.includes('science') && !contentPreferences.includes('language')) {
+    } else if (
+      contentPreferences.includes('science') &&
+      !contentPreferences.includes('language')
+    ) {
       focusText = 'Science Skills';
       backgroundColor = '#E8F5E8';
       textColor = '#2E7D2E';
@@ -1758,21 +1785,27 @@ const MainScreen: React.FC = () => {
       backgroundColor = '#F3E5F5';
       textColor = '#7B1FA2';
     }
-    
+
     return (
-      <View style={[styles.preferenceBanner, { backgroundColor }]}>
-        <Icon name="school" size={16} color={textColor} style={styles.bannerIcon} />
-        <Text style={[styles.bannerText, { color: textColor }]}>
+      <View style={[styles.preferenceBanner, {backgroundColor}]}>
+        <Icon
+          name="school"
+          size={16}
+          color={textColor}
+          style={styles.bannerIcon}
+        />
+        <Text style={[styles.bannerText, {color: textColor}]}>
           Focus: <Text style={styles.bannerHighlight}>{focusText}</Text>
         </Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => {
             // @ts-ignore
             navigation.navigate('ContentSelection');
           }}
-          style={[styles.bannerButton, { backgroundColor: `${textColor}20` }]}
-        >
-          <Text style={[styles.bannerButtonText, { color: textColor }]}>Change</Text>
+          style={[styles.bannerButton, {backgroundColor: `${textColor}20`}]}>
+          <Text style={[styles.bannerButtonText, {color: textColor}]}>
+            Change
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -1839,9 +1872,9 @@ const MainScreen: React.FC = () => {
           <Text style={styles.headerTitle}>Parenting Assistant</Text>
           <Text style={styles.headerSubtitle}>Ask any parenting question</Text>
         </View>
-        
+
         <ContentPreferenceBanner />
-        
+
         <View style={styles.searchContainer}>
           <View style={styles.searchWrapper}>
             <Icon
@@ -1862,26 +1895,21 @@ const MainScreen: React.FC = () => {
               editable={!isListening}
               placeholderTextColor="#999"
             />
-            
+
             {/* Clear button - only show when there's text */}
-    {searchText.length > 0 && !isListening && (
-      <TouchableOpacity
-        style={styles.clearButton}
-        onPress={() => {
-          setSearchText('');
-          // Optional: clear previous tips when clearing search
-          // setTips([]);
-          // setHasSearched(false);
-        }}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Icon
-          name="clear"
-          size={20}
-          color="#999"
-        />
-      </TouchableOpacity>
-    )}
+            {searchText.length > 0 && !isListening && (
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={() => {
+                  setSearchText('');
+                  // Optional: clear previous tips when clearing search
+                  // setTips([]);
+                  // setHasSearched(false);
+                }}
+                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+                <Icon name="clear" size={20} color="#999" />
+              </TouchableOpacity>
+            )}
           </View>
           <TouchableOpacity
             style={[styles.micButton, isListening && styles.micButtonActive]}
@@ -1920,25 +1948,26 @@ const MainScreen: React.FC = () => {
           )}
         </View>
         {hasSearched && (
-  <View style={styles.newQuestionContainer}>
-    <TouchableOpacity
-      style={styles.newQuestionButton}
-      onPress={() => {
-        setSearchText('');
-        setTips([]);
-        setHasSearched(false);
-      }}
-    >
-      <Icon name="add" size={20} color="white" />
-      <Text style={styles.newQuestionText}>Ask New Question</Text>
-    </TouchableOpacity>
-  </View>
-)}
+          <View style={styles.newQuestionContainer}>
+            <TouchableOpacity
+              style={styles.newQuestionButton}
+              onPress={() => {
+                setSearchText('');
+                setTips([]);
+                setHasSearched(false);
+              }}>
+              <Icon name="add" size={20} color="white" />
+              <Text style={styles.newQuestionText}>Ask New Question</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Progress bar for better loading feedback */}
         {isLoading && (
           <View style={styles.progressContainer}>
-            <View style={[styles.progressBar, { width: `${loadingProgress}%` }]} />
+            <View
+              style={[styles.progressBar, {width: `${loadingProgress}%`}]}
+            />
           </View>
         )}
 
@@ -1946,7 +1975,6 @@ const MainScreen: React.FC = () => {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
-          
           {/* Show skeleton loading while fetching */}
           {isLoading && tips.length === 0 && (
             <>
@@ -1955,7 +1983,7 @@ const MainScreen: React.FC = () => {
               <TipSkeleton />
             </>
           )}
-          
+
           {tips.map((tip, index) => renderTipItem(tip, index))}
           <View style={{height: 90}} />
         </ScrollView>
@@ -1966,11 +1994,18 @@ const MainScreen: React.FC = () => {
 
         {userInfo?.access_token ? (
           <ChildInfoModal
+            // visible={showChildInfo}
+            // onClose={handleChildInfoClose}
+            // children={childrenInfo}
+            // userToken={userInfo.access_token}
+            // onChildrenUpdate={handleChildrenUpdateWrapper}
+            onChildrenUpdate={() => fetchChildren(true)}
             visible={showChildInfo}
             onClose={handleChildInfoClose}
             children={childrenInfo}
+            setChildDataShouldLoadFromCache={setChildDataShouldLoadFromCache}
+            childDataShouldLoadFromCache={childDataShouldLoadFromCache}
             userToken={userInfo.access_token}
-            onChildrenUpdate={handleChildrenUpdateWrapper}
           />
         ) : (
           showChildInfo && (
