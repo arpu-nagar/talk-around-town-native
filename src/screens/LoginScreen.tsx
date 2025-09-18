@@ -438,8 +438,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
           </View>
         </View>
 
-        {/* Loading Spinner */}
-        <Spinner visible={isLoading} />
+       {/* Loading Spinner (Login screen only) */}
+<Spinner visible={isSubmitting} />
+
       </View>
     </LinearGradient>
   );
