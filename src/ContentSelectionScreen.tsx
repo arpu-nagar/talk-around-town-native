@@ -34,7 +34,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({
   // Initial content areas with selected state and availability
   const [contentAreas, setContentAreas] = useState<ContentArea[]>([
     {
-      id: 'language',
+      id: 'Language Development',
       title: 'Language Development',
       description:
         'Activities and tips that encourage vocabulary growth, communication skills, and language patterns.',
@@ -43,7 +43,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({
       available: true, // Available for selection
     },
     {
-      id: 'science',
+      id: 'Early Science Skills',
       title: 'Early Science Skills',
       description:
         'Explorations and experiments that nurture curiosity, critical thinking, and understanding of the world.',
@@ -52,22 +52,22 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({
       available: true, // Available for selection
     },
     {
-      id: 'literacy',
+      id: 'Literacy Foundations',
       title: 'Literacy Foundations',
       description:
         'Reading and writing activities that build pre-literacy skills and foster a love for stories and books.',
       icon: 'menu-book',
       selected: false,
-      available: false, // Coming soon
+      available: true, // Coming soon
     },
     {
-      id: 'social',
+      id: 'Social-Emotional Learning',
       title: 'Social-Emotional Learning',
       description:
         'Guidance for developing emotional intelligence, relationship skills, and healthy self-awareness.',
       icon: 'people',
       selected: false,
-      available: false, // Coming soon
+      available: true, // Coming soon
     },
   ]);
 
@@ -99,6 +99,8 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({
   // Toggle selection for a content area
   const toggleSelection = (id: string) => {
     const area = contentAreas.find(area => area.id === id);
+
+    console.log(id, area);
 
     if (area && area.available) {
       setContentAreas(
@@ -199,7 +201,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({
               resources for your family.
             </Text>
 
-            <View style={styles.betaBadgeContainer}>
+            {/* <View style={styles.betaBadgeContainer}>
               <View style={styles.betaBadge}>
                 <Text style={styles.betaBadgeText}>BETA</Text>
               </View>
@@ -207,7 +209,7 @@ const ContentSelectionScreen: React.FC<ContentSelectionScreenProps> = ({
                 Currently, only Language Development and Science Skills content
                 are available. Other content areas coming soon!
               </Text>
-            </View>
+            </View> */}
 
             <Text style={styles.selectionStatus}>
               {selectedCount === 0

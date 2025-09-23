@@ -569,7 +569,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   const [showChildDisambiguationModal, setShowChildDisambiguationModal] =
     useState(false);
   const [childDisambigReason, setChildDisambigReason] = useState<
-    'multiple' | 'none'
+    'multiple' | 'none' | 'name'
   >('none');
   const [childCandidates, setChildCandidates] = useState<Child[]>([]);
   const [expressedAgeMonths, setExpressedAgeMonths] = useState<number | null>(
@@ -581,7 +581,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
   // Preferences
   const [contentPreferences, setContentPreferences] = useState<string[]>([
-    'language',
+    'Language Development',
   ]);
   const [likedTips, setLikedTips] = useState<Tip[]>([]);
   const [dislikedTips, setDislikedTips] = useState<Tip[]>([]);
@@ -604,7 +604,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyCompleted, setSurveyCompleted] = useState(false);
   const [bootChecked, setBootChecked] = useState(false); // ensure we decide once per mount
-  const [headerHeight, setHeaderHeight] = useState(0);
 
   const {loadFromCache, saveToCache} = useCache();
 
@@ -1600,39 +1599,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     setTips([]);
 
     try {
-      // Your existing child detection code
-      // const mentioned = resolveChildrenFromQuery(query, userChildren);
-      // const childLines = (mentioned.length ? mentioned : userChildren).map(
-      //   c => {
-      //     const nm = c.nickname || 'Child';
-      //     return `${nm}: ${ageYMMM(c.date_of_birth)} old`;
-      //   },
-      // );
-
-      // const childContext = childLines.join(', ');
-      // const childrenContext = (mentioned.length ? mentioned : userChildren).map(
-      //   c => ({
-      //     name: c.nickname,
-      //     dob: c.date_of_birth,
-      //     agePretty: ageYMMM(c.date_of_birth),
-      //     ageYears: calculateAge(c.date_of_birth),
-      //   }),
-      // );
-
-      // const explicitlyChildish =
-      //   CHILD_TERMS.some(w => normalize(query).includes(w)) ||
-      //   AGE_PATTERNS.some(re => re.test(query));
-
-      // const ambiguityHint = explicitlyChildish
-      //   ? ''
-      //   : ' Please tailor this for kids.';
-      // const prompt =
-      //   mentioned.length > 0
-      //     ? `${query}${ambiguityHint} (Focus on: ${childContext}).`
-      //     : `${query}${ambiguityHint}. Child context: ${childContext}.`;
-      // 1) Try your existing name-based resolution
       let mentioned = resolveChildrenFromQuery(query, userChildren);
-
       // 2) If no names found, try age-based resolution
       if (mentioned.length === 0) {
         const ageMention = parseAgeMention(query);
@@ -1670,6 +1637,19 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
             setChildDisambigReason('none');
             setChildCandidates(userChildren); // let them pick from existing kids
             setExpressedAgeMonths(months);
+            setShowChildDisambiguationModal(true);
+            setIsAssistantLoading(false);
+            return;
+          }
+        } else {
+          const {known, unknown} = resolveChildrenAndUnknownNames(
+            query,
+            userChildren,
+          );
+          if (known.length === 0 && unknown.length > 0) {
+            setChildDisambigReason('name');
+            setChildCandidates(userChildren); // let them pick from existing kids
+            setExpressedAgeMonths(null); // not age-related here
             setShowChildDisambiguationModal(true);
             setIsAssistantLoading(false);
             return;
@@ -1716,14 +1696,20 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
         childrenContext,
       };
 
-      const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userInfo.access_token}`,
+      console.log(enhancedContext);
+
+      // const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
+      const res = await fetch(
+        'http://172.16.225.192:1337/api/personalization/enhanced-tips-survey',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
+          body: JSON.stringify(enhancedContext),
         },
-        body: JSON.stringify(enhancedContext),
-      });
+      );
 
       const data = await res.json();
       if (!res.ok) {
@@ -2019,8 +2005,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     return <View style={{flex: 1, backgroundColor: 'white'}} />; // or skeleton
   }
 
-  console.log('childCandidates', childCandidates);
-
   // Main render (no ScrollView)
   return (
     <>
@@ -2043,19 +2027,12 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
           colors={['#3B82F6', '#8B5CF6']}
           start={{x: 0, y: 0}}
           end={{x: 1, y: 1}}
-          onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)}
-          style={[
-            styles.headerBar,
-            {
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              paddingTop:
-                Platform.OS === 'ios' ? insets.top + 5 : insets.top + 15,
-              height: 230,
-            },
-          ]}>
+          style={styles.headerBar}></LinearGradient>
+        <View
+          style={{
+            paddingHorizontal: 20,
+            paddingTop: insets.top + 5,
+          }}>
           <View style={styles.topRow}>
             <View>
               <Text style={styles.appName}>ENACT</Text>
@@ -2085,24 +2062,21 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
               </Text>
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
+        {/* </LinearGradient> */}
 
-        <View style={{flex: 1, marginTop: headerHeight}}>
+        <View style={{flex: 1}}>
           <Pressable onPress={Keyboard.dismiss}>
             {/* Content Preferences Card */}
             <Animated.View
               style={[{paddingHorizontal: 20}, preferencesCardStyle]}>
-              <View
-                style={[
-                  styles.card,
-                  {marginTop: Platform.OS === 'ios' ? -27.5 : -47.5},
-                ]}>
+              <View style={styles.card}>
                 <Text style={styles.cardTitle}>Content Preferences</Text>
                 <View style={styles.prefGrid}>
                   <TouchableOpacity
                     style={[
                       styles.prefTile,
-                      contentPreferences.includes('language') &&
+                      contentPreferences.includes('Language Development') &&
                         styles.prefTileActive,
                     ]}
                     onPress={() => navigation.navigate('ContentSelection')}
@@ -2111,7 +2085,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                       name="chat"
                       size={26}
                       color={
-                        contentPreferences.includes('language')
+                        contentPreferences.includes('Language Development')
                           ? '#4A90E2'
                           : '#9AA0A6'
                       }
@@ -2119,7 +2093,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                     <Text
                       style={[
                         styles.prefTitle,
-                        contentPreferences.includes('language') &&
+                        contentPreferences.includes('Language Development') &&
                           styles.prefTitleActive,
                       ]}>
                       Language
@@ -2130,7 +2104,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                   <TouchableOpacity
                     style={[
                       styles.prefTile,
-                      contentPreferences.includes('science') &&
+                      contentPreferences.includes('Early Science Skills') &&
                         styles.prefTileActive,
                     ]}
                     onPress={() => navigation.navigate('ContentSelection')}
@@ -2139,7 +2113,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                       name="science"
                       size={26}
                       color={
-                        contentPreferences.includes('science')
+                        contentPreferences.includes('Early Science Skills')
                           ? '#4A90E2'
                           : '#9AA0A6'
                       }
@@ -2147,7 +2121,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                     <Text
                       style={[
                         styles.prefTitle,
-                        contentPreferences.includes('science') &&
+                        contentPreferences.includes('Early Science Skills') &&
                           styles.prefTitleActive,
                       ]}>
                       Science
@@ -2158,9 +2132,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                   <TouchableOpacity
                     style={[
                       styles.prefTile,
-                      !contentPreferences.includes('literacy') &&
-                        styles.prefTileDisabled,
-                      contentPreferences.includes('literacy') &&
+                      contentPreferences.includes('Literacy Foundations') &&
                         styles.prefTileActive,
                     ]}
                     onPress={() => navigation.navigate('ContentSelection')}
@@ -2169,32 +2141,28 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                       name="menu-book"
                       size={26}
                       color={
-                        contentPreferences.includes('literacy')
+                        contentPreferences.includes('Literacy Foundations')
                           ? '#4A90E2'
-                          : '#D1D5DB'
+                          : '#9AA0A6'
                       }
                     />
                     <Text
                       style={[
                         styles.prefTitle,
-                        contentPreferences.includes('literacy')
-                          ? styles.prefTitleActive
-                          : styles.prefTitleMuted,
+                        contentPreferences.includes('Literacy Foundations') &&
+                          styles.prefTitleActive,
                       ]}>
                       Literacy
                     </Text>
-                    <Text style={[styles.prefSub, styles.prefSubMuted]}>
-                      Soon
-                    </Text>
+                    <Text style={styles.prefSub}>Foundation</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
                       styles.prefTile,
-                      !contentPreferences.includes('social') &&
-                        styles.prefTileDisabled,
-                      contentPreferences.includes('social') &&
-                        styles.prefTileActive,
+                      contentPreferences.includes(
+                        'Social-Emotional Learning',
+                      ) && styles.prefTileActive,
                     ]}
                     onPress={() => navigation.navigate('ContentSelection')}
                     activeOpacity={0.9}>
@@ -2202,23 +2170,21 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                       name="people"
                       size={26}
                       color={
-                        contentPreferences.includes('social')
+                        contentPreferences.includes('Social-Emotional Learning')
                           ? '#4A90E2'
-                          : '#D1D5DB'
+                          : '#9AA0A6'
                       }
                     />
                     <Text
                       style={[
                         styles.prefTitle,
-                        contentPreferences.includes('social')
-                          ? styles.prefTitleActive
-                          : styles.prefTitleMuted,
+                        contentPreferences.includes(
+                          'Social-Emotional Learning',
+                        ) && styles.prefTitleActive,
                       ]}>
-                      Social
+                      Social-Emotional
                     </Text>
-                    <Text style={[styles.prefSub, styles.prefSubMuted]}>
-                      Soon
-                    </Text>
+                    <Text style={styles.prefSub}>Learning</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -2345,10 +2311,12 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
               width: '100%',
               borderRadius: 16,
               backgroundColor: '#fff',
-              paddingHorizontal: 16,
+              padding: 20,
             }}>
             <Text style={{fontSize: 16, fontWeight: '600', marginBottom: 8}}>
               {childDisambigReason === 'multiple'
+                ? 'Which child do you mean?'
+                : childDisambigReason === 'name'
                 ? 'Which child do you mean?'
                 : `Who is your ${monthsToPretty(expressedAgeMonths || 0)} old?`}
             </Text>
@@ -2366,8 +2334,20 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
               </Text>
             )}
 
+            {childDisambigReason === 'name' && (
+              <Text style={{color: '#1F2937', marginBottom: 12}}>
+                We didn’t find a saved child by that name. Pick the right child:
+              </Text>
+            )}
+
             {/* Candidate list */}
-            <View style={{marginVertical: 4, flexDirection: 'column', gap: 8}}>
+            <View
+              style={{
+                marginVertical: 4,
+                flexDirection: 'column',
+                gap: 8,
+                marginBottom: 20,
+              }}>
               {childCandidates.map((c, idx) => (
                 <TouchableOpacity
                   key={`${c.id || c.nickname}-${idx}`}
@@ -2402,7 +2382,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                         const ambiguityHint = explicitlyChildish
                           ? ''
                           : ' Please tailor this for kids.';
-                        const prompt = `${q}${ambiguityHint} (Focus on: ${childContext}).`;
+                        const prompt = `${q}${ambiguityHint} Child context: ${childContext}.`;
 
                         const endpoint =
                           '/api/personalization/enhanced-tips-survey';
@@ -2414,9 +2394,12 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                           childrenContext,
                         };
 
-                        const res = await fetchWithAuth(
-                          // use your current base (you had a local IP hardcoded in your sample)
-                          `http://192.168.0.160:1337${endpoint}`,
+                        // const res = await fetchWithAuth(
+                        //   `http://192.168.0.160:1337${endpoint}`,
+                        //   {
+                        // const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
+                        const res = await fetch(
+                          'http://172.16.225.192:1337/api/personalization/enhanced-tips-survey',
                           {
                             method: 'POST',
                             headers: {
@@ -2504,8 +2487,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                 justifyContent: 'flex-end',
               }}>
               <TouchableOpacity
-                onPress={() => setShowChildDisambiguationModal(false)}
-                style={{paddingVertical: 16}}>
+                onPress={() => setShowChildDisambiguationModal(false)}>
                 <Text
                   style={{
                     color: '#FFF',
@@ -2541,8 +2523,11 @@ const styles = StyleSheet.create({
   headerBar: {
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 230,
   },
   topRow: {
     flexDirection: 'row',
@@ -2560,7 +2545,7 @@ const styles = StyleSheet.create({
 
   searchRow: {
     alignItems: 'center',
-    marginTop: 20,
+    marginVertical: 20,
     flexDirection: 'row',
   },
   heroSearch: {
