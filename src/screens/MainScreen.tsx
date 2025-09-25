@@ -1696,12 +1696,10 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
         childrenContext,
       };
 
-      console.log(enhancedContext);
-
-      // const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
-      const res = await fetch(
-        'http://172.16.225.192:1337/api/personalization/enhanced-tips-survey',
-        {
+      const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
+      // const res = await fetch(
+      //   'http://172.16.225.192:1337/api/personalization/enhanced-tips-survey',
+      //   {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2397,10 +2395,12 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                         // const res = await fetchWithAuth(
                         //   `http://192.168.0.160:1337${endpoint}`,
                         //   {
-                        // const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
-                        const res = await fetch(
-                          'http://172.16.225.192:1337/api/personalization/enhanced-tips-survey',
+                        const res = await fetchWithAuth(
+                          `${API_ENDPOINTS.BASE_URL}${endpoint}`,
                           {
+                            // const res = await fetch(
+                            //   'http://172.16.225.192:1337/api/personalization/enhanced-tips-survey',
+                            //   {
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json',
