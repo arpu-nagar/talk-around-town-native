@@ -793,6 +793,38 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     }, []),
   );
 
+  // New: very clear non-parenting detector
+const isClearlyNonParenting = (q: string) => {
+  const n = normalize(q);
+  // keep your dangerous patterns separate
+  if (hasAny(n, DANGEROUS_PATTERNS)) return true;
+
+  // strong non-parenting domains
+  if (hasAny(n, NON_PARENTING_PATTERNS)) return true;
+
+  // otherwise not clearly non-parenting
+  return false;
+};
+
+// New: more permissive parenting detector (defaults to parenting if ambiguous and you have kids)
+const looksLikeParenting = (q: string, hasSavedKids = false) => {
+  const n = normalize(q);
+
+  // obvious parenting signals
+  const childTermHit = CHILD_TERMS.some(w => n.includes(w));
+  const topicHit = PARENTING_TOPICS.some(w => n.includes(w));
+  const ageHit = AGE_PATTERNS.some(re => re.test(n));
+  if (childTermHit || topicHit || ageHit) return true;
+
+  // short/generic asks → assume parenting if user has saved kids
+  const genericAsk = HELP_WORDS.test(n);
+  const shortAsk = wordCount(n) <= 3;
+  if (hasSavedKids && (genericAsk || shortAsk)) return true;
+
+  return false;
+};
+
+
   // Location quick fetch
   const getQuickLocation = useCallback(async (): Promise<Location> => {
     console.log('Getting quick location...');
@@ -1375,32 +1407,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     return DANGEROUS_PATTERNS.some(re => re.test(q));
   };
 
-  // Replace your mentionsChildContext with this:
-  const mentionsChildContext = (q: string, hasSavedKids = false) => {
-    const n = normalize(q);
-
-    // 1) Safety (you still call hasDangerousIntent separately, but harmless to double-check)
-    if (hasAny(n, DANGEROUS_PATTERNS)) return false;
-
-    // 2) Explicit signals → allow
-    const childTermHit = CHILD_TERMS.some(w => n.includes(w));
-    const topicHit = PARENTING_TOPICS.some(w => n.includes(w)); // keep your expanded list
-    const ageHit = AGE_PATTERNS.some(re => re.test(n));
-    if (childTermHit || topicHit || ageHit) return true;
-
-    // 3) Clear non-parenting domains → block
-    if (hasAny(n, NON_PARENTING_PATTERNS)) return false;
-
-    // 4) Ambiguous/general queries:
-    // If the user has saved kids and is asking for tips/how-to/ideas or the query is very short,
-    // default to treating it as parenting (we'll inject "for kids" downstream).
-    const genericAsk = HELP_WORDS.test(n);
-    const shortAsk = wordCount(n) <= 3; // e.g., "fishing tips", "diy ideas", "travel hacks"
-    if (hasSavedKids && (genericAsk || shortAsk)) return true;
-
-    // Otherwise, treat as non-parenting.
-    return false;
-  };
 
   const showParentingOnlyAlert = () => {
     Alert.alert(
@@ -1590,7 +1596,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       return;
     }
 
-    if (!mentionsChildContext(query, userChildren.length > 0)) {
+    if (isClearlyNonParenting(query) && !looksLikeParenting(query, userChildren.length > 0)) {
       showParentingOnlyAlert();
       return;
     }
@@ -1675,26 +1681,30 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       );
 
       const explicitlyChildish =
-        CHILD_TERMS.some(w => normalize(query).includes(w)) ||
-        AGE_PATTERNS.some(re => re.test(query));
+  CHILD_TERMS.some(w => normalize(query).includes(w)) ||
+  AGE_PATTERNS.some(re => re.test(query));
 
-      const ambiguityHint = explicitlyChildish
-        ? ''
-        : ' Please tailor this for kids.';
-      const prompt =
-        mentioned.length > 0
-          ? `${query}${ambiguityHint} (Focus on: ${childContext}).`
-          : `${query}${ambiguityHint}. Child context: ${childContext}.`;
+// If the query isn't explicitly child-focused, *force* a kid frame.
+const injectedKidHint = explicitlyChildish
+  ? ''
+  : ' This question is about my child; please answer strictly in a parenting context.';
 
-      const endpoint = '/api/personalization/enhanced-tips-survey';
+const prompt =
+  (mentioned.length > 0
+    ? `${query}${injectedKidHint} (Focus on: ${childContext}).`
+    : `${query}${injectedKidHint}. Child context: ${childContext}.`).trim();
 
-      const enhancedContext = {
-        prompt,
-        contentPreferences,
-        generateMode: 'hybrid',
-        strictParenting: true,
-        childrenContext,
-      };
+const endpoint = '/api/personalization/enhanced-tips-survey';
+
+const enhancedContext = {
+  prompt,
+  contentPreferences,
+  generateMode: 'hybrid',
+  // Loosen this so the backend doesn't over-filter benign parenting queries
+  strictParenting: false,
+  childrenContext,
+};
+
 
       const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
       // const res = await fetch(
@@ -1709,21 +1719,56 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
         },
       );
 
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.error === 'safety' || data.error === 'non_parenting') {
-          Alert.alert(
-            'We only provide parenting tips',
-            data.message || 'Please ask a parenting-related question.',
-          );
-          return;
-        }
-        throw new Error(
-          `Server responded with ${res.status}: ${
-            data.message || 'Unknown error'
-          }`,
-        );
-      }
+      let data = await res.json();
+
+if (!res.ok && data?.error === 'non_parenting') {
+  // Retry ONCE with a very explicit parenting frame
+  try {
+    const forcedPrompt =
+      `${query} — I am asking for parenting advice about my child. ` +
+      `Please provide age-appropriate strategies for ${childContext}.`;
+
+    const forcedContext = {
+      ...enhancedContext,
+      prompt: forcedPrompt,
+      strictParenting: false,
+    };
+
+    const retryRes = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userInfo.access_token}`,
+      },
+      body: JSON.stringify(forcedContext),
+    });
+
+    const retryData = await retryRes.json();
+    if (retryRes.ok) {
+      data = retryData; // fall through to success handling below
+    } else {
+      // still failing → show friendly message
+      Alert.alert(
+        'Parenting Advice',
+        'I couldn’t fetch tips for that wording. Try rephrasing like: “My toddler doesn’t listen—how can I get them to follow directions?”',
+      );
+      return;
+    }
+  } catch {
+    Alert.alert(
+      'Parenting Advice',
+      'I couldn’t fetch tips right now. Please try again in a moment.',
+    );
+    return;
+  }
+} else if (!res.ok && data?.error === 'safety') {
+  Alert.alert(
+    'We only provide parenting tips',
+    data.message || 'Please ask a parenting-related question.',
+  );
+  return;
+}
+
 
       if (Array.isArray(data.tips) && data.tips.length) {
         setTips(data.tips);
