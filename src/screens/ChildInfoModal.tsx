@@ -31,18 +31,70 @@ interface ChildInfoModalProps {
   onClose: () => void;
   children: Child[];
   userToken: string;
-  setChildDataShouldLoadFromCache: (_arg0: boolean) => void;
-  childDataShouldLoadFromCache: boolean;
+  // setChildDataShouldLoadFromCache: (_arg0: boolean) => void;
+  // childDataShouldLoadFromCache: boolean;
   onChildrenUpdate: () => void;
 }
+// --- Time constants ---
+const now = new Date();
+const currentYear = now.getFullYear();
+const currentMonth = now.getMonth() + 1; // 1..12
+
+// Show only current year + previous 4 (total = 5)
+const years = Array.from({length: 5}, (_, i) => String(currentYear - i));
+
+const months = [
+  {label: 'January', value: '01'},
+  {label: 'February', value: '02'},
+  {label: 'March', value: '03'},
+  {label: 'April', value: '04'},
+  {label: 'May', value: '05'},
+  {label: 'June', value: '06'},
+  {label: 'July', value: '07'},
+  {label: 'August', value: '08'},
+  {label: 'September', value: '09'},
+  {label: 'October', value: '10'},
+  {label: 'November', value: '11'},
+  {label: 'December', value: '12'},
+];
+
+// Avoid timezone issues: parse by string, not Date
+const getDateParts = (dateString: string) => {
+  const [year, month] = dateString.split('-'); // "YYYY-MM-DD"
+  return {
+    year,
+    month,
+  };
+};
+
+const monthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+const formatMonthYear = (ymd: string) => {
+  const [y, m] = ymd.split('-');
+  const name = monthNames[Number(m) - 1] ?? '';
+  return `${name} ${y}`;
+};
+
+const isNotFuture = (y: number, m: number) =>
+  y < currentYear || (y === currentYear && m <= currentMonth);
 
 const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
   visible,
   onClose,
   children,
   userToken,
-  setChildDataShouldLoadFromCache,
-  childDataShouldLoadFromCache,
   onChildrenUpdate,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -52,34 +104,9 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [newChild, setNewChild] = useState<NewChild>({
     nickname: '',
-    birthYear: new Date().getFullYear().toString(),
-    birthMonth: '01',
+    birthYear: String(currentYear),
+    birthMonth: String(currentMonth).padStart(2, '0'),
   });
-
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({length: 12}, (_, i) => String(currentYear - i));
-  const months = [
-    {label: 'January', value: '01'},
-    {label: 'February', value: '02'},
-    {label: 'March', value: '03'},
-    {label: 'April', value: '04'},
-    {label: 'May', value: '05'},
-    {label: 'June', value: '06'},
-    {label: 'July', value: '07'},
-    {label: 'August', value: '08'},
-    {label: 'September', value: '09'},
-    {label: 'October', value: '10'},
-    {label: 'November', value: '11'},
-    {label: 'December', value: '12'},
-  ];
-
-  const getDateParts = (dateString: string) => {
-    const date = new Date(dateString);
-    return {
-      year: date.getFullYear().toString(),
-      month: (date.getMonth() + 1).toString().padStart(2, '0'),
-    };
-  };
 
   const handleEdit = (child: Child) => {
     setEditingChild(child);
@@ -150,6 +177,13 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
       return;
     }
 
+    const y = Number(newChild.birthYear);
+    const m = Number(newChild.birthMonth);
+    if (!isNotFuture(y, m)) {
+      Alert.alert('Invalid date', 'Future dates are not allowed.');
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -191,7 +225,7 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
           birthMonth: '01',
         });
         onChildrenUpdate();
-        setChildDataShouldLoadFromCache(!childDataShouldLoadFromCache);
+        // setChildDataShouldLoadFromCache(!childDataShouldLoadFromCache);
       } catch (e) {
         throw new Error('Invalid server response');
       }
@@ -239,6 +273,7 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
 
       Alert.alert('Success', "Child's data deleted successfully");
       onChildrenUpdate();
+      // setChildDataShouldLoadFromCache(!childDataShouldLoadFromCache);
     } catch (error) {
       console.error('Update child error:', error);
       Alert.alert(
@@ -317,6 +352,9 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
     if (!editingChild) return null;
 
     const dateParts = getDateParts(editingChild.date_of_birth);
+    const yearsForEdit = years.includes(dateParts.year)
+      ? years
+      : [dateParts.year, ...years]; // ensure current value is visible
 
     return (
       <View style={styles.formContainer}>
@@ -363,7 +401,7 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
                   date_of_birth: `${value}-${dateParts.month}-01`,
                 });
               }}>
-              {years.map(year => (
+              {yearsForEdit.map(year => (
                 <Picker.Item key={year} label={year} value={year} />
               ))}
             </Picker>
@@ -415,14 +453,7 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
                           {child.nickname || `Child ${child.id}`}
                         </Text>
                         <Text style={styles.childDate}>
-                          Birth date:{' '}
-                          {new Date(child.date_of_birth).toLocaleDateString(
-                            'en-US',
-                            {
-                              month: 'long',
-                              year: 'numeric',
-                            },
-                          )}
+                          Birth date: {formatMonthYear(child.date_of_birth)}
                         </Text>
                       </View>
 

@@ -772,6 +772,19 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     return {pretty, yearsFloat};
   }
 
+  async function getLatestData() {
+    const data = await AsyncStorage.getItem('childrenInfoCache');
+    console.log('data insice gucking cache', data);
+    if (data) {
+      try {
+        const parsed: Child[] = JSON.parse(data);
+        setUserChildren(parsed);
+      } catch (e) {
+        console.error('Failed to parse childrenInfoCache', e);
+      }
+    }
+  }
+
   // Reload content preferences on focus
   useFocusEffect(
     useCallback(() => {
@@ -787,6 +800,9 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
           console.warn('reload contentPreferences failed:', e);
         }
       })();
+
+      setSearchText('');
+      getLatestData();
       return () => {
         alive = false;
       };
@@ -794,36 +810,35 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   );
 
   // New: very clear non-parenting detector
-const isClearlyNonParenting = (q: string) => {
-  const n = normalize(q);
-  // keep your dangerous patterns separate
-  if (hasAny(n, DANGEROUS_PATTERNS)) return true;
+  const isClearlyNonParenting = (q: string) => {
+    const n = normalize(q);
+    // keep your dangerous patterns separate
+    if (hasAny(n, DANGEROUS_PATTERNS)) return true;
 
-  // strong non-parenting domains
-  if (hasAny(n, NON_PARENTING_PATTERNS)) return true;
+    // strong non-parenting domains
+    if (hasAny(n, NON_PARENTING_PATTERNS)) return true;
 
-  // otherwise not clearly non-parenting
-  return false;
-};
+    // otherwise not clearly non-parenting
+    return false;
+  };
 
-// New: more permissive parenting detector (defaults to parenting if ambiguous and you have kids)
-const looksLikeParenting = (q: string, hasSavedKids = false) => {
-  const n = normalize(q);
+  // New: more permissive parenting detector (defaults to parenting if ambiguous and you have kids)
+  const looksLikeParenting = (q: string, hasSavedKids = false) => {
+    const n = normalize(q);
 
-  // obvious parenting signals
-  const childTermHit = CHILD_TERMS.some(w => n.includes(w));
-  const topicHit = PARENTING_TOPICS.some(w => n.includes(w));
-  const ageHit = AGE_PATTERNS.some(re => re.test(n));
-  if (childTermHit || topicHit || ageHit) return true;
+    // obvious parenting signals
+    const childTermHit = CHILD_TERMS.some(w => n.includes(w));
+    const topicHit = PARENTING_TOPICS.some(w => n.includes(w));
+    const ageHit = AGE_PATTERNS.some(re => re.test(n));
+    if (childTermHit || topicHit || ageHit) return true;
 
-  // short/generic asks → assume parenting if user has saved kids
-  const genericAsk = HELP_WORDS.test(n);
-  const shortAsk = wordCount(n) <= 3;
-  if (hasSavedKids && (genericAsk || shortAsk)) return true;
+    // short/generic asks → assume parenting if user has saved kids
+    const genericAsk = HELP_WORDS.test(n);
+    const shortAsk = wordCount(n) <= 3;
+    if (hasSavedKids && (genericAsk || shortAsk)) return true;
 
-  return false;
-};
-
+    return false;
+  };
 
   // Location quick fetch
   const getQuickLocation = useCallback(async (): Promise<Location> => {
@@ -1407,7 +1422,6 @@ const looksLikeParenting = (q: string, hasSavedKids = false) => {
     return DANGEROUS_PATTERNS.some(re => re.test(q));
   };
 
-
   const showParentingOnlyAlert = () => {
     Alert.alert(
       'Parenting Assistant Only',
@@ -1596,7 +1610,10 @@ const looksLikeParenting = (q: string, hasSavedKids = false) => {
       return;
     }
 
-    if (isClearlyNonParenting(query) && !looksLikeParenting(query, userChildren.length > 0)) {
+    if (
+      isClearlyNonParenting(query) &&
+      !looksLikeParenting(query, userChildren.length > 0)
+    ) {
       showParentingOnlyAlert();
       return;
     }
@@ -1681,94 +1698,95 @@ const looksLikeParenting = (q: string, hasSavedKids = false) => {
       );
 
       const explicitlyChildish =
-  CHILD_TERMS.some(w => normalize(query).includes(w)) ||
-  AGE_PATTERNS.some(re => re.test(query));
+        CHILD_TERMS.some(w => normalize(query).includes(w)) ||
+        AGE_PATTERNS.some(re => re.test(query));
 
-// If the query isn't explicitly child-focused, *force* a kid frame.
-const injectedKidHint = explicitlyChildish
-  ? ''
-  : ' This question is about my child; please answer strictly in a parenting context.';
+      // If the query isn't explicitly child-focused, *force* a kid frame.
+      const injectedKidHint = explicitlyChildish
+        ? ''
+        : ' This question is about my child; please answer strictly in a parenting context.';
 
-const prompt =
-  (mentioned.length > 0
-    ? `${query}${injectedKidHint} (Focus on: ${childContext}).`
-    : `${query}${injectedKidHint}. Child context: ${childContext}.`).trim();
+      const prompt = (
+        mentioned.length > 0
+          ? `${query}${injectedKidHint} (Focus on: ${childContext}).`
+          : `${query}${injectedKidHint}. Child context: ${childContext}.`
+      ).trim();
 
-const endpoint = '/api/personalization/enhanced-tips-survey';
+      const endpoint = '/api/personalization/enhanced-tips-survey';
 
-const enhancedContext = {
-  prompt,
-  contentPreferences,
-  generateMode: 'hybrid',
-  // Loosen this so the backend doesn't over-filter benign parenting queries
-  strictParenting: false,
-  childrenContext,
-};
-
+      const enhancedContext = {
+        prompt,
+        contentPreferences,
+        generateMode: 'hybrid',
+        // Loosen this so the backend doesn't over-filter benign parenting queries
+        strictParenting: false,
+        childrenContext,
+      };
 
       const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
-      // const res = await fetch(
-      //   'http://172.16.225.192:1337/api/personalization/enhanced-tips-survey',
-      //   {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
-          body: JSON.stringify(enhancedContext),
+        // const res = await fetch(
+        //   'http://172.16.225.192:1337/api/personalization/enhanced-tips-survey',
+        //   {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo.access_token}`,
         },
-      );
+        body: JSON.stringify(enhancedContext),
+      });
 
       let data = await res.json();
 
-if (!res.ok && data?.error === 'non_parenting') {
-  // Retry ONCE with a very explicit parenting frame
-  try {
-    const forcedPrompt =
-      `${query} — I am asking for parenting advice about my child. ` +
-      `Please provide age-appropriate strategies for ${childContext}.`;
+      if (!res.ok && data?.error === 'non_parenting') {
+        // Retry ONCE with a very explicit parenting frame
+        try {
+          const forcedPrompt =
+            `${query} — I am asking for parenting advice about my child. ` +
+            `Please provide age-appropriate strategies for ${childContext}.`;
 
-    const forcedContext = {
-      ...enhancedContext,
-      prompt: forcedPrompt,
-      strictParenting: false,
-    };
+          const forcedContext = {
+            ...enhancedContext,
+            prompt: forcedPrompt,
+            strictParenting: false,
+          };
 
-    const retryRes = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${userInfo.access_token}`,
-      },
-      body: JSON.stringify(forcedContext),
-    });
+          const retryRes = await fetchWithAuth(
+            `${API_ENDPOINTS.BASE_URL}${endpoint}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${userInfo.access_token}`,
+              },
+              body: JSON.stringify(forcedContext),
+            },
+          );
 
-    const retryData = await retryRes.json();
-    if (retryRes.ok) {
-      data = retryData; // fall through to success handling below
-    } else {
-      // still failing → show friendly message
-      Alert.alert(
-        'Parenting Advice',
-        'I couldn’t fetch tips for that wording. Try rephrasing like: “My toddler doesn’t listen—how can I get them to follow directions?”',
-      );
-      return;
-    }
-  } catch {
-    Alert.alert(
-      'Parenting Advice',
-      'I couldn’t fetch tips right now. Please try again in a moment.',
-    );
-    return;
-  }
-} else if (!res.ok && data?.error === 'safety') {
-  Alert.alert(
-    'We only provide parenting tips',
-    data.message || 'Please ask a parenting-related question.',
-  );
-  return;
-}
-
+          const retryData = await retryRes.json();
+          if (retryRes.ok) {
+            data = retryData; // fall through to success handling below
+          } else {
+            // still failing → show friendly message
+            Alert.alert(
+              'Parenting Advice',
+              'I couldn’t fetch tips for that wording. Try rephrasing like: “My toddler doesn’t listen—how can I get them to follow directions?”',
+            );
+            return;
+          }
+        } catch {
+          Alert.alert(
+            'Parenting Advice',
+            'I couldn’t fetch tips right now. Please try again in a moment.',
+          );
+          return;
+        }
+      } else if (!res.ok && data?.error === 'safety') {
+        Alert.alert(
+          'We only provide parenting tips',
+          data.message || 'Please ask a parenting-related question.',
+        );
+        return;
+      }
 
       if (Array.isArray(data.tips) && data.tips.length) {
         setTips(data.tips);

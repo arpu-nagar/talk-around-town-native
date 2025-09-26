@@ -892,8 +892,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
             visible={showChildInfo}
             onClose={handleChildInfoClose}
             children={childrenInfo}
-            setChildDataShouldLoadFromCache={setChildDataShouldLoadFromCache}
-            childDataShouldLoadFromCache={childDataShouldLoadFromCache}
+            // setChildDataShouldLoadFromCache={setChildDataShouldLoadFromCache}
+            // childDataShouldLoadFromCache={childDataShouldLoadFromCache}
             userToken={userInfo.access_token}
           />
         ) : (
