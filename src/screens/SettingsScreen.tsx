@@ -1,22 +1,14 @@
-import React, {
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  Children,
-} from 'react';
+import React, {useContext, useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Alert,
-  SafeAreaView,
   ScrollView,
   ActivityIndicator,
   StatusBar,
   Modal,
-  Platform,
   Pressable,
 } from 'react-native';
 import {AuthContext, AuthContextType} from '../context/AuthContext';
@@ -53,7 +45,7 @@ interface Tip {
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
   const {userInfo, logout, deleteAccount, isAdmin} =
-    useContext<AuthContextType>(AuthContext);
+    useContext<any>(AuthContext);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showChildInfo, setShowChildInfo] = useState(false);
   const [selectedContentAreas, setSelectedContentAreas] = useState<string[]>(

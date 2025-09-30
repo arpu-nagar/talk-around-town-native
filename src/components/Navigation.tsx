@@ -1,17 +1,15 @@
-import React, { useContext } from 'react';
-import { Platform, View } from 'react-native';
+import React, {useContext} from 'react';
+import {Platform, StatusBar, View} from 'react-native';
 import {
   NavigationContainer,
   NavigationContainerRef,
   LinkingOptions,
 } from '@react-navigation/native';
-import {
-  createNativeStackNavigator,
-} from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { AuthContext, AuthContextType } from '../context/AuthContext';
-import { navigationRef } from '../ref/NavigationRef';
+import {AuthContext, AuthContextType} from '../context/AuthContext';
+import {navigationRef} from '../ref/NavigationRef';
 import RemoteNotification from '../components/RemoteNotification';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import DashboardScreen from '../screens/Assistant/DashboardScreen';
@@ -25,13 +23,14 @@ import MainScreen from '../screens/MainScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import LocationListScreen from '../screens/LocationList';
 import SettingsScreen from '../screens/SettingsScreen'; // Import SettingsScreen
-import { Location } from 'react-native-get-location';
+import {Location} from 'react-native-get-location';
 import AboutScreen from '../screens/AboutScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import ReminderSettingsScreen from '../screens/ReminderSettingsScreen';
 import Tips from '../screens/TipsScreen';
 import ContentSelectionScreen from '../ContentSelectionScreen';
 import CustomTabBar from './CustomTabBar';
+import {CopilotProvider, useCopilot} from 'react-native-copilot';
 
 // Types
 export type RootStackParamList = {
@@ -42,7 +41,7 @@ export type RootStackParamList = {
   LocationList: {
     locations: Location[];
     details: Array<{
-      id: number;  // Added the id field to match LocationListScreen component
+      id: number; // Added the id field to match LocationListScreen component
       title: string;
       description: string;
       pinColor: string;
@@ -68,7 +67,7 @@ type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
-  ResetPassword: { token: string };
+  ResetPassword: {token: string};
 };
 
 type MainTabParamList = {
@@ -121,17 +120,17 @@ const getIconName = (routeName: string, focused: boolean): string => {
     case 'LocationList':
       return focused ? 'list' : 'list-outline';
     case 'Settings':
-      return focused ? 'settings' : 'settings-outline';  // Add this for Settings
+      return focused ? 'settings' : 'settings-outline'; // Add this for Settings
     default:
       return 'alert-circle';
   }
 };
 
 // Wrapper component
-const ScreenWithNotification: React.FC<{ children: React.ReactNode }> = ({
+const ScreenWithNotification: React.FC<{children: React.ReactNode}> = ({
   children,
 }) => (
-  <View style={{ flex: 1 }}>
+  <View style={{flex: 1}}>
     {children}
     <RemoteNotification />
   </View>
@@ -141,21 +140,19 @@ const ScreenWithNotification: React.FC<{ children: React.ReactNode }> = ({
 const TabNavigator = () => (
   <ScreenWithNotification>
     <MainTab.Navigator
-      screenOptions={{ headerShown: false }}
+      screenOptions={{headerShown: false}}
       // Completely hide the tab bar
-      tabBar={() => null}
-    >
+      tabBar={() => null}>
       <MainTab.Screen name="Home" component={MainScreen} />
       <MainTab.Screen name="Settings" component={SettingsScreen} />
     </MainTab.Navigator>
   </ScreenWithNotification>
 );
 
-
 // Auth Navigator
 const AuthNavigator = () => (
   <ScreenWithNotification>
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+    <AuthStack.Navigator screenOptions={{headerShown: false}}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen
         name="ForgotPassword"
@@ -169,12 +166,13 @@ const AuthNavigator = () => (
 
 // Root Navigator - Split the rendering logic to avoid whitespace issues
 const RootNavigator = () => {
-  const { userInfo, splashLoading, isAdmin } = useContext<AuthContextType>(AuthContext);
+  const {userInfo, splashLoading, isAdmin} =
+    useContext<AuthContextType>(AuthContext);
 
   // Render different navigator configurations based on app state
   if (splashLoading) {
     return (
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator screenOptions={{headerShown: false}}>
         <RootStack.Screen name="Splash" component={SplashScreen} />
       </RootStack.Navigator>
     );
@@ -182,23 +180,29 @@ const RootNavigator = () => {
 
   if (userInfo.access_token) {
     return (
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator screenOptions={{headerShown: false}}>
         <RootStack.Screen name="Main" component={TabNavigator} />
         <RootStack.Screen name="LocationList" component={LocationListScreen} />
         <RootStack.Screen name="Settings" component={SettingsScreen} />
         <RootStack.Screen name="About" component={AboutScreen} />
-        <RootStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-        <RootStack.Screen name="ContentSelection" component={ContentSelectionScreen} />
+        <RootStack.Screen
+          name="ChangePassword"
+          component={ChangePasswordScreen}
+        />
+        <RootStack.Screen
+          name="ContentSelection"
+          component={ContentSelectionScreen}
+        />
         <RootStack.Screen
           name="ReminderSettings"
           component={ReminderSettingsScreen}
-          options={{ headerShown: false }}
+          options={{headerShown: false}}
         />
         {/* Tips screen is now defined here as a stack screen, not a tab */}
         <RootStack.Screen
           name="Tips"
           component={Tips}
-          options={{ headerShown: false }}
+          options={{headerShown: false}}
         />
         {/* Only include Dashboard in routes if user is admin */}
         {isAdmin && (
@@ -209,24 +213,26 @@ const RootNavigator = () => {
   }
 
   return (
-    <RootStack.Navigator screenOptions={{ headerShown: false }}>
+    <RootStack.Navigator screenOptions={{headerShown: false}}>
       <RootStack.Screen name="Auth" component={AuthNavigator} />
     </RootStack.Navigator>
   );
 };
 
 // Main Navigation Component
-const Navigation = () => (
-  <NavigationContainer
-    ref={
-      navigationRef as React.RefObject<
-        NavigationContainerRef<RootStackParamList>
-      >
-    }
-    linking={linking}
-    fallback={<SplashScreen />}>
-    <RootNavigator />
-  </NavigationContainer>
-);
+const Navigation = () => {
+  return (
+    <NavigationContainer
+      ref={
+        navigationRef as React.RefObject<
+          NavigationContainerRef<RootStackParamList>
+        >
+      }
+      linking={linking}
+      fallback={<SplashScreen />}>
+      <RootNavigator />
+    </NavigationContainer>
+  );
+};
 
 export default Navigation;

@@ -8,6 +8,7 @@ import {LocationProvider} from './src/context/LocationContext';
 import messaging from '@react-native-firebase/messaging';
 import AppStateTracker from './src/components/AppStateTracker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {CopilotProvider} from 'react-native-copilot';
 
 const WELCOME_SHOWN_KEY = 'welcome_message_shown';
 
@@ -30,7 +31,7 @@ const App = () => {
     try {
       // Check if welcome message has been shown before
       const welcomeShown = await AsyncStorage.getItem(WELCOME_SHOWN_KEY);
-      
+
       if (welcomeShown !== 'true') {
         const message = Platform.select({
           ios:
@@ -45,7 +46,7 @@ const App = () => {
             'Please allow these permissions when prompted.',
           default: '',
         });
-        
+
         // Show the welcome message
         Alert.alert('Welcome!', message, [
           {
@@ -81,10 +82,7 @@ const App = () => {
         console.log('\n-------- iOS Permissions --------');
         console.log('FCM Auth Status:', authStatus);
         console.log('Notification Settings:', notificationSettings);
-        console.log(
-          'Background Modes Enabled:',
-          messaging().isAutoInitEnabled,
-        );
+        console.log('Background Modes Enabled:', messaging().isAutoInitEnabled);
         // Log notification authorization status
         console.log('Notification Auth Status:', notificationSettings);
       }
@@ -108,7 +106,7 @@ const App = () => {
       try {
         // Show welcome message on first launch
         await showWelcomeMessage();
-        
+
         // Log startup information
         await logStartupInfo();
       } catch (error) {
@@ -124,10 +122,12 @@ const App = () => {
   return (
     <AuthProvider>
       <LocationProvider>
-        <StatusBar backgroundColor="#06bcee" />
-        <AppStateTracker />
-        {/* <RemoteNotification /> */}
-        <Navigation />
+        <CopilotProvider overlay="svg">
+          <StatusBar backgroundColor="#06bcee" />
+          <AppStateTracker />
+          {/* <RemoteNotification /> */}
+          <Navigation />
+        </CopilotProvider>
       </LocationProvider>
     </AuthProvider>
   );

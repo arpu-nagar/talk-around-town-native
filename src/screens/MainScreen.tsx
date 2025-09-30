@@ -4,6 +4,7 @@ import React, {
   useRef,
   useState,
   useCallback,
+  memo,
 } from 'react';
 import {
   View,
@@ -21,6 +22,7 @@ import {
   Animated,
   Easing,
   Pressable,
+  InteractionManager,
 } from 'react-native';
 import MapView, {
   PROVIDER_GOOGLE,
@@ -29,7 +31,7 @@ import MapView, {
   PROVIDER_DEFAULT,
 } from 'react-native-maps';
 import {Dropdown} from 'react-native-element-dropdown';
-import {useFocusEffect} from '@react-navigation/native';
+import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Geolocation, {
   GeolocationResponse,
@@ -54,6 +56,7 @@ import {fetchWithAuth} from '../api/auth';
 import PersonalizationSurvey from '../components/PersonalizationSurvey';
 import TipsModal from '../components/MainScreen/TipsModal';
 import {useCache} from '../hooks/useCache';
+import {CopilotStep, useCopilot, walkthroughable} from 'react-native-copilot';
 
 const STARTUP_CONFIG = {
   MAX_STARTUP_TIME: 8000,
@@ -205,8 +208,6 @@ const MapViewModal = React.memo(function MapViewModal({
     onClose,
   ]);
 
-  const insets = useSafeAreaInsets();
-
   return (
     <Modal
       visible={visible}
@@ -221,7 +222,6 @@ const MapViewModal = React.memo(function MapViewModal({
         <View
           style={{
             flex: 1,
-            paddingTop: insets.top - 10,
           }}>
           {/* Header */}
           <View style={styles.mapHeader}>
@@ -678,6 +678,49 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       }
     }, [bootChecked, surveyCompleted, showSurvey, loadStatus]),
   );
+  // Per-user walkthrough key so tour runs once after login
+  const HAS_SEEN_WALKTHROUGH_KEY = `@hasSeenWalkthrough:${userKey}`;
+  const WalkthroughableView = walkthroughable(View);
+
+  const {start, copilotEvents} = useCopilot();
+  const startedRef = useRef(false); // true once we call start() for this session
+  const isFocused = useIsFocused();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const runCopilot = async () => {
+      console.log(await AsyncStorage.getAllKeys());
+      const hasSeenWalkthrough = await AsyncStorage.getItem(
+        HAS_SEEN_WALKTHROUGH_KEY,
+      );
+      console.log('hasSeenWalkthrough', hasSeenWalkthrough);
+      if (isFocused && ready && !startedRef.current && !hasSeenWalkthrough) {
+        startedRef.current = true;
+        InteractionManager.runAfterInteractions(() => start());
+      }
+    };
+
+    runCopilot();
+  }, [isFocused, ready, start]);
+
+  useEffect(() => {
+    const handleStart = () => {
+      console.log('handleStart');
+    };
+
+    const handleStop = () => {
+      console.log('handleStop');
+      AsyncStorage.setItem(HAS_SEEN_WALKTHROUGH_KEY, 'true');
+    };
+
+    copilotEvents.on('start', handleStart);
+    copilotEvents.on('stop', handleStop);
+
+    return () => {
+      copilotEvents.off('start', handleStart);
+      copilotEvents.off('stop', handleStop);
+    };
+  }, [copilotEvents, HAS_SEEN_WALKTHROUGH_KEY]);
 
   // Handlers coming from the survey
   const handleSurveyComplete = async (_data: any) => {
@@ -774,7 +817,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
   async function getLatestData() {
     const data = await AsyncStorage.getItem('childrenInfoCache');
-    console.log('data insice gucking cache', data);
     if (data) {
       try {
         const parsed: Child[] = JSON.parse(data);
@@ -2082,7 +2124,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
         onSkip={handleSurveySkip}
         isOptional
       />
-      <View style={{flex: 1}}>
+      <View style={{flex: 1}} onLayout={() => setReady(true)}>
         {/* Blue header only behind ENACT */}
         <LinearGradient
           colors={['#3B82F6', '#8B5CF6']}
@@ -2102,36 +2144,174 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
               </Text>
             </View>
 
-            <TouchableOpacity
-              onPress={() =>
-                navigation.navigate('LocationList', {locations, details})
-              }
-              style={styles.iconBtn}
-              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-              <MaterialIcons name="bookmark" size={22} color="#5973FF" />
-            </TouchableOpacity>
+            <View>
+              <CopilotStep
+                order={1}
+                name="Saved Locations"
+                text="View your saved locations here!">
+                <WalkthroughableView style={{}} collapsable={false}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      navigation.navigate('LocationList', {locations, details})
+                    }
+                    style={styles.iconBtn}
+                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                    <MaterialIcons name="bookmark" size={22} color="#5973FF" />
+                  </TouchableOpacity>
+                </WalkthroughableView>
+              </CopilotStep>
+            </View>
           </View>
 
-          <View style={styles.searchRow}>
-            <TouchableOpacity
-              style={styles.heroSearch}
-              activeOpacity={0.9}
-              onPress={() => setShowMapView(true)}>
-              <MaterialIcons name="location-on" size={18} color="#9AA0A6" />
-              <Text style={styles.heroSearchText}>
-                Find nearby locations...
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <CopilotStep
+            order={2}
+            name="Search Locations"
+            text="Search for nearby locations!">
+            <WalkthroughableView style={styles.searchRow} collapsable={false}>
+              <TouchableOpacity
+                style={styles.heroSearch}
+                activeOpacity={0.9}
+                onPress={() => setShowMapView(true)}>
+                <MaterialIcons name="location-on" size={18} color="#9AA0A6" />
+                <Text style={styles.heroSearchText}>
+                  Find nearby locations...
+                </Text>
+              </TouchableOpacity>
+            </WalkthroughableView>
+          </CopilotStep>
         </View>
-        {/* </LinearGradient> */}
 
         <View style={{flex: 1}}>
           <Pressable onPress={Keyboard.dismiss}>
             {/* Content Preferences Card */}
             <Animated.View
               style={[{paddingHorizontal: 20}, preferencesCardStyle]}>
-              <View style={styles.card}>
+              <CopilotStep
+                order={3}
+                name="Content preferences"
+                text="Select your preferences by tapping here!">
+                <WalkthroughableView style={styles.card}>
+                  <Text style={styles.cardTitle}>Content Preferences</Text>
+                  <View style={styles.prefGrid}>
+                    <TouchableOpacity
+                      style={[
+                        styles.prefTile,
+                        contentPreferences.includes('Language Development') &&
+                          styles.prefTileActive,
+                      ]}
+                      onPress={() => navigation.navigate('ContentSelection')}
+                      activeOpacity={0.9}>
+                      <MaterialIcons
+                        name="chat"
+                        size={26}
+                        color={
+                          contentPreferences.includes('Language Development')
+                            ? '#4A90E2'
+                            : '#9AA0A6'
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.prefTitle,
+                          contentPreferences.includes('Language Development') &&
+                            styles.prefTitleActive,
+                        ]}>
+                        Language
+                      </Text>
+                      <Text style={styles.prefSub}>Development</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.prefTile,
+                        contentPreferences.includes('Early Science Skills') &&
+                          styles.prefTileActive,
+                      ]}
+                      onPress={() => navigation.navigate('ContentSelection')}
+                      activeOpacity={0.9}>
+                      <MaterialIcons
+                        name="science"
+                        size={26}
+                        color={
+                          contentPreferences.includes('Early Science Skills')
+                            ? '#4A90E2'
+                            : '#9AA0A6'
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.prefTitle,
+                          contentPreferences.includes('Early Science Skills') &&
+                            styles.prefTitleActive,
+                        ]}>
+                        Science
+                      </Text>
+                      <Text style={styles.prefSub}>Skills</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.prefTile,
+                        contentPreferences.includes('Literacy Foundations') &&
+                          styles.prefTileActive,
+                      ]}
+                      onPress={() => navigation.navigate('ContentSelection')}
+                      activeOpacity={0.9}>
+                      <MaterialIcons
+                        name="menu-book"
+                        size={26}
+                        color={
+                          contentPreferences.includes('Literacy Foundations')
+                            ? '#4A90E2'
+                            : '#9AA0A6'
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.prefTitle,
+                          contentPreferences.includes('Literacy Foundations') &&
+                            styles.prefTitleActive,
+                        ]}>
+                        Literacy
+                      </Text>
+                      <Text style={styles.prefSub}>Foundation</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.prefTile,
+                        contentPreferences.includes(
+                          'Social-Emotional Learning',
+                        ) && styles.prefTileActive,
+                      ]}
+                      onPress={() => navigation.navigate('ContentSelection')}
+                      activeOpacity={0.9}>
+                      <MaterialIcons
+                        name="people"
+                        size={26}
+                        color={
+                          contentPreferences.includes(
+                            'Social-Emotional Learning',
+                          )
+                            ? '#4A90E2'
+                            : '#9AA0A6'
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.prefTitle,
+                          contentPreferences.includes(
+                            'Social-Emotional Learning',
+                          ) && styles.prefTitleActive,
+                        ]}>
+                        Social-Emotional
+                      </Text>
+                      <Text style={styles.prefSub}>Learning</Text>
+                    </TouchableOpacity>
+                  </View>
+                </WalkthroughableView>
+              </CopilotStep>
+              {/* <View style={styles.card}>
                 <Text style={styles.cardTitle}>Content Preferences</Text>
                 <View style={styles.prefGrid}>
                   <TouchableOpacity
@@ -2248,13 +2428,75 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                     <Text style={styles.prefSub}>Learning</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </View> */}
             </Animated.View>
 
             {/* Ask your companion Card */}
             <Animated.View
               style={[{paddingHorizontal: 20}, askCompanionCardStyle]}>
-              <View style={styles.card}>
+              <CopilotStep
+                order={4}
+                name="Companion"
+                text="Ask for parenting tips here!">
+                <WalkthroughableView style={styles.card}>
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={styles.cardTitleRow}>Ask your companion</Text>
+                    <Text style={styles.cardSub}>Get personalized advice</Text>
+                  </View>
+
+                  <View style={styles.inputField}>
+                    <MaterialIcons
+                      name="chat-bubble-outline"
+                      size={18}
+                      color="#9AA0A6"
+                    />
+                    <TextInput
+                      style={styles.fieldText}
+                      value={searchText}
+                      onChangeText={setSearchText}
+                      placeholder={
+                        isListening
+                          ? 'Listening...'
+                          : 'How can I help you today?'
+                      }
+                      placeholderTextColor="#9AA0A6"
+                      multiline
+                      editable={!isListening}
+                      onFocus={handleFocus}
+                      onBlur={handleBlur}
+                    />
+                    <TouchableOpacity
+                      style={styles.micPill}
+                      onPress={toggleListening}
+                      activeOpacity={0.8}>
+                      <MaterialIcons
+                        name={isListening ? 'mic-off' : 'mic'}
+                        size={18}
+                        color={isListening ? '#FF3B30' : '#6366F1'}
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    disabled={isAssistantLoading}
+                    onPress={getPersonalizedTips}
+                    style={{borderRadius: 22, overflow: 'hidden'}}>
+                    <LinearGradient
+                      colors={['#3B82F6', '#7C4DFF']}
+                      start={{x: 0, y: 0}}
+                      end={{x: 1, y: 1}}
+                      style={styles.ctaGradient}>
+                      {isAssistantLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.ctaText}>Get Parenting Advice</Text>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </WalkthroughableView>
+              </CopilotStep>
+              {/* <View style={styles.card}>
                 <View style={styles.cardHeaderRow}>
                   <Text style={styles.cardTitleRow}>Ask your companion</Text>
                   <Text style={styles.cardSub}>Get personalized advice</Text>
@@ -2308,7 +2550,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
-              </View>
+              </View> */}
             </Animated.View>
           </Pressable>
         </View>
