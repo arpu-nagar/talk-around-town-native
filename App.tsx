@@ -1,6 +1,14 @@
 'use strict';
 import React, {useEffect, useState} from 'react';
-import {StatusBar, Platform, Alert, PermissionsAndroid} from 'react-native';
+import {
+  StatusBar,
+  Platform,
+  Alert,
+  PermissionsAndroid,
+  View,
+  Text,
+  Button,
+} from 'react-native';
 import Navigation from './src/components/Navigation';
 import {AuthProvider} from './src/context/AuthContext';
 import {LocationProvider} from './src/context/LocationContext';
@@ -8,9 +16,49 @@ import {LocationProvider} from './src/context/LocationContext';
 import messaging from '@react-native-firebase/messaging';
 import AppStateTracker from './src/components/AppStateTracker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {CopilotProvider} from 'react-native-copilot';
+import {CopilotProvider, useCopilot} from 'react-native-copilot';
+import LinearGradient from 'react-native-linear-gradient';
 
 const WELCOME_SHOWN_KEY = 'welcome_message_shown';
+
+const MyTooltip = () => {
+  const {currentStep, isFirstStep, isLastStep, goToPrev, goToNext, stop} =
+    useCopilot();
+
+  return (
+    <View>
+      {/* Name/title */}
+      {!!currentStep?.name && (
+        <Text
+          style={{color: '#1F2937', fontWeight: '700', marginBottom: 6}}
+          numberOfLines={2}>
+          {currentStep.name}
+        </Text>
+      )}
+
+      {/* Description text */}
+      <Text style={{color: '#6B7280'}}>{currentStep?.text}</Text>
+
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginVertical: 12,
+        }}>
+        {!isFirstStep ? (
+          <Button color="#3B82F6" title="Previous" onPress={goToPrev} />
+        ) : (
+          <View />
+        )}
+        {isLastStep ? (
+          <Button color="#3B82F6" title="Finish" onPress={stop} />
+        ) : (
+          <Button color="#3B82F6" title="Next" onPress={goToNext} />
+        )}
+      </View>
+    </View>
+  );
+};
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -122,7 +170,7 @@ const App = () => {
   return (
     <AuthProvider>
       <LocationProvider>
-        <CopilotProvider overlay="svg">
+        <CopilotProvider overlay="svg" tooltipComponent={MyTooltip}>
           <StatusBar backgroundColor="#06bcee" />
           <AppStateTracker />
           {/* <RemoteNotification /> */}

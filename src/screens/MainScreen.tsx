@@ -57,6 +57,7 @@ import PersonalizationSurvey from '../components/PersonalizationSurvey';
 import TipsModal from '../components/MainScreen/TipsModal';
 import {useCache} from '../hooks/useCache';
 import {CopilotStep, useCopilot, walkthroughable} from 'react-native-copilot';
+import PreferencesCard from '../components/MainScreen/PreferencesCard';
 
 const STARTUP_CONFIG = {
   MAX_STARTUP_TIME: 8000,
@@ -411,7 +412,6 @@ const MapViewModal = React.memo(function MapViewModal({
   );
 });
 
-
 // ---- helpers
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const REMIND_EVERY_DAYS = 2;
@@ -593,6 +593,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyCompleted, setSurveyCompleted] = useState(false);
   const [bootChecked, setBootChecked] = useState(false); // ensure we decide once per mount
+  const [tourRunning, setTourRunning] = useState(false);
 
   const {loadFromCache, saveToCache} = useCache();
 
@@ -694,11 +695,11 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
   useEffect(() => {
     const handleStart = () => {
-      console.log('handleStart');
+      setTourRunning(true);
     };
 
     const handleStop = () => {
-      console.log('handleStop');
+      setTourRunning(false);
       AsyncStorage.setItem(HAS_SEEN_WALKTHROUGH_KEY, 'true');
     };
 
@@ -767,7 +768,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       {
         translateY: animation.interpolate({
           inputRange: [0, 1],
-          outputRange: [0, -290], // Move up more to fill the space
+          outputRange: [0, -280],
         }),
       },
     ],
@@ -775,26 +776,26 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   // --- End of Animation Setup ---
 
   // Keyboard listeners
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      () => {
-        setIsKeyboardVisible(true);
-      },
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        setIsKeyboardVisible(false);
-        // handleBlur();
-      },
-    );
+  // useEffect(() => {
+  //   const keyboardDidShowListener = Keyboard.addListener(
+  //     'keyboardDidShow',
+  //     () => {
+  //       setIsKeyboardVisible(true);
+  //     },
+  //   );
+  //   const keyboardDidHideListener = Keyboard.addListener(
+  //     'keyboardDidHide',
+  //     () => {
+  //       setIsKeyboardVisible(false);
+  //       // handleBlur();
+  //     },
+  //   );
 
-    return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
-    };
-  }, []);
+  //   return () => {
+  //     keyboardDidShowListener?.remove();
+  //     keyboardDidHideListener?.remove();
+  //   };
+  // }, []);
 
   function buildAgeFromInputs(yy: string, mm: string) {
     const y = Math.max(0, parseInt(yy || '0', 10) || 0);
@@ -839,7 +840,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       };
     }, []),
   );
-
 
   // Location quick fetch
   const getQuickLocation = useCallback(async (): Promise<Location> => {
@@ -1162,74 +1162,153 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     }
   };
 
- 
-// ===== STRICT DOMAIN VALIDATION (matches backend) =====
-const ALLOWED_DOMAINS = {
-  'Language Development': [
-    'talk', 'speak', 'language', 'vocabulary', 'word', 'communicate',
-    'conversation', 'speech', 'verbal', 'storytelling', 'listening',
-    'pronunciation', 'bilingual', 'reading aloud', 'narration',
-    'questions', 'describing', 'rhyme', 'song', 'singing',
-     'building vocabulary', 'word learning', 'language skills',
-  'communication skills', 'speaking skills', 'verbal skills'
-  ],
-  'Early Science Skills': [
-    'science', 'experiment', 'explore', 'discover', 'observe', 'investigate',
-    'nature', 'plants', 'animals', 'weather', 'seasons', 'biology',
-    'physics', 'chemistry', 'stem', 'curiosity', 'wonder', 'hypothesis',
-    'predict', 'measure', 'compare', 'classify', 'scientific'
-  ],
-  'Literacy Foundations': [
-    'read', 'reading', 'book', 'letter', 'alphabet', 'phonics', 'literacy',
-    'writing', 'story', 'print', 'text', 'comprehension', 'author',
-    'illustration', 'library', 'spell', 'recognize', 'sight word',
-    'pre-reading', 'emergent literacy', 'print awareness'
-  ],
-  'Social-Emotional Learning': [
-    'emotion', 'feeling', 'empathy', 'social', 'friend', 'share', 'turn-taking',
-    'cooperation', 'kindness', 'self-regulation', 'calm', 'upset', 'angry',
-    'sad', 'happy', 'scared', 'frustrated', 'conflict', 'resolution',
-    'relationship', 'self-awareness', 'self-control', 'coping', 'mindfulness',
-    'patience', 'understanding', 'compassion', 'jealous', 'proud'
-  ]
-};
+  // ===== STRICT DOMAIN VALIDATION (matches backend) =====
+  const ALLOWED_DOMAINS = {
+    'Language Development': [
+      'talk',
+      'speak',
+      'language',
+      'vocabulary',
+      'word',
+      'communicate',
+      'conversation',
+      'speech',
+      'verbal',
+      'storytelling',
+      'listening',
+      'pronunciation',
+      'bilingual',
+      'reading aloud',
+      'narration',
+      'questions',
+      'describing',
+      'rhyme',
+      'song',
+      'singing',
+      'building vocabulary',
+      'word learning',
+      'language skills',
+      'communication skills',
+      'speaking skills',
+      'verbal skills',
+    ],
+    'Early Science Skills': [
+      'science',
+      'experiment',
+      'explore',
+      'discover',
+      'observe',
+      'investigate',
+      'nature',
+      'plants',
+      'animals',
+      'weather',
+      'seasons',
+      'biology',
+      'physics',
+      'chemistry',
+      'stem',
+      'curiosity',
+      'wonder',
+      'hypothesis',
+      'predict',
+      'measure',
+      'compare',
+      'classify',
+      'scientific',
+    ],
+    'Literacy Foundations': [
+      'read',
+      'reading',
+      'book',
+      'letter',
+      'alphabet',
+      'phonics',
+      'literacy',
+      'writing',
+      'story',
+      'print',
+      'text',
+      'comprehension',
+      'author',
+      'illustration',
+      'library',
+      'spell',
+      'recognize',
+      'sight word',
+      'pre-reading',
+      'emergent literacy',
+      'print awareness',
+    ],
+    'Social-Emotional Learning': [
+      'emotion',
+      'feeling',
+      'empathy',
+      'social',
+      'friend',
+      'share',
+      'turn-taking',
+      'cooperation',
+      'kindness',
+      'self-regulation',
+      'calm',
+      'upset',
+      'angry',
+      'sad',
+      'happy',
+      'scared',
+      'frustrated',
+      'conflict',
+      'resolution',
+      'relationship',
+      'self-awareness',
+      'self-control',
+      'coping',
+      'mindfulness',
+      'patience',
+      'understanding',
+      'compassion',
+      'jealous',
+      'proud',
+    ],
+  };
 
-// Topics explicitly OUT of scope
-const OUT_OF_SCOPE_PATTERNS = [
-  // Behavioral/discipline
-  /\b(discipline|punishment|consequence|timeout|reward|chart|behavior modification)\b/i,
-  /\b(tantrum|meltdown|defiance|backtalk|hitting|biting|kicking)\b/i,
-  
-  // Sleep
-  /\b(sleep|bedtime|nap|nighttime|wake|insomnia)\b/i,
-  
-  // Eating/nutrition
-  /\b(eating|food|meal|nutrition|picky eater|snack|diet|feeding)\b/i,
-  
-  // Potty training
-  /\b(potty|toilet|diaper|bathroom|pee|poop|training)\b/i,
-  
-  // Screen time
-  /\b(screen time|tablet|ipad|tv|television|video game|youtube)\b/i,
-  
-  // Homework/school
-  /\b(homework|grade|test|quiz|school meeting|teacher conference)\b/i,
-  
-  // Travel
-  /\b(travel|vacation|flight|hotel|car seat|stroller)\b/i,
-  
-  // Medical
-  /\b(diagnos|symptom|treatment|medicine|medication|doctor|illness|disease|injury|medical)\b/i,
-  /\b(fever|rash|cough|cold|flu|allergy|asthma|adhd|autism|delay)\b/i,
-  
-  // Legal/financial
-  /\b(custody|divorce|lawyer|legal|court|financial|money|budget|cost)\b/i,
-  
-  // Adult topics
-  /\b(sex|dating|relationship with partner|marriage counseling)\b/i
-];
+  // Topics explicitly OUT of scope
+  const OUT_OF_SCOPE_PATTERNS = [
+    // Behavioral/discipline
+    /\b(discipline|punishment|consequence|timeout|reward|chart|behavior modification)\b/i,
+    /\b(tantrum|meltdown|defiance|backtalk|hitting|biting|kicking)\b/i,
 
-const REJECTION_MESSAGE = `We only provide tips in these 4 areas:
+    // Sleep
+    /\b(sleep|bedtime|nap|nighttime|wake|insomnia)\b/i,
+
+    // Eating/nutrition
+    /\b(eating|food|meal|nutrition|picky eater|snack|diet|feeding)\b/i,
+
+    // Potty training
+    /\b(potty|toilet|diaper|bathroom|pee|poop|training)\b/i,
+
+    // Screen time
+    /\b(screen time|tablet|ipad|tv|television|video game|youtube)\b/i,
+
+    // Homework/school
+    /\b(homework|grade|test|quiz|school meeting|teacher conference)\b/i,
+
+    // Travel
+    /\b(travel|vacation|flight|hotel|car seat|stroller)\b/i,
+
+    // Medical
+    /\b(diagnos|symptom|treatment|medicine|medication|doctor|illness|disease|injury|medical)\b/i,
+    /\b(fever|rash|cough|cold|flu|allergy|asthma|adhd|autism|delay)\b/i,
+
+    // Legal/financial
+    /\b(custody|divorce|lawyer|legal|court|financial|money|budget|cost)\b/i,
+
+    // Adult topics
+    /\b(sex|dating|relationship with partner|marriage counseling)\b/i,
+  ];
+
+  const REJECTION_MESSAGE = `We only provide tips in these 4 areas:
 
 - Language Development - vocabulary, communication, storytelling
 - Early Science Skills - exploration, nature, curiosity
@@ -1238,50 +1317,50 @@ const REJECTION_MESSAGE = `We only provide tips in these 4 areas:
 
 Try asking about one of these topics!`;
 
-const EXAMPLE_QUERIES = [
-  'Reading activities for my 4-year-old',
-  'Science experiments we can do at home',
-  'How to help my child express emotions',
-  'Language development games for toddlers',
-  'Building vocabulary through storytelling',
-  'Nature exploration activities for kids'
-];
-function isStrictlyInScope(query: string): {valid: boolean; message?: string; domain?: string} {
-  const q = query.toLowerCase();
-  
-  // 1. Check for explicitly out-of-scope topics (HARD REJECT)
-  for (const pattern of OUT_OF_SCOPE_PATTERNS) {
-    if (pattern.test(query)) {
-      return {
-        valid: false,
-        message: REJECTION_MESSAGE
-      };
-    }
-  }
-  
-  // 2. Let backend handle domain matching - just pass through if not obviously bad
-  return { valid: true };
-}
+  const EXAMPLE_QUERIES = [
+    'Reading activities for my 4-year-old',
+    'Science experiments we can do at home',
+    'How to help my child express emotions',
+    'Language development games for toddlers',
+    'Building vocabulary through storytelling',
+    'Nature exploration activities for kids',
+  ];
+  function isStrictlyInScope(query: string): {
+    valid: boolean;
+    message?: string;
+    domain?: string;
+  } {
+    const q = query.toLowerCase();
 
-function showDomainRejectionAlert(message: string) {
-  Alert.alert(
-    'Topic Not Supported',
-    message,
-    [
+    // 1. Check for explicitly out-of-scope topics (HARD REJECT)
+    for (const pattern of OUT_OF_SCOPE_PATTERNS) {
+      if (pattern.test(query)) {
+        return {
+          valid: false,
+          message: REJECTION_MESSAGE,
+        };
+      }
+    }
+
+    // 2. Let backend handle domain matching - just pass through if not obviously bad
+    return {valid: true};
+  }
+
+  function showDomainRejectionAlert(message: string) {
+    Alert.alert('Topic Not Supported', message, [
       {
         text: 'See Examples',
         onPress: () => {
           Alert.alert(
             'Try asking about:',
             EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
-            [{text: 'OK'}]
+            [{text: 'OK'}],
           );
-        }
+        },
       },
-      {text: 'OK', style: 'cancel'}
-    ]
-  );
-}
+      {text: 'OK', style: 'cancel'},
+    ]);
+  }
 
   // Words that strongly indicate the user is asking about a child/parenting topic
   const CHILD_TERMS = [
@@ -1312,7 +1391,6 @@ function showDomainRejectionAlert(message: string) {
     'school',
   ];
 
-
   // Age patterns like "3yo", "3 yo", "3-year-old", "18 months old"
   const AGE_PATTERNS: RegExp[] = [
     /\b\d{1,2}\s?(yo|yrs?|years?)\b/i,
@@ -1321,8 +1399,6 @@ function showDomainRejectionAlert(message: string) {
   ];
 
   const normalize = (s: string) => s.toLowerCase().trim();
-
-
 
   // simple levenshtein for fuzzy name match (handles typos/nicknames)
   function levenshtein(a: string, b: string) {
@@ -1478,27 +1554,29 @@ function showDomainRejectionAlert(message: string) {
     if (!query) {
       return Alert.alert(
         'Input Required',
-        'Please enter what you need help with'
+        'Please enter what you need help with',
       );
     }
-  
+
     // STRICT DOMAIN VALIDATION - only allow our 4 domains
     const validation = isStrictlyInScope(query);
-    
+
     if (!validation.valid) {
       showDomainRejectionAlert(validation.message || REJECTION_MESSAGE);
       return;
     }
-  
-    console.log(`✅ Query approved for domain: ${validation.domain || 'unknown'}`);
-  
+
+    console.log(
+      `✅ Query approved for domain: ${validation.domain || 'unknown'}`,
+    );
+
     setIsAssistantLoading(true);
     setTips([]);
-  
+
     try {
       // Resolve children for context
       let mentioned = resolveChildrenFromQuery(query, userChildren);
-      
+
       // Age-based resolution if no names found
       if (mentioned.length === 0) {
         const ageMention = parseAgeMention(query);
@@ -1509,7 +1587,7 @@ function showDomainRejectionAlert(message: string) {
             userChildren,
             granularity,
           );
-  
+
           if (exact.length === 1) {
             mentioned = exact;
           } else if (exact.length > 1) {
@@ -1551,14 +1629,14 @@ function showDomainRejectionAlert(message: string) {
           }
         }
       }
-  
+
       const childLines = (mentioned.length ? mentioned : userChildren).map(
         c => {
           const nm = c.nickname || 'Child';
           return `${nm}: ${ageYMMM(c.date_of_birth)} old`;
         },
       );
-  
+
       const childContext = childLines.join(', ');
       const childrenContext = (mentioned.length ? mentioned : userChildren).map(
         c => ({
@@ -1568,22 +1646,22 @@ function showDomainRejectionAlert(message: string) {
           ageYears: calculateAge(c.date_of_birth),
         }),
       );
-  
+
       const prompt = (
         mentioned.length > 0
           ? `${query} (Focus on: ${childContext}).`
           : `${query}. Child context: ${childContext}.`
       ).trim();
-  
+
       const endpoint = '/api/personalization/enhanced-tips-survey';
-  
+
       const enhancedContext = {
         prompt,
         contentPreferences,
         generateMode: 'hybrid',
         childrenContext,
       };
-  
+
       const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -1592,9 +1670,9 @@ function showDomainRejectionAlert(message: string) {
         },
         body: JSON.stringify(enhancedContext),
       });
-  
+
       const data = await res.json();
-  
+
       if (!res.ok) {
         if (data?.error === 'out_of_scope') {
           Alert.alert(
@@ -1607,32 +1685,32 @@ function showDomainRejectionAlert(message: string) {
                   Alert.alert(
                     'Try asking about:',
                     EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
-                    [{text: 'OK'}]
+                    [{text: 'OK'}],
                   );
-                }
+                },
               },
-              {text: 'OK', style: 'cancel'}
-            ]
+              {text: 'OK', style: 'cancel'},
+            ],
           );
           return;
         }
-        
+
         Alert.alert(
           'Error',
-          data.message || 'Failed to get tips. Please try again.'
+          data.message || 'Failed to get tips. Please try again.',
         );
         return;
       }
-  
+
       if (Array.isArray(data.tips) && data.tips.length) {
         setTips(data.tips);
         tipLookupRef.current = new Map(
           (data.tips || []).map((t: Tip) => [t.id, t]),
         );
-  
+
         Keyboard.dismiss();
         setShowTipsModal(true);
-  
+
         if (data.hasSurveyPersonalization) {
           console.log('🎯 Tips personalized using survey data!');
         }
@@ -1647,27 +1725,85 @@ function showDomainRejectionAlert(message: string) {
                 Alert.alert(
                   'Try asking about:',
                   EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
-                  [{text: 'OK'}]
+                  [{text: 'OK'}],
                 );
-              }
+              },
             },
-            {text: 'OK', style: 'cancel'}
-          ]
+            {text: 'OK', style: 'cancel'},
+          ],
         );
       }
     } catch (e) {
       console.error('tips error', e);
       Alert.alert(
         'Error',
-        'Failed to get advice. Please check your connection and try again.'
+        'Failed to get advice. Please check your connection and try again.',
       );
     } finally {
       setIsAssistantLoading(false);
     }
   };
 
+  const CompanionView = tourRunning ? WalkthroughableView : View;
 
-  // Add Location
+  // Extract the card so we can reuse it with/without CopilotStep
+  const AskCompanionCard = (
+    <CompanionView style={styles.card}>
+      <View style={styles.cardHeaderRow}>
+        <Text style={styles.cardTitleRow}>Ask your companion</Text>
+        <Text style={styles.cardSub}>Get personalized advice</Text>
+      </View>
+
+      <View style={styles.inputField}>
+        <MaterialIcons name="chat-bubble-outline" size={18} color="#9AA0A6" />
+        <TextInput
+          style={styles.fieldText}
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder={
+            isListening ? 'Listening...' : 'How can I help you today?'
+          }
+          placeholderTextColor="#9AA0A6"
+          multiline
+          editable={!isListening}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          returnKeyType="search"
+          blurOnSubmit={false}
+          onSubmitEditing={() => getPersonalizedTips()}
+          onTouchStart={e => e.stopPropagation()}
+        />
+        <TouchableOpacity
+          style={styles.micPill}
+          onPress={toggleListening}
+          activeOpacity={0.8}>
+          <MaterialIcons
+            name={isListening ? 'mic-off' : 'mic'}
+            size={18}
+            color={isListening ? '#FF3B30' : '#6366F1'}
+          />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        activeOpacity={0.9}
+        disabled={isAssistantLoading}
+        onPress={getPersonalizedTips}
+        style={{borderRadius: 22, overflow: 'hidden', marginBottom: 12}}>
+        <LinearGradient
+          colors={['#3B82F6', '#7C4DFF']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 1}}
+          style={styles.ctaGradient}>
+          {isAssistantLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.ctaText}>Get Parenting Advice</Text>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+    </CompanionView>
+  );
 
   <MapViewModal
     visible={showMapView}
@@ -1914,321 +2050,31 @@ function showDomainRejectionAlert(message: string) {
         </View>
 
         <View style={{flex: 1}}>
-          <Pressable onPress={Keyboard.dismiss}>
-            {/* Content Preferences Card */}
-            <Animated.View
-              style={[{paddingHorizontal: 20}, preferencesCardStyle]}>
-              <CopilotStep
-                order={3}
-                name="Content preferences"
-                text="Select your preferences by tapping here!">
-                <WalkthroughableView style={styles.card}>
-                  <Text style={styles.cardTitle}>Content Preferences</Text>
-                  <View style={styles.prefGrid}>
-                    <TouchableOpacity
-                      style={[
-                        styles.prefTile,
-                        contentPreferences.includes('Language Development') &&
-                          styles.prefTileActive,
-                      ]}
-                      onPress={() => navigation.navigate('ContentSelection')}
-                      activeOpacity={0.9}>
-                      <MaterialIcons
-                        name="chat"
-                        size={26}
-                        color={
-                          contentPreferences.includes('Language Development')
-                            ? '#4A90E2'
-                            : '#9AA0A6'
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.prefTitle,
-                          contentPreferences.includes('Language Development') &&
-                            styles.prefTitleActive,
-                        ]}>
-                        Language
-                      </Text>
-                      <Text style={styles.prefSub}>Development</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.prefTile,
-                        contentPreferences.includes('Early Science Skills') &&
-                          styles.prefTileActive,
-                      ]}
-                      onPress={() => navigation.navigate('ContentSelection')}
-                      activeOpacity={0.9}>
-                      <MaterialIcons
-                        name="science"
-                        size={26}
-                        color={
-                          contentPreferences.includes('Early Science Skills')
-                            ? '#4A90E2'
-                            : '#9AA0A6'
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.prefTitle,
-                          contentPreferences.includes('Early Science Skills') &&
-                            styles.prefTitleActive,
-                        ]}>
-                        Science
-                      </Text>
-                      <Text style={styles.prefSub}>Skills</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.prefTile,
-                        contentPreferences.includes('Literacy Foundations') &&
-                          styles.prefTileActive,
-                      ]}
-                      onPress={() => navigation.navigate('ContentSelection')}
-                      activeOpacity={0.9}>
-                      <MaterialIcons
-                        name="menu-book"
-                        size={26}
-                        color={
-                          contentPreferences.includes('Literacy Foundations')
-                            ? '#4A90E2'
-                            : '#9AA0A6'
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.prefTitle,
-                          contentPreferences.includes('Literacy Foundations') &&
-                            styles.prefTitleActive,
-                        ]}>
-                        Literacy
-                      </Text>
-                      <Text style={styles.prefSub}>Foundation</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.prefTile,
-                        contentPreferences.includes(
-                          'Social-Emotional Learning',
-                        ) && styles.prefTileActive,
-                      ]}
-                      onPress={() => navigation.navigate('ContentSelection')}
-                      activeOpacity={0.9}>
-                      <MaterialIcons
-                        name="people"
-                        size={26}
-                        color={
-                          contentPreferences.includes(
-                            'Social-Emotional Learning',
-                          )
-                            ? '#4A90E2'
-                            : '#9AA0A6'
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.prefTitle,
-                          contentPreferences.includes(
-                            'Social-Emotional Learning',
-                          ) && styles.prefTitleActive,
-                        ]}>
-                        Social-Emotional
-                      </Text>
-                      <Text style={styles.prefSub}>Learning</Text>
-                    </TouchableOpacity>
-                  </View>
-                </WalkthroughableView>
-              </CopilotStep>
-              {/* <View style={styles.card}>
+          {/* Content Preferences Card */}
+          <Animated.View
+            style={[{paddingHorizontal: 20}, preferencesCardStyle]}>
+            <CopilotStep
+              order={3}
+              name="Content preferences"
+              text="Select your preferences by tapping here!">
+              <WalkthroughableView style={styles.card}>
                 <Text style={styles.cardTitle}>Content Preferences</Text>
-                <View style={styles.prefGrid}>
-                  <TouchableOpacity
-                    style={[
-                      styles.prefTile,
-                      contentPreferences.includes('Language Development') &&
-                        styles.prefTileActive,
-                    ]}
-                    onPress={() => navigation.navigate('ContentSelection')}
-                    activeOpacity={0.9}>
-                    <MaterialIcons
-                      name="chat"
-                      size={26}
-                      color={
-                        contentPreferences.includes('Language Development')
-                          ? '#4A90E2'
-                          : '#9AA0A6'
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.prefTitle,
-                        contentPreferences.includes('Language Development') &&
-                          styles.prefTitleActive,
-                      ]}>
-                      Language
-                    </Text>
-                    <Text style={styles.prefSub}>Development</Text>
-                  </TouchableOpacity>
+                <PreferencesCard
+                  navigation={navigation}
+                  contentPreferences={contentPreferences}
+                />
+              </WalkthroughableView>
+            </CopilotStep>
+          </Animated.View>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.prefTile,
-                      contentPreferences.includes('Early Science Skills') &&
-                        styles.prefTileActive,
-                    ]}
-                    onPress={() => navigation.navigate('ContentSelection')}
-                    activeOpacity={0.9}>
-                    <MaterialIcons
-                      name="science"
-                      size={26}
-                      color={
-                        contentPreferences.includes('Early Science Skills')
-                          ? '#4A90E2'
-                          : '#9AA0A6'
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.prefTitle,
-                        contentPreferences.includes('Early Science Skills') &&
-                          styles.prefTitleActive,
-                      ]}>
-                      Science
-                    </Text>
-                    <Text style={styles.prefSub}>Skills</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.prefTile,
-                      contentPreferences.includes('Literacy Foundations') &&
-                        styles.prefTileActive,
-                    ]}
-                    onPress={() => navigation.navigate('ContentSelection')}
-                    activeOpacity={0.9}>
-                    <MaterialIcons
-                      name="menu-book"
-                      size={26}
-                      color={
-                        contentPreferences.includes('Literacy Foundations')
-                          ? '#4A90E2'
-                          : '#9AA0A6'
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.prefTitle,
-                        contentPreferences.includes('Literacy Foundations') &&
-                          styles.prefTitleActive,
-                      ]}>
-                      Literacy
-                    </Text>
-                    <Text style={styles.prefSub}>Foundation</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.prefTile,
-                      contentPreferences.includes(
-                        'Social-Emotional Learning',
-                      ) && styles.prefTileActive,
-                    ]}
-                    onPress={() => navigation.navigate('ContentSelection')}
-                    activeOpacity={0.9}>
-                    <MaterialIcons
-                      name="people"
-                      size={26}
-                      color={
-                        contentPreferences.includes('Social-Emotional Learning')
-                          ? '#4A90E2'
-                          : '#9AA0A6'
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.prefTitle,
-                        contentPreferences.includes(
-                          'Social-Emotional Learning',
-                        ) && styles.prefTitleActive,
-                      ]}>
-                      Social-Emotional
-                    </Text>
-                    <Text style={styles.prefSub}>Learning</Text>
-                  </TouchableOpacity>
-                </View>
-              </View> */}
-            </Animated.View>
-
-            {/* Ask your companion Card */}
-            <Animated.View
-              style={[{paddingHorizontal: 20}, askCompanionCardStyle]}>
-              <CopilotStep
-                order={4}
-                name="Companion"
-                text="Ask for parenting tips here!">
-                <WalkthroughableView style={styles.card}>
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.cardTitleRow}>Ask your companion</Text>
-                    <Text style={styles.cardSub}>Get personalized advice</Text>
-                  </View>
-
-                  <View style={styles.inputField}>
-                    <MaterialIcons
-                      name="chat-bubble-outline"
-                      size={18}
-                      color="#9AA0A6"
-                    />
-                    <TextInput
-                      style={styles.fieldText}
-                      value={searchText}
-                      onChangeText={setSearchText}
-                      placeholder={
-                        isListening
-                          ? 'Listening...'
-                          : 'How can I help you today?'
-                      }
-                      placeholderTextColor="#9AA0A6"
-                      multiline
-                      editable={!isListening}
-                      onFocus={handleFocus}
-                      onBlur={handleBlur}
-                    />
-                    <TouchableOpacity
-                      style={styles.micPill}
-                      onPress={toggleListening}
-                      activeOpacity={0.8}>
-                      <MaterialIcons
-                        name={isListening ? 'mic-off' : 'mic'}
-                        size={18}
-                        color={isListening ? '#FF3B30' : '#6366F1'}
-                      />
-                    </TouchableOpacity>
-                  </View>
-
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    disabled={isAssistantLoading}
-                    onPress={getPersonalizedTips}
-                    style={{borderRadius: 22, overflow: 'hidden'}}>
-                    <LinearGradient
-                      colors={['#3B82F6', '#7C4DFF']}
-                      start={{x: 0, y: 0}}
-                      end={{x: 1, y: 1}}
-                      style={styles.ctaGradient}>
-                      {isAssistantLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <Text style={styles.ctaText}>Get Parenting Advice</Text>
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </WalkthroughableView>
-              </CopilotStep>
-              {/* <View style={styles.card}>
+          {/* Ask your companion Card */}
+          <Animated.View
+            style={[{paddingHorizontal: 20}, askCompanionCardStyle]}>
+            {/* <CopilotStep
+              order={4}
+              name="Companion"
+              text="Ask for parenting tips here!">
+              <WalkthroughableView style={styles.card}>
                 <View style={styles.cardHeaderRow}>
                   <Text style={styles.cardTitleRow}>Ask your companion</Text>
                   <Text style={styles.cardSub}>Get personalized advice</Text>
@@ -2252,6 +2098,10 @@ function showDomainRejectionAlert(message: string) {
                     editable={!isListening}
                     onFocus={handleFocus}
                     onBlur={handleBlur}
+                    returnKeyType="search"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => getPersonalizedTips()}
+                    onTouchStart={e => e.stopPropagation()}
                   />
                   <TouchableOpacity
                     style={styles.micPill}
@@ -2269,7 +2119,11 @@ function showDomainRejectionAlert(message: string) {
                   activeOpacity={0.9}
                   disabled={isAssistantLoading}
                   onPress={getPersonalizedTips}
-                  style={{borderRadius: 22, overflow: 'hidden'}}>
+                  style={{
+                    borderRadius: 22,
+                    overflow: 'hidden',
+                    marginBottom: 12,
+                  }}>
                   <LinearGradient
                     colors={['#3B82F6', '#7C4DFF']}
                     start={{x: 0, y: 0}}
@@ -2282,9 +2136,19 @@ function showDomainRejectionAlert(message: string) {
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
-              </View> */}
-            </Animated.View>
-          </Pressable>
+              </WalkthroughableView>
+            </CopilotStep> */}
+            {tourRunning ? (
+              <CopilotStep
+                order={4}
+                name="Companion"
+                text="Ask for parenting tips here!">
+                {AskCompanionCard}
+              </CopilotStep>
+            ) : (
+              AskCompanionCard
+            )}
+          </Animated.View>
         </View>
 
         {/* Floating pill nav */}
@@ -2582,7 +2446,7 @@ const styles = StyleSheet.create({
 
   searchRow: {
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: 16,
     flexDirection: 'row',
   },
   heroSearch: {
@@ -2612,8 +2476,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
     borderRadius: 30,
-    padding: 16,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 6},
     shadowOpacity: 0.08,
