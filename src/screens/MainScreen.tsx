@@ -411,14 +411,6 @@ const MapViewModal = React.memo(function MapViewModal({
   );
 });
 
-interface SurveyData {
-  contentPreferences: string[];
-  challengeAreas: string[];
-  parentingGoals: string[]; // kept for forward-compat; not used in UI steps right now
-  engagementFrequency: string;
-  currentChallenge?: string;
-  additionalNotes?: string;
-}
 
 // ---- helpers
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -525,7 +517,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
   // Context & refs
   const {userInfo, isLoading} = useContext<any>(AuthContext);
-  const placesRef = useRef<GooglePlacesAutocompleteRef>(null);
   const lastResult = useRef<string>('');
   const currentSound = useRef<Sound | null>(null);
 
@@ -585,8 +576,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   ]);
   const [likedTips, setLikedTips] = useState<Tip[]>([]);
   const [dislikedTips, setDislikedTips] = useState<Tip[]>([]);
-  const nameInputRef = useRef<TextInput>(null);
-  const descriptionInputRef = useRef<TextInput>(null);
 
   const [userPreferenceProfile, setUserPreferenceProfile] = useState<any>(null);
   // --- state ---
@@ -851,36 +840,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     }, []),
   );
 
-  // New: very clear non-parenting detector
-  const isClearlyNonParenting = (q: string) => {
-    const n = normalize(q);
-    // keep your dangerous patterns separate
-    if (hasAny(n, DANGEROUS_PATTERNS)) return true;
-
-    // strong non-parenting domains
-    if (hasAny(n, NON_PARENTING_PATTERNS)) return true;
-
-    // otherwise not clearly non-parenting
-    return false;
-  };
-
-  // New: more permissive parenting detector (defaults to parenting if ambiguous and you have kids)
-  const looksLikeParenting = (q: string, hasSavedKids = false) => {
-    const n = normalize(q);
-
-    // obvious parenting signals
-    const childTermHit = CHILD_TERMS.some(w => n.includes(w));
-    const topicHit = PARENTING_TOPICS.some(w => n.includes(w));
-    const ageHit = AGE_PATTERNS.some(re => re.test(n));
-    if (childTermHit || topicHit || ageHit) return true;
-
-    // short/generic asks → assume parenting if user has saved kids
-    const genericAsk = HELP_WORDS.test(n);
-    const shortAsk = wordCount(n) <= 3;
-    if (hasSavedKids && (genericAsk || shortAsk)) return true;
-
-    return false;
-  };
 
   // Location quick fetch
   const getQuickLocation = useCallback(async (): Promise<Location> => {
@@ -1203,80 +1162,127 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     }
   };
 
-  // --- Non-parenting domains to block clearly off-scope queries ---
-  const NON_PARENTING_PATTERNS: RegExp[] = [
-    // finance / business
-    /\b(crypto|bitcoin|stock(s)?|options|forex|etf|dividends?|retirement|401k|tax(es)?|deductions?|withholding|real estate investing)\b/i,
-    // jobs / careers
-    /\b(resume|cv|cover letter|job interview|salary negotiation|promotion|manager|okr|kpi|performance review)\b/i,
-    // software / it
-    /\b(code|coding|program(ming)?|javascript|typescript|react native|react|python|sql|bug fix|devops|docker|kubernetes|api)\b/i,
-    // politics / news / gossip
-    /\b(election|president|senate|congress|politics|celebrity|gossip)\b/i,
-    // gambling
-    /\b(casino|blackjack|roulette|poker|sports betting|parlay|odds)\b/i,
-    // adult relationships
-    /\b(dating|tinder|bumble|grindr|relationship advice for partner|sex life)\b/i,
-  ];
+ 
+// ===== STRICT DOMAIN VALIDATION (matches backend) =====
+const ALLOWED_DOMAINS = {
+  'Language Development': [
+    'talk', 'speak', 'language', 'vocabulary', 'word', 'communicate',
+    'conversation', 'speech', 'verbal', 'storytelling', 'listening',
+    'pronunciation', 'bilingual', 'reading aloud', 'narration',
+    'questions', 'describing', 'rhyme', 'song', 'singing',
+     'building vocabulary', 'word learning', 'language skills',
+  'communication skills', 'speaking skills', 'verbal skills'
+  ],
+  'Early Science Skills': [
+    'science', 'experiment', 'explore', 'discover', 'observe', 'investigate',
+    'nature', 'plants', 'animals', 'weather', 'seasons', 'biology',
+    'physics', 'chemistry', 'stem', 'curiosity', 'wonder', 'hypothesis',
+    'predict', 'measure', 'compare', 'classify', 'scientific'
+  ],
+  'Literacy Foundations': [
+    'read', 'reading', 'book', 'letter', 'alphabet', 'phonics', 'literacy',
+    'writing', 'story', 'print', 'text', 'comprehension', 'author',
+    'illustration', 'library', 'spell', 'recognize', 'sight word',
+    'pre-reading', 'emergent literacy', 'print awareness'
+  ],
+  'Social-Emotional Learning': [
+    'emotion', 'feeling', 'empathy', 'social', 'friend', 'share', 'turn-taking',
+    'cooperation', 'kindness', 'self-regulation', 'calm', 'upset', 'angry',
+    'sad', 'happy', 'scared', 'frustrated', 'conflict', 'resolution',
+    'relationship', 'self-awareness', 'self-control', 'coping', 'mindfulness',
+    'patience', 'understanding', 'compassion', 'jealous', 'proud'
+  ]
+};
 
-  const HELP_WORDS =
-    /\b(tips?|how to|how-to|ideas?|tricks?|help|advice|guide|activities?)\b/i;
+// Topics explicitly OUT of scope
+const OUT_OF_SCOPE_PATTERNS = [
+  // Behavioral/discipline
+  /\b(discipline|punishment|consequence|timeout|reward|chart|behavior modification)\b/i,
+  /\b(tantrum|meltdown|defiance|backtalk|hitting|biting|kicking)\b/i,
+  
+  // Sleep
+  /\b(sleep|bedtime|nap|nighttime|wake|insomnia)\b/i,
+  
+  // Eating/nutrition
+  /\b(eating|food|meal|nutrition|picky eater|snack|diet|feeding)\b/i,
+  
+  // Potty training
+  /\b(potty|toilet|diaper|bathroom|pee|poop|training)\b/i,
+  
+  // Screen time
+  /\b(screen time|tablet|ipad|tv|television|video game|youtube)\b/i,
+  
+  // Homework/school
+  /\b(homework|grade|test|quiz|school meeting|teacher conference)\b/i,
+  
+  // Travel
+  /\b(travel|vacation|flight|hotel|car seat|stroller)\b/i,
+  
+  // Medical
+  /\b(diagnos|symptom|treatment|medicine|medication|doctor|illness|disease|injury|medical)\b/i,
+  /\b(fever|rash|cough|cold|flu|allergy|asthma|adhd|autism|delay)\b/i,
+  
+  // Legal/financial
+  /\b(custody|divorce|lawyer|legal|court|financial|money|budget|cost)\b/i,
+  
+  // Adult topics
+  /\b(sex|dating|relationship with partner|marriage counseling)\b/i
+];
 
-  const hasAny = (q: string, regs: RegExp[]) => regs.some(re => re.test(q));
-  const wordCount = (q: string) => (q.trim().match(/\S+/g) || []).length;
-  // ------- Parenting Guardrails -------
-  const DIY_TERMS = [
-    'diy',
-    'craft',
-    'crafts',
-    'arts and crafts',
-    'art project',
-    'project',
-    'science experiment',
-    'experiments',
-    'stem activity',
-    'stem activities',
-    'maker',
-    'lego',
-    'sensory',
-    'sensory play',
-    'sensory bin',
-    'playdough',
-    'play-dough',
-    'slime',
-    'origami',
-    'paper craft',
-    'rainy day',
-  ];
+const REJECTION_MESSAGE = `We only provide tips in these 4 areas:
 
-  const NEUTRAL_PARENTING_ENV = [
-    'grocery',
-    'supermarket',
-    'shopping',
-    'store',
-    'errands',
-    'restaurant',
-    'waiting room',
-    'library',
-    'park',
-    'bath',
-    'bath time',
-    'shower',
-    'hygiene',
-    'tooth brushing',
-    'toothbrush',
-    'car seat',
-    'car ride',
-    'road trip',
-    'flight',
-    'plane',
-    'airport',
-    'bus',
-    'train',
-    'travel',
-    // add DIY contexts as neutral environments too
-    ...DIY_TERMS,
-  ];
+- Language Development - vocabulary, communication, storytelling
+- Early Science Skills - exploration, nature, curiosity
+- Literacy Foundations - reading, books, letters, phonics
+- Social-Emotional Learning - feelings, empathy, friendships
+
+Try asking about one of these topics!`;
+
+const EXAMPLE_QUERIES = [
+  'Reading activities for my 4-year-old',
+  'Science experiments we can do at home',
+  'How to help my child express emotions',
+  'Language development games for toddlers',
+  'Building vocabulary through storytelling',
+  'Nature exploration activities for kids'
+];
+function isStrictlyInScope(query: string): {valid: boolean; message?: string; domain?: string} {
+  const q = query.toLowerCase();
+  
+  // 1. Check for explicitly out-of-scope topics (HARD REJECT)
+  for (const pattern of OUT_OF_SCOPE_PATTERNS) {
+    if (pattern.test(query)) {
+      return {
+        valid: false,
+        message: REJECTION_MESSAGE
+      };
+    }
+  }
+  
+  // 2. Let backend handle domain matching - just pass through if not obviously bad
+  return { valid: true };
+}
+
+function showDomainRejectionAlert(message: string) {
+  Alert.alert(
+    'Topic Not Supported',
+    message,
+    [
+      {
+        text: 'See Examples',
+        onPress: () => {
+          Alert.alert(
+            'Try asking about:',
+            EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
+            [{text: 'OK'}]
+          );
+        }
+      },
+      {text: 'OK', style: 'cancel'}
+    ]
+  );
+}
+
   // Words that strongly indicate the user is asking about a child/parenting topic
   const CHILD_TERMS = [
     'child',
@@ -1306,150 +1312,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     'school',
   ];
 
-  // Common parenting topics you want to allow through
-  const PARENTING_TOPICS = [
-    'bedtime',
-    'sleep',
-    'tantrum',
-    'behavior',
-    'discipline',
-    'potty',
-    'toilet',
-    'diaper',
-    'screen time',
-    'homework',
-    'reading',
-    'milestone',
-    'play',
-    'activity',
-    'activities',
-    'language',
-    'speech',
-    'feeding',
-    'picky eater',
-    'vegetables',
-    'routine',
-    'chores',
-    'bullying',
-    'friends',
-    'social',
-    'sharing',
-    'attention',
-    'focus',
-    'study',
-    'grades',
-    'sleep',
-    'tantrum',
-    'meltdown',
-    'behavior',
-    'discipline',
-    'routine',
-    'screen time',
-    'homework',
-    'reading',
-    'literacy',
-    'milestone',
-    'play',
-    'activity',
-    'activities',
-    'language',
-    'speech',
-    'feeding',
-    'picky eater',
-    'vegetables',
-    'toilet',
-    'potty',
-    'diaper',
-    'social',
-    'sharing',
-    'bullying',
-    'focus',
-    'study',
-    'grades',
-    'friends',
-    // hygiene & self-care
-    'bath',
-    'bath time',
-    'shower',
-    'hygiene',
-    'tooth brushing',
-    'toothbrush',
-    'toileting',
-    // out-and-about / errands
-    'grocery',
-    'supermarket',
-    'shopping',
-    'store',
-    'errands',
-    'restaurant',
-    'waiting room',
-    'library',
-    'park',
-    // travel & logistics
-    'car seat',
-    'car ride',
-    'road trip',
-    'flight',
-    'plane',
-    'airport',
-    'bus',
-    'train',
-    'travel',
-    // transitions / routines
-    'morning routine',
-    'evening routine',
-    'after school',
-    'bedtime routine',
-    'nap',
-    'naptime',
-    // DIY / crafts / experiments
-    ...DIY_TERMS,
-  ];
-
-  // Phrases that carry obvious safety/legal/medical/adult risk → always refuse
-  const DANGEROUS_PATTERNS: RegExp[] = [
-    // violence/illegal
-    /\b(kill|murder|harm|poison|steal|buy\s*gun|make\s*bomb|break in|hack)\b/i,
-    // self-harm
-    /\b(suicide|self[-\s]?harm|cutting|kill myself)\b/i,
-    // adult/sexual
-    /\b(porn|nsfw|sex positions?|onlyfans|erotic|fetish|nude|sext)\b/i,
-    // drugs
-    /\b(cocaine|heroin|meth|lsd|ecstasy|marijuana|weed|vape|how to get high)\b/i,
-    // medical & legal (you can tune this)
-    /\b(diagnos(e|is)|prescribe|dosage|treat|medicine|antibiotic|legal advice|contract|tax advice)\b/i,
-  ];
-
-  // --- High-risk substances & paraphernalia (compact but robust) ---
-  const DRUG_TERMS = new RegExp(
-    '\\b(' +
-      'cocaine|coke|crack|' +
-      'heroin|fentanyl|opioid|opioids?|' +
-      'oxycodone|oxycontin|xanax|alprazolam|benzodiazepines?|benzos?|' +
-      'meth(?:amphetamine)?|speed|ice|adderall|' +
-      'mdma|ecstasy|molly|' +
-      'lsd|acid|ketamine|psilocybin|shrooms?|mushrooms?|' +
-      'marijuana|cannabis|weed|hash|dab|dabs|edibles?|' +
-      'vape|nicotine|juul|' +
-      'lean|sizzurp|promethazine|codeine' +
-      ')\\b',
-    'i',
-  );
-
-  const DRUG_ACTIONS = new RegExp(
-    '\\b(' +
-      'buy|purchase|sell|make|cook|grow|synth(?:es|is|ize)|extract|' +
-      'where\\s+to\\s+buy|how\\s+to\\s+get|how\\s+do\\s+i\\s+get|how\\s+can\\s+i\\s+get' +
-      ')\\b',
-    'i',
-  );
-
-  // Very short queries like just "cocaine" → treat as misuse intent by default
-  const isDrugMisuseIntent = (q: string) => {
-    const n = q.trim().toLowerCase();
-    const wc = (n.match(/\S+/g) || []).length;
-    return DRUG_TERMS.test(n) && (DRUG_ACTIONS.test(n) || wc <= 2);
-  };
 
   // Age patterns like "3yo", "3 yo", "3-year-old", "18 months old"
   const AGE_PATTERNS: RegExp[] = [
@@ -1460,19 +1322,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
   const normalize = (s: string) => s.toLowerCase().trim();
 
-  const hasDangerousIntent = (q: string) => {
-    return DANGEROUS_PATTERNS.some(re => re.test(q));
-  };
 
-  const showParentingOnlyAlert = () => {
-    Alert.alert(
-      'Parenting Assistant Only',
-      'We only provide parenting tips.\n\nTry asking about:\n• Bedtime routines\n• Handling tantrums\n• Potty training\n• Age-appropriate activities\n• Picky eating\n• Developmental milestones',
-      [{text: 'OK'}],
-    );
-  };
-
-  // ---- Child name → age context helpers ----
 
   // simple levenshtein for fuzzy name match (handles typos/nicknames)
   function levenshtein(a: string, b: string) {
@@ -1625,47 +1475,31 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
   const getPersonalizedTips = async () => {
     const query = searchText?.trim();
-    if (!query)
+    if (!query) {
       return Alert.alert(
         'Input Required',
-        'Please enter what you need help with',
+        'Please enter what you need help with'
       );
-
-    if (isDrugMisuseIntent(query)) {
-      Alert.alert(
-        "I can't help with that",
-        "We don't provide guidance on drugs. If you're worried about a child, I can share general tips on talking with kids about substance use.",
-        [
-          {
-            text: 'Talk to my child about drugs',
-            onPress: () =>
-              setSearchText('How do I talk to my child about drugs?'),
-          },
-          {text: 'Cancel', style: 'cancel'},
-        ],
-      );
+    }
+  
+    // STRICT DOMAIN VALIDATION - only allow our 4 domains
+    const validation = isStrictlyInScope(query);
+    
+    if (!validation.valid) {
+      showDomainRejectionAlert(validation.message || REJECTION_MESSAGE);
       return;
     }
-
-    if (hasDangerousIntent(query)) {
-      Alert.alert('Sorry', 'We only provide parenting tips.');
-      return;
-    }
-
-    if (
-      isClearlyNonParenting(query) &&
-      !looksLikeParenting(query, userChildren.length > 0)
-    ) {
-      showParentingOnlyAlert();
-      return;
-    }
-
+  
+    console.log(`✅ Query approved for domain: ${validation.domain || 'unknown'}`);
+  
     setIsAssistantLoading(true);
     setTips([]);
-
+  
     try {
+      // Resolve children for context
       let mentioned = resolveChildrenFromQuery(query, userChildren);
-      // 2) If no names found, try age-based resolution
+      
+      // Age-based resolution if no names found
       if (mentioned.length === 0) {
         const ageMention = parseAgeMention(query);
         if (ageMention) {
@@ -1675,11 +1509,10 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
             userChildren,
             granularity,
           );
-
+  
           if (exact.length === 1) {
             mentioned = exact;
           } else if (exact.length > 1) {
-            // ambiguous: multiple very close matches (e.g., twins)
             setChildDisambigReason('multiple');
             setChildCandidates(exact);
             setExpressedAgeMonths(months);
@@ -1687,10 +1520,8 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
             setIsAssistantLoading(false);
             return;
           } else if (close.length === 1) {
-            // single “close” match — accept
             mentioned = close;
           } else if (close.length > 1) {
-            // ambiguous among close matches
             setChildDisambigReason('multiple');
             setChildCandidates(close);
             setExpressedAgeMonths(months);
@@ -1698,9 +1529,8 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
             setIsAssistantLoading(false);
             return;
           } else {
-            // no one near that age — ask who they mean
             setChildDisambigReason('none');
-            setChildCandidates(userChildren); // let them pick from existing kids
+            setChildCandidates(userChildren);
             setExpressedAgeMonths(months);
             setShowChildDisambiguationModal(true);
             setIsAssistantLoading(false);
@@ -1713,22 +1543,22 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
           );
           if (known.length === 0 && unknown.length > 0) {
             setChildDisambigReason('name');
-            setChildCandidates(userChildren); // let them pick from existing kids
-            setExpressedAgeMonths(null); // not age-related here
+            setChildCandidates(userChildren);
+            setExpressedAgeMonths(null);
             setShowChildDisambiguationModal(true);
             setIsAssistantLoading(false);
             return;
           }
         }
       }
-
+  
       const childLines = (mentioned.length ? mentioned : userChildren).map(
         c => {
           const nm = c.nickname || 'Child';
           return `${nm}: ${ageYMMM(c.date_of_birth)} old`;
         },
       );
-
+  
       const childContext = childLines.join(', ');
       const childrenContext = (mentioned.length ? mentioned : userChildren).map(
         c => ({
@@ -1738,37 +1568,23 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
           ageYears: calculateAge(c.date_of_birth),
         }),
       );
-
-      const explicitlyChildish =
-        CHILD_TERMS.some(w => normalize(query).includes(w)) ||
-        AGE_PATTERNS.some(re => re.test(query));
-
-      // If the query isn't explicitly child-focused, *force* a kid frame.
-      const injectedKidHint = explicitlyChildish
-        ? ''
-        : ' This question is about my child; please answer strictly in a parenting context.';
-
+  
       const prompt = (
         mentioned.length > 0
-          ? `${query}${injectedKidHint} (Focus on: ${childContext}).`
-          : `${query}${injectedKidHint}. Child context: ${childContext}.`
+          ? `${query} (Focus on: ${childContext}).`
+          : `${query}. Child context: ${childContext}.`
       ).trim();
-
+  
       const endpoint = '/api/personalization/enhanced-tips-survey';
-
+  
       const enhancedContext = {
         prompt,
         contentPreferences,
         generateMode: 'hybrid',
-        // Loosen this so the backend doesn't over-filter benign parenting queries
-        strictParenting: false,
         childrenContext,
       };
-
+  
       const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
-        // const res = await fetch(
-        //   'http://172.16.225.192:1337/api/personalization/enhanced-tips-survey',
-        //   {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1776,166 +1592,82 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
         },
         body: JSON.stringify(enhancedContext),
       });
-
-      let data = await res.json();
-
-      if (!res.ok && data?.error === 'non_parenting') {
-        // Retry ONCE with a very explicit parenting frame
-        try {
-          const forcedPrompt =
-            `${query} — I am asking for parenting advice about my child. ` +
-            `Please provide age-appropriate strategies for ${childContext}.`;
-
-          const forcedContext = {
-            ...enhancedContext,
-            prompt: forcedPrompt,
-            strictParenting: false,
-          };
-
-          const retryRes = await fetchWithAuth(
-            `${API_ENDPOINTS.BASE_URL}${endpoint}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${userInfo.access_token}`,
-              },
-              body: JSON.stringify(forcedContext),
-            },
-          );
-
-          const retryData = await retryRes.json();
-          if (retryRes.ok) {
-            data = retryData; // fall through to success handling below
-          } else {
-            // still failing → show friendly message
-            Alert.alert(
-              'Parenting Advice',
-              'I couldn’t fetch tips for that wording. Try rephrasing like: “My toddler doesn’t listen—how can I get them to follow directions?”',
-            );
-            return;
-          }
-        } catch {
+  
+      const data = await res.json();
+  
+      if (!res.ok) {
+        if (data?.error === 'out_of_scope') {
           Alert.alert(
-            'Parenting Advice',
-            'I couldn’t fetch tips right now. Please try again in a moment.',
+            'Topic Not Supported',
+            data.message || REJECTION_MESSAGE,
+            [
+              {
+                text: 'See Examples',
+                onPress: () => {
+                  Alert.alert(
+                    'Try asking about:',
+                    EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
+                    [{text: 'OK'}]
+                  );
+                }
+              },
+              {text: 'OK', style: 'cancel'}
+            ]
           );
           return;
         }
-      } else if (!res.ok && data?.error === 'safety') {
+        
         Alert.alert(
-          'We only provide parenting tips',
-          data.message || 'Please ask a parenting-related question.',
+          'Error',
+          data.message || 'Failed to get tips. Please try again.'
         );
         return;
       }
-
+  
       if (Array.isArray(data.tips) && data.tips.length) {
         setTips(data.tips);
         tipLookupRef.current = new Map(
           (data.tips || []).map((t: Tip) => [t.id, t]),
         );
-
+  
         Keyboard.dismiss();
         setShowTipsModal(true);
-
-        // Log personalization success
+  
         if (data.hasSurveyPersonalization) {
           console.log('🎯 Tips personalized using survey data!');
         }
       } else {
         Alert.alert(
           'No Tips Found',
-          'Try asking about bedtime routines, tantrums, potty training, language activities, or milestones.',
+          'Try asking about reading, science exploration, social skills, or language activities.',
+          [
+            {
+              text: 'See Examples',
+              onPress: () => {
+                Alert.alert(
+                  'Try asking about:',
+                  EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
+                  [{text: 'OK'}]
+                );
+              }
+            },
+            {text: 'OK', style: 'cancel'}
+          ]
         );
       }
     } catch (e) {
       console.error('tips error', e);
       Alert.alert(
         'Error',
-        'Failed to get advice. Please check your connection and try again.',
+        'Failed to get advice. Please check your connection and try again.'
       );
     } finally {
       setIsAssistantLoading(false);
     }
   };
 
-  const showParentingExamples = (suggestions: string[]) => {
-    const examples = [
-      'Bedtime routine for 3 year old',
-      "My toddler won't eat vegetables",
-      'Language development activities',
-      'How to handle tantrums',
-      'Potty training tips',
-      'Reading activities for kids',
-      ...suggestions,
-    ];
-
-    Alert.alert(
-      'Try asking about parenting topics like:',
-      examples
-        .slice(0, 6)
-        .map(ex => `• ${ex}`)
-        .join('\n'),
-      [
-        {text: 'OK', style: 'default'},
-        {
-          text: 'Use Example',
-          style: 'default',
-          onPress: () => setSearchText(examples[0]),
-        },
-      ],
-    );
-  };
 
   // Add Location
-  const addLocation = async () => {
-    if (
-      !newLocation ||
-      !name.trim() ||
-      !description.trim() ||
-      !selectedOption
-    ) {
-      return Alert.alert(
-        'Missing Information',
-        'Please enter a name, description and select a location type.',
-      );
-    }
-    try {
-      const response = await fetchWithAuth(
-        `${API_ENDPOINTS.BASE_URL}${API_ENDPOINTS.ADD_LOCATION}`,
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
-          body: JSON.stringify({
-            latitude: newLocation.latitude,
-            longitude: newLocation.longitude,
-            name,
-            description,
-            type: selectedOption,
-          }),
-        },
-      );
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-
-      await refreshDataInBackground();
-      Alert.alert('Success', 'Location added successfully!');
-      setNewLocation(null);
-      setName('');
-      setDescription('');
-      setSelectedOption(null);
-      setShowMapView(false);
-      placesRef.current?.clear?.();
-    } catch (e) {
-      console.error('addLocation error:', e);
-      Alert.alert('Error', 'Failed to add location. Please try again.');
-    }
-  };
 
   <MapViewModal
     visible={showMapView}
