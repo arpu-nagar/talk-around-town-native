@@ -2262,7 +2262,7 @@ Try asking about one of these topics!`;
 
                         const nm = c.nickname || 'Child';
                         const childLines = [
-                          `${nm}: ${ageYMMM(c.date_of_birth)} old`,
+                          `My ${nm} is ${ageYMMM(c.date_of_birth)} old`,
                         ];
                         const childContext = childLines.join(', ');
                         const childrenContext = [
@@ -2280,8 +2280,8 @@ Try asking about one of these topics!`;
                           AGE_PATTERNS.some(re => re.test(q));
                         const ambiguityHint = explicitlyChildish
                           ? ''
-                          : ' Please tailor this for kids.';
-                        const prompt = `${q}${ambiguityHint} Child context: ${childContext}.`;
+                          : ' Strictly tailor this for kids.';
+                        const prompt = `${childContext}. Please give me the ${q}${ambiguityHint}.`;
 
                         const endpoint =
                           '/api/personalization/enhanced-tips-survey';
@@ -2293,15 +2293,9 @@ Try asking about one of these topics!`;
                           childrenContext,
                         };
 
-                        // const res = await fetchWithAuth(
-                        //   `http://192.168.0.160:1337${endpoint}`,
-                        //   {
                         const res = await fetchWithAuth(
                           `${API_ENDPOINTS.BASE_URL}${endpoint}`,
                           {
-                            // const res = await fetch(
-                            //   'http://172.16.225.192:1337/api/personalization/enhanced-tips-survey',
-                            //   {
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json',
@@ -2312,6 +2306,7 @@ Try asking about one of these topics!`;
                         );
 
                         const data = await res.json();
+
                         if (!res.ok) {
                           if (
                             data.error === 'safety' ||

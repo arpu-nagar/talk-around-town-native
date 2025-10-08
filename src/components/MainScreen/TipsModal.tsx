@@ -47,7 +47,10 @@ interface TipsModal {
   showTipsModal: boolean;
   setShowTipsModal: (_arg0: boolean) => void;
   currentSound: React.MutableRefObject<Sound | null>;
-  onReact: (tipId: string | number, type: 'like' | 'dislike' | 'save' | 'unsave') => void;
+  onReact: (
+    tipId: string | number,
+    type: 'like' | 'dislike' | 'save' | 'unsave',
+  ) => void;
 }
 
 const TipsModal: React.FC<TipsModal> = ({
@@ -189,7 +192,10 @@ const TipsModal: React.FC<TipsModal> = ({
     setActiveAudioKey(null);
   };
 
-  const postInteraction = async (tip: Tip, interactionType: 'like' | 'dislike') => {
+  const postInteraction = async (
+    tip: Tip,
+    interactionType: 'like' | 'dislike',
+  ) => {
     const res = await fetchWithAuth(
       `http://68.183.102.75:1337/api/personalization/interactions`,
       {
@@ -199,18 +205,21 @@ const TipsModal: React.FC<TipsModal> = ({
           Authorization: `Bearer ${userInfo.access_token}`,
         },
         body: JSON.stringify({
-                  tipId: tip.id,
-                  interactionType,
-                  // Only needed/used if tip.id starts with "generated_"
-                  tipPayload: (typeof tip.id !== 'number' || String(tip.id).startsWith('generated_') || tip.isGenerated)
-                    ? {
-                        title: tip.title,
-                        body: tip.body,
-                        details: tip.details,
-                        categories: tip.categories || ['generated'],
-                      }
-                    : undefined,
-                }),
+          tipId: tip.id,
+          interactionType,
+          // Only needed/used if tip.id starts with "generated_"
+          tipPayload:
+            typeof tip.id !== 'number' ||
+            String(tip.id).startsWith('generated_') ||
+            tip.isGenerated
+              ? {
+                  title: tip.title,
+                  body: tip.body,
+                  details: tip.details,
+                  categories: tip.categories || ['generated'],
+                }
+              : undefined,
+        }),
       },
     );
     if (!res.ok) {
@@ -225,13 +234,13 @@ const TipsModal: React.FC<TipsModal> = ({
     const entry = {
       key,
       reaction,
-         tipId: tip.id,
-   tipPayload: {
-     title: tip.title,
-     body: tip.body,
-     details: tip.details,
-     categories: tip.categories || ['generated'],
-   },
+      tipId: tip.id,
+      tipPayload: {
+        title: tip.title,
+        body: tip.body,
+        details: tip.details,
+        categories: tip.categories || ['generated'],
+      },
       at: Date.now(),
     };
     await saveToCache('aiReactionsQueue', [entry, ...queued]);
@@ -266,11 +275,11 @@ const TipsModal: React.FC<TipsModal> = ({
       }
 
       try {
-           await postInteraction(tip, reaction);
-         } catch (e) {
-           // Offline or server hiccup → queue for later with full payload
-           await queueAIInteraction(tip, reaction);
-         }
+        await postInteraction(tip, reaction);
+      } catch (e) {
+        // Offline or server hiccup → queue for later with full payload
+        await queueAIInteraction(tip, reaction);
+      }
     } catch (e) {
       console.error(e);
       setLikedTips(prevLiked);
@@ -384,7 +393,6 @@ const TipsModal: React.FC<TipsModal> = ({
                         style={{
                           marginLeft: 8,
                           padding: 6,
-                    
                         }}
                         onPress={() => {
                           setReaction(tip, 'like');
