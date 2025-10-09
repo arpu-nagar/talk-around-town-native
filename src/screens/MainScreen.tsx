@@ -21,15 +21,11 @@ import {
   Keyboard,
   Animated,
   Easing,
-  Pressable,
   InteractionManager,
+  SafeAreaView,
+  KeyboardAvoidingView,
 } from 'react-native';
-import MapView, {
-  PROVIDER_GOOGLE,
-  Marker,
-  Circle,
-  PROVIDER_DEFAULT,
-} from 'react-native-maps';
+import MapView, {Marker, Circle} from 'react-native-maps';
 import {Dropdown} from 'react-native-element-dropdown';
 import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -140,6 +136,8 @@ const MapViewModal = React.memo(function MapViewModal({
   token: string;
   onRefresh: () => Promise<void>;
 }) {
+  const insets = useSafeAreaInsets();
+
   const placesRef = useRef<GooglePlacesAutocompleteRef>(null);
 
   // Local-only state (isolated from parent re-renders)
@@ -147,6 +145,42 @@ const MapViewModal = React.memo(function MapViewModal({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+
+  // --- Animation Setup ---
+  // 1. Use a ref to hold the animated value. 0 = blurred, 1 = focused.
+  const animation = useRef(new Animated.Value(0)).current;
+
+  // 2. Functions to handle focus and blur events
+  const handleFocus = () => {
+    Animated.timing(animation, {
+      toValue: 1,
+      duration: 350, // Animation duration in ms
+      easing: Easing.out(Easing.ease), // Smooth easing out
+      useNativeDriver: true, // For better performance
+    }).start();
+  };
+
+  const handleBlur = () => {
+    Animated.timing(animation, {
+      toValue: 0,
+      duration: 350,
+      easing: Easing.in(Easing.ease), // Smooth easing in
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // 3. Interpolate the animated value to create dynamic styles
+  const addNewLocationStyle = {
+    transform: [
+      {
+        translateY: animation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -260],
+        }),
+      },
+    ],
+  };
+  // --- End of Animation Setup ---
 
   const reset = useCallback(() => {
     setNewLocation(null);
@@ -215,199 +249,212 @@ const MapViewModal = React.memo(function MapViewModal({
       animationType="slide"
       presentationStyle="fullScreen"
       onRequestClose={onClose}>
-      <LinearGradient
-        colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 1}}
-        style={styles.mapModalContainer}>
-        <View
-          style={{
-            flex: 1,
-          }}>
-          {/* Header */}
-          <View style={styles.mapHeader}>
-            <TouchableOpacity
-              onPress={() => {
-                reset();
-                onClose();
-              }}>
-              <MaterialIcons name="arrow-back" size={20} color="#1F2937" />
-            </TouchableOpacity>
-            <Text style={styles.mapHeaderTitle}>Find Nearby Locations</Text>
-            <View style={{width: 24}} />
-          </View>
-
-          {/* Search */}
-          <View style={styles.searchBarWrapper}>
-            <GooglePlacesAutocomplete
-              placeholder="Search by name or address"
-              fetchDetails
-              minLength={2}
-              debounce={200}
-              keyboardShouldPersistTaps="handled"
-              enablePoweredByContainer={false}
-              onFail={e => console.log('Places error:', e)}
-              onPress={(data, details = null) => {
-                if (details) {
-                  const latitude = details.geometry.location.lat;
-                  const longitude = details.geometry.location.lng;
-                  setNewLocation({
-                    latitude,
-                    longitude,
-                    latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
-                    longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
-                  });
-                }
-              }}
-              query={{
-                key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps',
-                language: 'en',
-              }}
-              ref={placesRef}
-              textInputProps={{
-                placeholderTextColor: '#1F2937', // placeholder color
-              }}
-              styles={{
-                container: {flex: 0, zIndex: 10000, elevation: 10000},
-
-                // Your input
-                textInput: {
-                  ...styles.searchInput,
-                  // color: 'red',
-                },
-
-                // 🔴 Make suggestion text visible
-                description: {
-                  // pick one:
-                  color: '#1F2937', // matches your theme
-                  fontSize: 16,
-                },
-
-                // (optional) make the secondary text (e.g., city) visible too
-                // 'secondaryText' isn't an exposed style; description covers the whole line.
-
-                listView: {
-                  position: 'absolute',
-                  top: 52,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: 'white',
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  zIndex: 10002,
-                  elevation: 10002,
-                  shadowColor: '#000',
-                  shadowOffset: {width: 0, height: 2},
-                  shadowOpacity: 0.15,
-                  shadowRadius: 6,
-                },
-                row: {
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  backgroundColor: 'white',
-                },
-                separator: {height: 1.5, backgroundColor: '#F3F4F6'},
-              }}
-            />
-          </View>
-
-          {/* Map */}
-          {initialRegion && (
-            <MapView
-              provider={
-                Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE
-              }
-              style={styles.fullMap}
-              initialRegion={initialRegion}
-              region={newLocation || initialRegion}
-              showsUserLocation
-              mapType="standard"
-              onPress={e => {
-                const {latitude, longitude} = e.nativeEvent.coordinate;
-                setNewLocation({
-                  latitude,
-                  longitude,
-                  latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
-                  longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
-                });
-              }}>
-              {newLocation && (
+      <View
+        style={{
+          flex: 1,
+        }}>
+        {/* Map */}
+        {initialRegion && (
+          <MapView
+            provider="google"
+            style={styles.fullMap}
+            initialRegion={initialRegion}
+            region={newLocation || initialRegion}
+            showsUserLocation
+            mapType="standard"
+            onPress={e => {
+              const {latitude, longitude} = e.nativeEvent.coordinate;
+              setNewLocation({
+                latitude,
+                longitude,
+                latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
+                longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
+              });
+            }}>
+            {newLocation && (
+              <Marker
+                coordinate={newLocation}
+                title="New Location"
+                pinColor="#4A90E2"
+              />
+            )}
+            {locations.map((loc, i) => (
+              <React.Fragment key={`loc-${i}`}>
                 <Marker
-                  coordinate={newLocation}
-                  title="New Location"
-                  pinColor="#4A90E2"
+                  coordinate={loc}
+                  title={details[i]?.title || `Location ${i + 1}`}
+                  description={details[i]?.description || ''}
+                  pinColor="#FF4B4B"
                 />
-              )}
-              {locations.map((loc, i) => (
-                <React.Fragment key={`loc-${i}`}>
-                  <Marker
-                    coordinate={loc}
-                    title={details[i]?.title || `Location ${i + 1}`}
-                    description={details[i]?.description || ''}
-                    pinColor="#FF4B4B"
-                  />
-                  <Circle
-                    center={loc}
-                    radius={100}
-                    strokeColor="rgba(255,75,75,0.5)"
-                    fillColor="rgba(255,75,75,0.1)"
-                  />
-                </React.Fragment>
-              ))}
-            </MapView>
-          )}
+                <Circle
+                  center={loc}
+                  radius={100}
+                  strokeColor="rgba(255,75,75,0.5)"
+                  fillColor="rgba(255,75,75,0.1)"
+                />
+              </React.Fragment>
+            ))}
+          </MapView>
+        )}
 
-          {/* Bottom add form */}
-          {newLocation && (
-            <View style={styles.addLocationForm}>
-              <Text style={styles.formTitle}>Add New Location</Text>
+        {/* Bottom add form */}
+        {newLocation && (
+          <Animated.View style={[{flex: 1}, addNewLocationStyle]}>
+            <LinearGradient
+              colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
+              style={[styles.addLocationForm, {bottom: insets.bottom}]}>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{flex: 1}}>
+                <Text style={styles.formTitle}>Add New Location</Text>
 
-              <Dropdown
-                style={styles.dropdown}
-                placeholderStyle={styles.dropdownPlaceholder}
-                selectedTextStyle={styles.dropdownSelected}
-                itemTextStyle={{color: '#1F2937'}}
-                data={[
-                  {label: 'Grocery Store', value: 'Grocery Store'},
-                  {label: 'Bus/Walk', value: 'Bus/Walk'},
-                  {label: 'Library', value: 'Library'},
-                  {label: 'Park', value: 'Park'},
-                  {label: 'Restaurant', value: 'Restaurant'},
-                  {label: 'Waiting Room', value: 'Waiting Room'},
-                  {label: "Other's Home", value: "Other's Home"},
-                ]}
-                maxHeight={300}
-                labelField="label"
-                valueField="value"
-                placeholder="Select location type"
-                value={selectedOption}
-                onChange={item => setSelectedOption(item.value)}
-              />
+                <Dropdown
+                  style={styles.dropdown}
+                  placeholderStyle={styles.dropdownPlaceholder}
+                  selectedTextStyle={styles.dropdownSelected}
+                  itemTextStyle={{color: '#1F2937'}}
+                  data={[
+                    {label: 'Grocery Store', value: 'Grocery Store'},
+                    {label: 'Bus/Walk', value: 'Bus/Walk'},
+                    {label: 'Library', value: 'Library'},
+                    {label: 'Park', value: 'Park'},
+                    {label: 'Restaurant', value: 'Restaurant'},
+                    {label: 'Waiting Room', value: 'Waiting Room'},
+                    {label: "Other's Home", value: "Other's Home"},
+                  ]}
+                  maxHeight={300}
+                  labelField="label"
+                  valueField="value"
+                  placeholder="Select location type"
+                  value={selectedOption}
+                  onChange={item => setSelectedOption(item.value)}
+                />
 
-              <TextInput
-                placeholder="Location name"
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholderTextColor="#999"
-              />
-              <TextInput
-                placeholder="Description"
-                style={[styles.input, styles.textArea]}
-                value={description}
-                onChangeText={setDescription}
-                placeholderTextColor="#999"
-                multiline
-                numberOfLines={3}
-              />
+                <TextInput
+                  placeholder="Location name"
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholderTextColor="#999"
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                />
+                <TextInput
+                  placeholder="Description"
+                  style={[styles.input, styles.textArea]}
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholderTextColor="#999"
+                  multiline
+                  numberOfLines={3}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                />
 
-              <TouchableOpacity style={styles.addButton} onPress={addLocation}>
-                <Text style={styles.addButtonText}>Add Location</Text>
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={addLocation}>
+                  <Text style={styles.addButtonText}>Add Location</Text>
+                </TouchableOpacity>
+              </KeyboardAvoidingView>
+            </LinearGradient>
+          </Animated.View>
+        )}
+
+        <SafeAreaView pointerEvents="box-none" style={styles.searchOverlay}>
+          <LinearGradient
+            colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 1}}
+            style={styles.mapModalContainer}>
+            {/* Header */}
+            <View style={styles.mapHeader}>
+              <TouchableOpacity
+                onPress={() => {
+                  reset();
+                  onClose();
+                }}>
+                <MaterialIcons name="arrow-back" size={20} color="#1F2937" />
               </TouchableOpacity>
+              <Text style={styles.mapHeaderTitle}>Find Nearby Locations</Text>
+              <View style={{width: 24}} />
             </View>
-          )}
-        </View>
-      </LinearGradient>
+
+            {/* Search */}
+            <View style={styles.searchBarWrapper}>
+              <GooglePlacesAutocomplete
+                placeholder="Search by name or address"
+                fetchDetails
+                minLength={2}
+                debounce={200}
+                keyboardShouldPersistTaps="handled"
+                enablePoweredByContainer={false}
+                onFail={e => console.log('Places error:', e)}
+                onPress={(data, details = null) => {
+                  if (details) {
+                    const latitude = details.geometry.location.lat;
+                    const longitude = details.geometry.location.lng;
+                    setNewLocation({
+                      latitude,
+                      longitude,
+                      latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
+                      longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
+                    });
+                  }
+                }}
+                query={{
+                  key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps',
+                  language: 'en',
+                }}
+                ref={placesRef}
+                textInputProps={{
+                  placeholderTextColor: '#1F2937', // placeholder color
+                }}
+                styles={{
+                  container: {flex: 0, zIndex: 10002, elevation: 10000},
+
+                  // Your input
+                  textInput: {
+                    ...styles.searchInput,
+                    // color: 'red',
+                  },
+
+                  // 🔴 Make suggestion text visible
+                  description: {
+                    // pick one:
+                    color: '#1F2937', // matches your theme
+                    fontSize: 16,
+                  },
+
+                  listView: {
+                    // position: 'absolute',
+                    // top: 52,
+                    // left: 0,
+                    // right: 0,
+                    backgroundColor: 'white',
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    zIndex: 10002,
+                    elevation: 10002,
+                    shadowColor: '#000',
+                    shadowOffset: {width: 0, height: 2},
+                    shadowOpacity: 0.15,
+                    shadowRadius: 6,
+                  },
+                  row: {
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    backgroundColor: 'white',
+                  },
+                  separator: {height: 1.5, backgroundColor: '#F3F4F6'},
+                }}
+              />
+            </View>
+          </LinearGradient>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 });
@@ -2283,8 +2330,8 @@ Try asking about one of these topics!`;
                           : ' Strictly tailor this for kids.';
                         const prompt = `${childContext}. Please give me the ${q}${ambiguityHint}.`;
 
-                        const endpoint =
-                          '/api/personalization/enhanced-tips-survey';
+                        const endpoint = `${API_ENDPOINTS.BASE_URL}/api/personalization/enhanced-tips-survey`;
+                        // const endpoint = "http://192.168.0.43:1337/api/personalization/enhanced-tips-survey"
                         const enhancedContext = {
                           prompt,
                           contentPreferences,
@@ -2293,17 +2340,14 @@ Try asking about one of these topics!`;
                           childrenContext,
                         };
 
-                        const res = await fetchWithAuth(
-                          `${API_ENDPOINTS.BASE_URL}${endpoint}`,
-                          {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              Authorization: `Bearer ${userInfo.access_token}`,
-                            },
-                            body: JSON.stringify(enhancedContext),
+                        const res = await fetchWithAuth(endpoint, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${userInfo.access_token}`,
                           },
-                        );
+                          body: JSON.stringify(enhancedContext),
+                        });
 
                         const data = await res.json();
 
@@ -2404,6 +2448,14 @@ Try asking about one of these topics!`;
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#F8F9FA'},
+
+  searchOverlay: {
+    ...StyleSheet.absoluteFillObject, // overlay on top of the map
+    // put content only at the top; allow taps to pass through empty space
+    justifyContent: 'flex-start',
+    zIndex: 2, // iOS
+    elevation: 12, // Android
+  },
 
   // Header wrapper gives shadow (not applied to LinearGradient to avoid warnings)
   headerShadow: {
@@ -2604,7 +2656,7 @@ const styles = StyleSheet.create({
   },
 
   // Map modal
-  mapModalContainer: {flex: 1},
+  mapModalContainer: {marginHorizontal: 20, borderRadius: 20},
   mapHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2612,7 +2664,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   mapHeaderTitle: {fontSize: 18, fontWeight: '600', color: '#1F2937'},
-  fullMap: {flex: 1, zIndex: 0},
+  // fullMap: {flex: 1, zIndex: 0},
+  fullMap: StyleSheet.absoluteFillObject,
   searchBarWrapper: {
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -2636,18 +2689,17 @@ const styles = StyleSheet.create({
   },
   addLocationForm: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 20,
     padding: 20,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: -2},
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 10,
+    marginHorizontal: 20,
   },
   formTitle: {fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16},
   dropdown: {
