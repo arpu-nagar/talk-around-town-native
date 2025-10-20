@@ -24,6 +24,7 @@ import {AuthContext} from '../../context/AuthContext';
 import Sound from 'react-native-sound';
 import {useCache} from '../../hooks/useCache';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import CardSkeleton from '../TipsModal/CardSkeleton';
 
 interface Tip {
   id: number | string;
@@ -312,123 +313,128 @@ const TipsModal: React.FC<TipsModal> = ({
           keyboardShouldPersistTaps="always"
           contentContainerStyle={{paddingBottom: 28}}
           showsVerticalScrollIndicator={false}>
-          {tips.map((tip, index) => {
-            const key = tipKey(tip);
-            // const playing = activeAudioKey === key && isPlaying;
+          {tips.length > 0 &&
+            tips.map((tip, index) => {
+              const key = tipKey(tip);
+              // const playing = activeAudioKey === key && isPlaying;
 
-            return (
-              <View key={`tip-${key}`} style={styles.tipItem}>
-                <View style={styles.tipCardShadow}>
-                  <LinearGradient
-                    colors={['#ffffff', '#f8f9fa']}
-                    style={styles.tipGradient}>
-                    <View style={styles.tipHeader}>
-                      <MaterialIcons
-                        name="auto-awesome"
-                        size={24}
-                        color="#8B5CF6"
-                        style={{marginRight: 12}}
-                      />
-                      <Text style={styles.tipTitle}>{tip.title || ''}</Text>
-                    </View>
+              return (
+                <View key={`tip-${key}`} style={styles.tipItem}>
+                  <View style={styles.tipCardShadow}>
+                    <LinearGradient
+                      colors={['#ffffff', '#f8f9fa']}
+                      style={styles.tipGradient}>
+                      <View style={styles.tipHeader}>
+                        <MaterialIcons
+                          name="auto-awesome"
+                          size={24}
+                          color="#8B5CF6"
+                          style={{marginRight: 12}}
+                        />
+                        <Text style={styles.tipTitle}>{tip.title || ''}</Text>
+                      </View>
 
-                    <Text style={styles.tipBody}>{tip.body || ''}</Text>
-                    <Text style={styles.tipDetails}>{tip.details || ''}</Text>
+                      <Text style={styles.tipBody}>{tip.body || ''}</Text>
+                      <Text style={styles.tipDetails}>{tip.details || ''}</Text>
 
-                    <View style={styles.tipActions}>
-                      <TouchableOpacity
-                        style={[
-                          styles.playButton,
-                          activeAudioKey === key &&
-                            isPlaying &&
-                            styles.stopButton,
-                        ]}
-                        onPress={() => {
-                          if (activeAudioKey === key && isPlaying) {
-                            setAudioLoadingIndex(null);
-                            cleanupSound();
-                          } else {
-                            setAudioLoadingIndex(index);
-                            speakTip(tip);
-                          }
-                        }}
-                        disabled={audioLoadingIndex === index}>
-                        {audioLoadingIndex === index ? (
-                          <ActivityIndicator color="white" size="small" />
-                        ) : (
-                          <Icon
-                            name={
-                              activeAudioKey === key && isPlaying
-                                ? 'stop'
-                                : 'play-arrow'
+                      <View style={styles.tipActions}>
+                        <TouchableOpacity
+                          style={[
+                            styles.playButton,
+                            activeAudioKey === key &&
+                              isPlaying &&
+                              styles.stopButton,
+                          ]}
+                          onPress={() => {
+                            if (activeAudioKey === key && isPlaying) {
+                              setAudioLoadingIndex(null);
+                              cleanupSound();
+                            } else {
+                              setAudioLoadingIndex(index);
+                              speakTip(tip);
                             }
-                            size={16}
-                            color="white"
-                          />
-                        )}
-                        <Text
-                          style={{
-                            color: 'white',
-                            fontSize: 12,
-                            fontWeight: '600',
-                            marginLeft: 4,
-                          }}>
-                          {audioLoadingIndex === index
-                            ? 'Loading...'
-                            : activeAudioKey === key && isPlaying
-                            ? 'Stop'
-                            : 'Play'}
-                        </Text>
-                        {/* <MaterialIcons
+                          }}
+                          disabled={audioLoadingIndex === index}>
+                          {audioLoadingIndex === index ? (
+                            <ActivityIndicator color="white" size="small" />
+                          ) : (
+                            <Icon
+                              name={
+                                activeAudioKey === key && isPlaying
+                                  ? 'stop'
+                                  : 'play-arrow'
+                              }
+                              size={16}
+                              color="white"
+                            />
+                          )}
+                          <Text
+                            style={{
+                              color: 'white',
+                              fontSize: 12,
+                              fontWeight: '600',
+                              marginLeft: 4,
+                            }}>
+                            {audioLoadingIndex === index
+                              ? 'Loading...'
+                              : activeAudioKey === key && isPlaying
+                              ? 'Stop'
+                              : 'Play'}
+                          </Text>
+                          {/* <MaterialIcons
                           name={playing ? 'stop' : 'play-arrow'}
                           size={20}
                           color="#fff"
                         /> */}
-                        {/* <Text style={styles.playButtonText}>
+                          {/* <Text style={styles.playButtonText}>
                           {playing ? 'Stop' : 'Play'}
                         </Text> */}
-                      </TouchableOpacity>
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={{
-                          marginLeft: 8,
-                          padding: 6,
-                        }}
-                        onPress={() => {
-                          setReaction(tip, 'like');
-                        }}>
-                        <MaterialIcons
-                          name={
-                            isTipLiked(tip) ? 'favorite' : 'favorite-border'
-                          }
-                          size={22}
-                          color={isTipLiked(tip) ? '#FF3B30' : '#999'}
-                        />
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{
+                            marginLeft: 8,
+                            padding: 6,
+                          }}
+                          onPress={() => {
+                            setReaction(tip, 'like');
+                          }}>
+                          <MaterialIcons
+                            name={
+                              isTipLiked(tip) ? 'favorite' : 'favorite-border'
+                            }
+                            size={22}
+                            color={isTipLiked(tip) ? '#FF3B30' : '#999'}
+                          />
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={{
-                          marginLeft: 4,
-                          padding: 6,
-                          opacity: tip.isGenerated ? 0.4 : 1,
-                        }}
-                        onPress={() => setReaction(tip, 'dislike')}>
-                        <MaterialIcons
-                          name={
-                            isTipDisliked(tip)
-                              ? 'thumb-down'
-                              : 'thumb-down-off-alt'
-                          }
-                          size={22}
-                          color={isTipDisliked(tip) ? '#8B5CF6' : '#999'}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </LinearGradient>
+                        <TouchableOpacity
+                          style={{
+                            marginLeft: 4,
+                            padding: 6,
+                            opacity: tip.isGenerated ? 0.4 : 1,
+                          }}
+                          onPress={() => setReaction(tip, 'dislike')}>
+                          <MaterialIcons
+                            name={
+                              isTipDisliked(tip)
+                                ? 'thumb-down'
+                                : 'thumb-down-off-alt'
+                            }
+                            size={22}
+                            color={isTipDisliked(tip) ? '#8B5CF6' : '#999'}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </LinearGradient>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
+              );
+            })}
+
+          {tips.length === 0 && <CardSkeleton />}
+          {tips.length === 0 && <CardSkeleton />}
+          {tips.length === 0 && <CardSkeleton />}
           <View style={{height: 20}} />
         </ScrollView>
       </SafeAreaView>

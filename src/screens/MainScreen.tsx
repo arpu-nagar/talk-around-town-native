@@ -4,7 +4,6 @@ import React, {
   useRef,
   useState,
   useCallback,
-  memo,
 } from 'react';
 import {
   View,
@@ -44,6 +43,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import NetInfo from '@react-native-community/netinfo';
 import Voice from '@react-native-voice/voice';
 import Sound from 'react-native-sound';
+import EventSource from 'react-native-event-source';
 import {AuthContext} from '../context/AuthContext';
 import Notification from '../components/Notification';
 
@@ -73,7 +73,9 @@ const LOCATION_CONFIG = {
 };
 
 const API_ENDPOINTS = {
-  BASE_URL: 'http://68.183.102.75:1337',
+  // BASE_URL: 'http://68.183.102.75:1337',
+  BASE_URL: 'http://192.168.0.160:1337',
+  WS_BASE_URL: 'ws://192.168.0.160:1337',
   ASSISTANT_BASE_URL: 'http://68.183.102.75:4000',
   LOCATIONS: '/endpoint/locations',
   ADD_LOCATION: '/endpoint/addLocation',
@@ -583,10 +585,10 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   >([]);
   const [newLocation, setNewLocation] = useState<Location | null>(null);
 
-  // Add-location form
-  const [name, setName] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  // ── NEW: local WS state ────────────────────────────────
+  const wsRef = useRef<WebSocket | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   // States
   const [locationStatus, setLocationStatus] = useState<
@@ -1146,6 +1148,26 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     return () => unsub();
   }, [flushAIReactionsQueue]);
 
+  // helper to close socket
+  const closeWS = () => {
+    try {
+      wsRef.current?.close();
+    } catch {}
+    wsRef.current = null;
+    setIsStreaming(false);
+  };
+
+  useEffect(() => {
+    return () => closeWS(); // unmount cleanup
+  }, []);
+
+  useEffect(() => {
+    if (!showTipsModal) {
+      // if a user closes the modal mid-stream, stop the stream
+      if (isStreaming) closeWS();
+    }
+  }, [showTipsModal]);
+
   const enqueueAIReaction = useCallback(
     async (
       tipId: string | number,
@@ -1617,178 +1639,418 @@ Try asking about one of these topics!`;
       `✅ Query approved for domain: ${validation.domain || 'unknown'}`,
     );
 
-    setIsAssistantLoading(true);
-    setTips([]);
+    let mentioned = resolveChildrenFromQuery(query, userChildren);
 
-    try {
-      // Resolve children for context
-      let mentioned = resolveChildrenFromQuery(query, userChildren);
+    if (mentioned.length === 0) {
+      const ageMention = parseAgeMention(query);
+      if (ageMention) {
+        const {months, granularity} = ageMention;
+        const {exact, close} = matchChildrenByAge(
+          months,
+          userChildren,
+          granularity,
+        );
 
-      // Age-based resolution if no names found
-      if (mentioned.length === 0) {
-        const ageMention = parseAgeMention(query);
-        if (ageMention) {
-          const {months, granularity} = ageMention;
-          const {exact, close} = matchChildrenByAge(
-            months,
-            userChildren,
-            granularity,
-          );
-
-          if (exact.length === 1) {
-            mentioned = exact;
-          } else if (exact.length > 1) {
-            setChildDisambigReason('multiple');
-            setChildCandidates(exact);
-            setExpressedAgeMonths(months);
-            setShowChildDisambiguationModal(true);
-            setIsAssistantLoading(false);
-            return;
-          } else if (close.length === 1) {
-            mentioned = close;
-          } else if (close.length > 1) {
-            setChildDisambigReason('multiple');
-            setChildCandidates(close);
-            setExpressedAgeMonths(months);
-            setShowChildDisambiguationModal(true);
-            setIsAssistantLoading(false);
-            return;
-          } else {
-            setChildDisambigReason('none');
-            setChildCandidates(userChildren);
-            setExpressedAgeMonths(months);
-            setShowChildDisambiguationModal(true);
-            setIsAssistantLoading(false);
-            return;
-          }
+        if (exact.length === 1) {
+          mentioned = exact;
+        } else if (exact.length > 1) {
+          setChildDisambigReason('multiple');
+          setChildCandidates(exact);
+          setExpressedAgeMonths(months);
+          setShowChildDisambiguationModal(true);
+          setIsAssistantLoading(false);
+          return;
+        } else if (close.length === 1) {
+          mentioned = close;
+        } else if (close.length > 1) {
+          setChildDisambigReason('multiple');
+          setChildCandidates(close);
+          setExpressedAgeMonths(months);
+          setShowChildDisambiguationModal(true);
+          setIsAssistantLoading(false);
+          return;
         } else {
-          const {known, unknown} = resolveChildrenAndUnknownNames(
-            query,
-            userChildren,
-          );
-          if (known.length === 0 && unknown.length > 0) {
-            setChildDisambigReason('name');
-            setChildCandidates(userChildren);
-            setExpressedAgeMonths(null);
-            setShowChildDisambiguationModal(true);
-            setIsAssistantLoading(false);
-            return;
-          }
+          setChildDisambigReason('none');
+          setChildCandidates(userChildren);
+          setExpressedAgeMonths(months);
+          setShowChildDisambiguationModal(true);
+          setIsAssistantLoading(false);
+          return;
+        }
+      } else {
+        const {known, unknown} = resolveChildrenAndUnknownNames(
+          query,
+          userChildren,
+        );
+        if (known.length === 0 && unknown.length > 0) {
+          setChildDisambigReason('name');
+          setChildCandidates(userChildren);
+          setExpressedAgeMonths(null);
+          setShowChildDisambiguationModal(true);
+          setIsAssistantLoading(false);
+          return;
         }
       }
+    }
 
-      const childLines = (mentioned.length ? mentioned : userChildren).map(
-        c => {
-          const nm = c.nickname || 'Child';
-          return `${nm}: ${ageYMMM(c.date_of_birth)} old`;
-        },
-      );
+    const childLines = (mentioned.length ? mentioned : userChildren).map(c => {
+      const nm = c.nickname || 'Child';
+      return `${nm}: ${ageYMMM(c.date_of_birth)} old`;
+    });
 
-      const childContext = childLines.join(', ');
-      const childrenContext = (mentioned.length ? mentioned : userChildren).map(
-        c => ({
-          name: c.nickname,
-          dob: c.date_of_birth,
-          agePretty: ageYMMM(c.date_of_birth),
-          ageYears: calculateAge(c.date_of_birth),
-        }),
-      );
+    const childContext = childLines.join(', ');
+    const childrenContext = (mentioned.length ? mentioned : userChildren).map(
+      c => ({
+        name: c.nickname,
+        dob: c.date_of_birth,
+        agePretty: ageYMMM(c.date_of_birth),
+        ageYears: calculateAge(c.date_of_birth),
+      }),
+    );
 
-      const prompt = (
-        mentioned.length > 0
-          ? `${query} (Focus on: ${childContext}).`
-          : `${query}. Child context: ${childContext}.`
-      ).trim();
+    // Build the final prompt like you already do
+    const prompt =
+      mentioned.length > 0
+        ? `${query} (Focus on: ${childContext}).`
+        : `${query}. Child context: ${childContext}.`;
 
-      const endpoint = '/api/personalization/enhanced-tips-survey';
+    setIsAssistantLoading(true);
+    setTips([]);
+    setStreamError(null);
 
-      const enhancedContext = {
-        prompt,
-        contentPreferences,
-        generateMode: 'hybrid',
-        childrenContext,
+    // ── NEW: open the WS and stream tips ─────────────────────────────────
+    try {
+      // IMPORTANT: token in handshake query
+      let openedAt: number | null = null;
+      const wsUrl = `${
+        API_ENDPOINTS.WS_BASE_URL
+      }/ws/personalization?token=${encodeURIComponent(userInfo.access_token)}`;
+
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      setIsStreaming(true);
+
+      // open modal early so user sees tips appear
+      setShowTipsModal(true);
+
+      ws.onopen = () => {
+        openedAt = Date.now();
+        console.log('[RN] WS OPEN');
+        // First message must be {type:'start', ...}
+        ws.send(
+          JSON.stringify({
+            type: 'start',
+            prompt,
+            contentPreferences,
+            generateMode: 'hybrid', // same behavior as REST
+          }),
+        );
       };
 
-      const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userInfo.access_token}`,
-        },
-        body: JSON.stringify(enhancedContext),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (data?.error === 'out_of_scope') {
-          Alert.alert(
-            'Topic Not Supported',
-            data.message || REJECTION_MESSAGE,
-            [
-              {
-                text: 'See Examples',
-                onPress: () => {
-                  Alert.alert(
-                    'Try asking about:',
-                    EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
-                    [{text: 'OK'}],
-                  );
-                },
-              },
-              {text: 'OK', style: 'cancel'},
-            ],
-          );
+      ws.onmessage = evt => {
+        let msg: any;
+        try {
+          msg = JSON.parse(String(evt.data));
+        } catch {
           return;
         }
 
-        Alert.alert(
-          'Error',
-          data.message || 'Failed to get tips. Please try again.',
-        );
-        return;
-      }
+        // optional: console.log('WS', msg);
 
-      if (Array.isArray(data.tips) && data.tips.length) {
-        setTips(data.tips);
-        tipLookupRef.current = new Map(
-          (data.tips || []).map((t: Tip) => [t.id, t]),
-        );
+        switch (msg.type) {
+          case 'start':
+            // could show a “personalizing…” banner if you want
+            break;
 
-        Keyboard.dismiss();
-        setShowTipsModal(true);
+          case 'phase':
+            // phases like 'openai:starting', 'openai:streaming'
+            break;
 
-        if (data.hasSurveyPersonalization) {
-          console.log('🎯 Tips personalized using survey data!');
+          case 'out_of_scope':
+            // mirror your REST rejection UX
+            closeWS();
+            setIsAssistantLoading(false);
+            Alert.alert(
+              'Topic Not Supported',
+              msg.payload?.message || REJECTION_MESSAGE,
+              [
+                {
+                  text: 'See Examples',
+                  onPress: () =>
+                    Alert.alert(
+                      'Try asking about:',
+                      EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
+                      [{text: 'OK'}],
+                    ),
+                },
+                {text: 'OK', style: 'cancel'},
+              ],
+            );
+            break;
+
+          case 'tip': {
+            // one tip at a time (scored) → append
+            const t: Tip = msg.data;
+            setTips(prev => {
+              const next = [...prev, t];
+              tipLookupRef.current = new Map(next.map((x: Tip) => [x.id, x]));
+              return next;
+            });
+            break;
+          }
+
+          case 'batch': {
+            // DB fallback returned an array
+            const items: Tip[] = msg.items || [];
+            setTips(prev => {
+              const next = [...prev, ...items];
+              tipLookupRef.current = new Map(next.map((x: Tip) => [x.id, x]));
+              return next;
+            });
+            break;
+          }
+
+          case 'error':
+            setStreamError(msg.message || 'Stream error');
+            break;
+
+          case 'done':
+            closeWS();
+            setIsAssistantLoading(false);
+            // Check if no tips were received using a ref to avoid closure issues
+            setTimeout(() => {
+              // Use the current state value instead of the stale closure value
+              setTips(currentTips => {
+                if (currentTips.length === 0) {
+                  Alert.alert(
+                    'No Tips Found',
+                    'Try asking about reading, science exploration, social skills, or language activities.',
+                    [
+                      {
+                        text: 'See Examples',
+                        onPress: () =>
+                          Alert.alert(
+                            'Try asking about:',
+                            EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
+                            [{text: 'OK'}],
+                          ),
+                      },
+                      {text: 'OK', style: 'cancel'},
+                    ],
+                  );
+                  setShowTipsModal(false); // optional
+                }
+                return currentTips; // Return unchanged state
+              });
+            }, 0);
+            break;
+
+          // 'ping' etc. are ignored
+          default:
+            break;
         }
-      } else {
-        Alert.alert(
-          'No Tips Found',
-          'Try asking about reading, science exploration, social skills, or language activities.',
-          [
-            {
-              text: 'See Examples',
-              onPress: () => {
-                Alert.alert(
-                  'Try asking about:',
-                  EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
-                  [{text: 'OK'}],
-                );
-              },
-            },
-            {text: 'OK', style: 'cancel'},
-          ],
-        );
-      }
+      };
+
+      ws.onerror = () => {
+        setStreamError('Connection error');
+      };
+
+      ws.onclose = e => {
+        if (openedAt) {
+          const lifetime = Date.now() - openedAt;
+          console.log(`[RN] WS CLOSED after ${lifetime} ms`, {
+            code: e.code,
+            reason: e.reason,
+            wasClean: e.wasClean,
+          });
+        } else {
+          console.log('[RN] WS CLOSED (openedAt unknown)', {
+            code: e.code,
+            reason: e.reason,
+          });
+        }
+        setIsStreaming(false);
+        setIsAssistantLoading(false);
+      };
     } catch (e) {
-      console.error('tips error', e);
-      Alert.alert(
-        'Error',
-        'Failed to get advice. Please check your connection and try again.',
-      );
-    } finally {
+      console.error('ws error', e);
       setIsAssistantLoading(false);
+      setIsStreaming(false);
+      Alert.alert('Error', 'Failed to start the stream. Please try again.');
     }
+
+    // setIsAssistantLoading(true);
+    // setTips([]);
+
+    // try {
+    //   // Resolve children for context
+    //   let mentioned = resolveChildrenFromQuery(query, userChildren);
+
+    //   // Age-based resolution if no names found
+    //   if (mentioned.length === 0) {
+    //     const ageMention = parseAgeMention(query);
+    //     if (ageMention) {
+    //       const {months, granularity} = ageMention;
+    //       const {exact, close} = matchChildrenByAge(
+    //         months,
+    //         userChildren,
+    //         granularity,
+    //       );
+
+    //       if (exact.length === 1) {
+    //         mentioned = exact;
+    //       } else if (exact.length > 1) {
+    //         setChildDisambigReason('multiple');
+    //         setChildCandidates(exact);
+    //         setExpressedAgeMonths(months);
+    //         setShowChildDisambiguationModal(true);
+    //         setIsAssistantLoading(false);
+    //         return;
+    //       } else if (close.length === 1) {
+    //         mentioned = close;
+    //       } else if (close.length > 1) {
+    //         setChildDisambigReason('multiple');
+    //         setChildCandidates(close);
+    //         setExpressedAgeMonths(months);
+    //         setShowChildDisambiguationModal(true);
+    //         setIsAssistantLoading(false);
+    //         return;
+    //       } else {
+    //         setChildDisambigReason('none');
+    //         setChildCandidates(userChildren);
+    //         setExpressedAgeMonths(months);
+    //         setShowChildDisambiguationModal(true);
+    //         setIsAssistantLoading(false);
+    //         return;
+    //       }
+    //     } else {
+    //       const {known, unknown} = resolveChildrenAndUnknownNames(
+    //         query,
+    //         userChildren,
+    //       );
+    //       if (known.length === 0 && unknown.length > 0) {
+    //         setChildDisambigReason('name');
+    //         setChildCandidates(userChildren);
+    //         setExpressedAgeMonths(null);
+    //         setShowChildDisambiguationModal(true);
+    //         setIsAssistantLoading(false);
+    //         return;
+    //       }
+    //     }
+    //   }
+
+    //   const childLines = (mentioned.length ? mentioned : userChildren).map(
+    //     c => {
+    //       const nm = c.nickname || 'Child';
+    //       return `${nm}: ${ageYMMM(c.date_of_birth)} old`;
+    //     },
+    //   );
+
+    //   const childContext = childLines.join(', ');
+    //   const childrenContext = (mentioned.length ? mentioned : userChildren).map(
+    //     c => ({
+    //       name: c.nickname,
+    //       dob: c.date_of_birth,
+    //       agePretty: ageYMMM(c.date_of_birth),
+    //       ageYears: calculateAge(c.date_of_birth),
+    //     }),
+    //   );
+
+    //   const prompt = (
+    //     mentioned.length > 0
+    //       ? `${query} (Focus on: ${childContext}).`
+    //       : `${query}. Child context: ${childContext}.`
+    //   ).trim();
+
+    //   const endpoint = '/api/personalization/enhanced-tips-survey';
+
+    //   const enhancedContext = {
+    //     prompt,
+    //     contentPreferences,
+    //     generateMode: 'hybrid',
+    //     childrenContext,
+    //   };
+
+    //   const res = await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}${endpoint}`, {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //       Authorization: `Bearer ${userInfo.access_token}`,
+    //     },
+    //     body: JSON.stringify(enhancedContext),
+    //   });
+
+    //   const data = await res.json();
+
+    //   if (!res.ok) {
+    //     if (data?.error === 'out_of_scope') {
+    //       Alert.alert(
+    //         'Topic Not Supported',
+    //         data.message || REJECTION_MESSAGE,
+    //         [
+    //           {
+    //             text: 'See Examples',
+    //             onPress: () => {
+    //               Alert.alert(
+    //                 'Try asking about:',
+    //                 EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
+    //                 [{text: 'OK'}],
+    //               );
+    //             },
+    //           },
+    //           {text: 'OK', style: 'cancel'},
+    //         ],
+    //       );
+    //       return;
+    //     }
+
+    //     Alert.alert(
+    //       'Error',
+    //       data.message || 'Failed to get tips. Please try again.',
+    //     );
+    //     return;
+    //   }
+
+    //   if (Array.isArray(data.tips) && data.tips.length) {
+    //     setTips(data.tips);
+    //     tipLookupRef.current = new Map(
+    //       (data.tips || []).map((t: Tip) => [t.id, t]),
+    //     );
+
+    //     Keyboard.dismiss();
+    //     setShowTipsModal(true);
+
+    //     if (data.hasSurveyPersonalization) {
+    //       console.log('🎯 Tips personalized using survey data!');
+    //     }
+    //   } else {
+    //     Alert.alert(
+    //       'No Tips Found',
+    //       'Try asking about reading, science exploration, social skills, or language activities.',
+    //       [
+    //         {
+    //           text: 'See Examples',
+    //           onPress: () => {
+    //             Alert.alert(
+    //               'Try asking about:',
+    //               EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
+    //               [{text: 'OK'}],
+    //             );
+    //           },
+    //         },
+    //         {text: 'OK', style: 'cancel'},
+    //       ],
+    //     );
+    //   }
+    // } catch (e) {
+    //   console.error('tips error', e);
+    //   Alert.alert(
+    //     'Error',
+    //     'Failed to get advice. Please check your connection and try again.',
+    //   );
+    // } finally {
+    //   setIsAssistantLoading(false);
+    // }
   };
 
   const CompanionView = tourRunning ? WalkthroughableView : View;
@@ -2117,74 +2379,6 @@ Try asking about one of these topics!`;
           {/* Ask your companion Card */}
           <Animated.View
             style={[{paddingHorizontal: 20}, askCompanionCardStyle]}>
-            {/* <CopilotStep
-              order={4}
-              name="Companion"
-              text="Ask for parenting tips here!">
-              <WalkthroughableView style={styles.card}>
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitleRow}>Ask your companion</Text>
-                  <Text style={styles.cardSub}>Get personalized advice</Text>
-                </View>
-
-                <View style={styles.inputField}>
-                  <MaterialIcons
-                    name="chat-bubble-outline"
-                    size={18}
-                    color="#9AA0A6"
-                  />
-                  <TextInput
-                    style={styles.fieldText}
-                    value={searchText}
-                    onChangeText={setSearchText}
-                    placeholder={
-                      isListening ? 'Listening...' : 'How can I help you today?'
-                    }
-                    placeholderTextColor="#9AA0A6"
-                    multiline
-                    editable={!isListening}
-                    onFocus={handleFocus}
-                    onBlur={handleBlur}
-                    returnKeyType="search"
-                    blurOnSubmit={false}
-                    onSubmitEditing={() => getPersonalizedTips()}
-                    onTouchStart={e => e.stopPropagation()}
-                  />
-                  <TouchableOpacity
-                    style={styles.micPill}
-                    onPress={toggleListening}
-                    activeOpacity={0.8}>
-                    <MaterialIcons
-                      name={isListening ? 'mic-off' : 'mic'}
-                      size={18}
-                      color={isListening ? '#FF3B30' : '#6366F1'}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  disabled={isAssistantLoading}
-                  onPress={getPersonalizedTips}
-                  style={{
-                    borderRadius: 22,
-                    overflow: 'hidden',
-                    marginBottom: 12,
-                  }}>
-                  <LinearGradient
-                    colors={['#3B82F6', '#7C4DFF']}
-                    start={{x: 0, y: 0}}
-                    end={{x: 1, y: 1}}
-                    style={styles.ctaGradient}>
-                    {isAssistantLoading ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <Text style={styles.ctaText}>Get Parenting Advice</Text>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </WalkthroughableView>
-            </CopilotStep> */}
             {tourRunning ? (
               <CopilotStep
                 order={4}
