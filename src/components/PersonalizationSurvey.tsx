@@ -16,6 +16,7 @@ import {AuthContext} from '../context/AuthContext';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import {fetchWithAuth} from '../api/auth';
+import {BASE_URL} from '../config';
 
 const {width, height} = Dimensions.get('window');
 
@@ -30,7 +31,7 @@ interface SurveyData {
 
 // Update this to match your existing API endpoints
 const API_ENDPOINTS = {
-  BASE_URL: 'http://68.183.102.75:1337',
+  BASE_URL: BASE_URL,
 };
 
 const PersonalizationSurvey: React.FC<{

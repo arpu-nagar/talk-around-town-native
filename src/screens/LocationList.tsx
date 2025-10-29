@@ -21,6 +21,7 @@ import {fetchWithAuth} from '../api/auth';
 import Spinner from 'react-native-loading-spinner-overlay';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
+import {BASE_URL} from '../config';
 
 type RootStackParamList = {
   LocationList: {
@@ -62,17 +63,14 @@ const LocationListScreen: React.FC<LocationListScreenProps> = ({
 
       console.log('Fetching locations...');
 
-      const response = await fetchWithAuth(
-        'http://68.183.102.75:1337/endpoint/locations',
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
+      const response = await fetchWithAuth(`${BASE_URL}/endpoint/locations`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo.access_token}`,
         },
-      );
+      });
 
       if (response.status === 200) {
         const data = await response.json();
@@ -150,7 +148,7 @@ const LocationListScreen: React.FC<LocationListScreenProps> = ({
 
       // Make the API call to delete the location
       const response = await fetchWithAuth(
-        'http://68.183.102.75:1337/endpoint/deleteLocation',
+        `${BASE_URL}/endpoint/deleteLocation`,
         {
           method: 'DELETE',
           headers: {

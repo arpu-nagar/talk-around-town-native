@@ -4,6 +4,7 @@ import {PermissionsAndroid, Platform, Alert} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import {AuthContext} from '../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {BASE_URL} from '../config';
 // import { userInfo } from 'os';
 
 const fetchLocationAndSendData = async () => {
@@ -52,7 +53,7 @@ const fetchLocationAndSendData = async () => {
         const {latitude, longitude} = position.coords;
         console.log(latitude, longitude);
         try {
-          const response = await fetch('http://68.183.102.75:1337/endpoint', {
+          const response = await fetch(`${BASE_URL}/endpoint`, {
             method: 'POST',
             headers: {
               Accept: 'application/json',
@@ -71,7 +72,7 @@ const fetchLocationAndSendData = async () => {
         }
       },
       error => {
-        Alert.alert('Error', 'http://68.183.102.75:1337 location');
+        Alert.alert('Error', `${BASE_URL} location`);
         console.log(error);
       },
       {enableHighAccuracy: false, timeout: 60000, maximumAge: 0},

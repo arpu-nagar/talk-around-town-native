@@ -4,6 +4,7 @@ import {useState, useEffect, useCallback, useRef} from 'react';
 import {Alert} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import {BASE_URL} from '../config';
 
 interface Child {
   id: number;
@@ -27,7 +28,7 @@ interface UseChildrenInfoReturn {
 const CHILDREN_CACHE_KEY = 'childrenInfoCache';
 const CACHE_EXPIRY_KEY = 'childrenCacheExpiry';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const API_BASE_URL = 'http://68.183.102.75:1337';
+const API_BASE_URL = BASE_URL;
 
 export const useChildrenInfo = (): UseChildrenInfoReturn => {
   const [children, setChildren] = useState<Child[]>([]);

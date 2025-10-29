@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, {useState, useEffect, useContext} from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,13 @@ import {
   Dimensions,
   RefreshControl,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
-import { AuthContext, AuthContextType } from '../../context/AuthContext';
-import { Alert } from 'react-native';
+import {LineChart, BarChart, PieChart} from 'react-native-chart-kit';
+import {AuthContext, AuthContextType} from '../../context/AuthContext';
+import {Alert} from 'react-native';
+import {BASE_URL} from '../../config';
 
 interface DashboardData {
   summary: {
@@ -27,19 +28,29 @@ interface DashboardData {
     sessions: number;
     tips: number;
   };
-  userTimeline: { date: string; count: number }[];
-  childrenAges: { age: number; count: number }[];
-  locationTypes: { type: string; count: number }[];
-  notificationTimes: { hour: number; count: number }[];
-  topLocations: { name: string; notification_count: number }[];
-  topUsers: { id: number; name: string; email: string; child_count: number }[];
+  userTimeline: {date: string; count: number}[];
+  childrenAges: {age: number; count: number}[];
+  locationTypes: {type: string; count: number}[];
+  notificationTimes: {hour: number; count: number}[];
+  topLocations: {name: string; notification_count: number}[];
+  topUsers: {id: number; name: string; email: string; child_count: number}[];
   recentActivity: {
-    recentUsers: { id: number; name: string; email: string; created_at: string }[];
-    recentNotifications: { id: number; timestamp: string; user_name: string; location_name: string }[];
+    recentUsers: {
+      id: number;
+      name: string;
+      email: string;
+      created_at: string;
+    }[];
+    recentNotifications: {
+      id: number;
+      timestamp: string;
+      user_name: string;
+      location_name: string;
+    }[];
   };
 }
 
-const API_BASE_URL = 'http://68.183.102.75:1337';
+const API_BASE_URL = BASE_URL;
 const screenWidth = Dimensions.get('window').width;
 
 const chartConfig = {
@@ -53,18 +64,20 @@ const chartConfig = {
 
 const DashboardScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { userInfo } = useContext<AuthContextType>(AuthContext);
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const {userInfo} = useContext<AuthContextType>(AuthContext);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const { isAdmin } = useContext(AuthContext);
+  const {isAdmin} = useContext(AuthContext);
   useEffect(() => {
     if (!isAdmin) {
       Alert.alert(
-        "Access Denied",
+        'Access Denied',
         "You don't have permission to access the dashboard.",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
+        [{text: 'OK', onPress: () => navigation.goBack()}],
       );
     } else if (userInfo?.access_token) {
       fetchDashboardData();
@@ -81,20 +94,25 @@ const DashboardScreen: React.FC = () => {
         },
       });
       try {
-        const summaryRes = await fetch(`${API_BASE_URL}/api/dashboard/summary`, {
-          headers: {
-            Authorization: `Bearer ${userInfo.access_token}`,
+        const summaryRes = await fetch(
+          `${API_BASE_URL}/api/dashboard/summary`,
+          {
+            headers: {
+              Authorization: `Bearer ${userInfo.access_token}`,
+            },
           },
-        });
-        
+        );
+
         console.log('Summary endpoint status:', summaryRes.status);
-        
+
         if (!summaryRes.ok) {
           const errorText = await summaryRes.text();
           console.error('Summary endpoint error:', errorText);
-          throw new Error(`Summary endpoint failed: ${summaryRes.status} - ${errorText}`);
+          throw new Error(
+            `Summary endpoint failed: ${summaryRes.status} - ${errorText}`,
+          );
         }
-        
+
         // Continue with other endpoints...
       } catch (error) {
         if (error instanceof Error) {
@@ -105,60 +123,88 @@ const DashboardScreen: React.FC = () => {
         setIsLoading(false);
         setRefreshing(false);
       }
-      
+
       // Fetch user timeline
-      const userTimelineRes = await fetch(`${API_BASE_URL}/api/dashboard/users/timeline`, {
-        headers: {
-          Authorization: `Bearer ${userInfo.access_token}`,
+      const userTimelineRes = await fetch(
+        `${API_BASE_URL}/api/dashboard/users/timeline`,
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
         },
-      });
-      
+      );
+
       // Fetch children ages
-      const childrenAgesRes = await fetch(`${API_BASE_URL}/api/dashboard/children/ages`, {
-        headers: {
-          Authorization: `Bearer ${userInfo.access_token}`,
+      const childrenAgesRes = await fetch(
+        `${API_BASE_URL}/api/dashboard/children/ages`,
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
         },
-      });
-      
+      );
+
       // Fetch location types
-      const locationTypesRes = await fetch(`${API_BASE_URL}/api/dashboard/locations/types`, {
-        headers: {
-          Authorization: `Bearer ${userInfo.access_token}`,
+      const locationTypesRes = await fetch(
+        `${API_BASE_URL}/api/dashboard/locations/types`,
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
         },
-      });
-      
+      );
+
       // Fetch notification times
-      const notificationTimesRes = await fetch(`${API_BASE_URL}/api/dashboard/notifications/time`, {
-        headers: {
-          Authorization: `Bearer ${userInfo.access_token}`,
+      const notificationTimesRes = await fetch(
+        `${API_BASE_URL}/api/dashboard/notifications/time`,
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
         },
-      });
-      
+      );
+
       // Fetch top locations
-      const topLocationsRes = await fetch(`${API_BASE_URL}/api/dashboard/locations/usage`, {
-        headers: {
-          Authorization: `Bearer ${userInfo.access_token}`,
+      const topLocationsRes = await fetch(
+        `${API_BASE_URL}/api/dashboard/locations/usage`,
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
         },
-      });
-      
+      );
+
       // Fetch top users
-      const topUsersRes = await fetch(`${API_BASE_URL}/api/dashboard/users/children`, {
-        headers: {
-          Authorization: `Bearer ${userInfo.access_token}`,
+      const topUsersRes = await fetch(
+        `${API_BASE_URL}/api/dashboard/users/children`,
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
         },
-      });
-      
+      );
+
       // Fetch recent activity
-      const recentActivityRes = await fetch(`${API_BASE_URL}/api/dashboard/recent-activity`, {
-        headers: {
-          Authorization: `Bearer ${userInfo.access_token}`,
+      const recentActivityRes = await fetch(
+        `${API_BASE_URL}/api/dashboard/recent-activity`,
+        {
+          headers: {
+            Authorization: `Bearer ${userInfo.access_token}`,
+          },
         },
-      });
+      );
 
       // Process all responses
-      if (!summaryRes.ok || !userTimelineRes.ok || !childrenAgesRes.ok || 
-          !locationTypesRes.ok || !notificationTimesRes.ok || !topLocationsRes.ok || 
-          !topUsersRes.ok || !recentActivityRes.ok) {
+      if (
+        !summaryRes.ok ||
+        !userTimelineRes.ok ||
+        !childrenAgesRes.ok ||
+        !locationTypesRes.ok ||
+        !notificationTimesRes.ok ||
+        !topLocationsRes.ok ||
+        !topUsersRes.ok ||
+        !recentActivityRes.ok
+      ) {
         throw new Error('One or more API requests failed');
       }
 
@@ -179,7 +225,7 @@ const DashboardScreen: React.FC = () => {
         notificationTimes,
         topLocations,
         topUsers,
-        recentActivity
+        recentActivity,
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -202,11 +248,12 @@ const DashboardScreen: React.FC = () => {
 
   // Prepare data for charts
   const prepareUserTimelineData = () => {
-    if (!dashboardData?.userTimeline || dashboardData.userTimeline.length === 0) return null;
-    
+    if (!dashboardData?.userTimeline || dashboardData.userTimeline.length === 0)
+      return null;
+
     // Take only the last 7 entries for better display
     const timelineData = dashboardData.userTimeline.slice(-7);
-    
+
     return {
       labels: timelineData.map(item => {
         const date = new Date(item.date);
@@ -223,8 +270,9 @@ const DashboardScreen: React.FC = () => {
   };
 
   const prepareChildrenAgeData = () => {
-    if (!dashboardData?.childrenAges || dashboardData.childrenAges.length === 0) return null;
-    
+    if (!dashboardData?.childrenAges || dashboardData.childrenAges.length === 0)
+      return null;
+
     return {
       labels: dashboardData.childrenAges.map(item => `${item.age}y`),
       datasets: [
@@ -236,10 +284,21 @@ const DashboardScreen: React.FC = () => {
   };
 
   const prepareLocationTypesData = () => {
-    if (!dashboardData?.locationTypes || dashboardData.locationTypes.length === 0) return null;
-    
-    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
-    
+    if (
+      !dashboardData?.locationTypes ||
+      dashboardData.locationTypes.length === 0
+    )
+      return null;
+
+    const colors = [
+      '#FF6384',
+      '#36A2EB',
+      '#FFCE56',
+      '#4BC0C0',
+      '#9966FF',
+      '#FF9F40',
+    ];
+
     return dashboardData.locationTypes.slice(0, 6).map((item, index) => ({
       name: item.type || 'Unknown',
       count: item.count,
@@ -250,29 +309,38 @@ const DashboardScreen: React.FC = () => {
   };
 
   const prepareNotificationTimesData = () => {
-    if (!dashboardData?.notificationTimes || dashboardData.notificationTimes.length === 0) return null;
-    
+    if (
+      !dashboardData?.notificationTimes ||
+      dashboardData.notificationTimes.length === 0
+    )
+      return null;
+
     // Create a full 24-hour array with zeros for missing hours
     const hourlyData = Array(24).fill(0);
-    
+
     // Fill in the actual data
     dashboardData.notificationTimes.forEach(item => {
       hourlyData[item.hour] = item.count;
     });
-    
+
     return {
       labels: ['12a', '3a', '6a', '9a', '12p', '3p', '6p', '9p'],
       datasets: [
         {
           data: [
-            hourlyData[0], hourlyData[3], hourlyData[6], hourlyData[9],
-            hourlyData[12], hourlyData[15], hourlyData[18], hourlyData[21]
+            hourlyData[0],
+            hourlyData[3],
+            hourlyData[6],
+            hourlyData[9],
+            hourlyData[12],
+            hourlyData[15],
+            hourlyData[18],
+            hourlyData[21],
           ],
         },
       ],
     };
   };
-  
 
   if (isLoading && !dashboardData) {
     return (
@@ -296,25 +364,33 @@ const DashboardScreen: React.FC = () => {
         <View style={styles.summaryGrid}>
           <View style={styles.summaryCard}>
             <Icon name="people" size={24} color="#4A90E2" />
-            <Text style={styles.summaryNumber}>{dashboardData?.summary.users || 0}</Text>
+            <Text style={styles.summaryNumber}>
+              {dashboardData?.summary.users || 0}
+            </Text>
             <Text style={styles.summaryLabel}>Users</Text>
           </View>
-          
+
           <View style={styles.summaryCard}>
             <Icon name="child-care" size={24} color="#FF9500" />
-            <Text style={styles.summaryNumber}>{dashboardData?.summary.children || 0}</Text>
+            <Text style={styles.summaryNumber}>
+              {dashboardData?.summary.children || 0}
+            </Text>
             <Text style={styles.summaryLabel}>Children</Text>
           </View>
-          
+
           <View style={styles.summaryCard}>
             <Icon name="place" size={24} color="#34C759" />
-            <Text style={styles.summaryNumber}>{dashboardData?.summary.locations || 0}</Text>
+            <Text style={styles.summaryNumber}>
+              {dashboardData?.summary.locations || 0}
+            </Text>
             <Text style={styles.summaryLabel}>Locations</Text>
           </View>
-          
+
           <View style={styles.summaryCard}>
             <Icon name="notifications" size={24} color="#FF3B30" />
-            <Text style={styles.summaryNumber}>{dashboardData?.summary.notifications || 0}</Text>
+            <Text style={styles.summaryNumber}>
+              {dashboardData?.summary.notifications || 0}
+            </Text>
             <Text style={styles.summaryLabel}>Notifications</Text>
           </View>
         </View>
@@ -323,7 +399,9 @@ const DashboardScreen: React.FC = () => {
       {/* User Registration Chart */}
       {userTimelineData && (
         <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>User Registrations (Last 7 Days)</Text>
+          <Text style={styles.chartTitle}>
+            User Registrations (Last 7 Days)
+          </Text>
           <LineChart
             data={userTimelineData}
             width={screenWidth - 40}
@@ -355,11 +433,16 @@ const DashboardScreen: React.FC = () => {
       {/* Recent Activity */}
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Recent Activity</Text>
-        
+
         <Text style={styles.subsectionTitle}>New Users</Text>
         {dashboardData?.recentActivity.recentUsers.map((user, index) => (
           <View key={`user-${index}`} style={styles.activityItem}>
-            <Icon name="person" size={20} color="#4A90E2" style={styles.activityIcon} />
+            <Icon
+              name="person"
+              size={20}
+              color="#4A90E2"
+              style={styles.activityIcon}
+            />
             <View style={styles.activityContent}>
               <Text style={styles.activityTitle}>{user.name}</Text>
               <Text style={styles.activitySubtitle}>{user.email}</Text>
@@ -369,20 +452,33 @@ const DashboardScreen: React.FC = () => {
             </View>
           </View>
         ))}
-        
-        <Text style={[styles.subsectionTitle, { marginTop: 16 }]}>Recent Notifications</Text>
-        {dashboardData?.recentActivity.recentNotifications.map((notification, index) => (
-          <View key={`notif-${index}`} style={styles.activityItem}>
-            <Icon name="notifications" size={20} color="#FF3B30" style={styles.activityIcon} />
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>{notification.location_name}</Text>
-              <Text style={styles.activitySubtitle}>User: {notification.user_name}</Text>
-              <Text style={styles.activityDate}>
-                {new Date(notification.timestamp).toLocaleString()}
-              </Text>
+
+        <Text style={[styles.subsectionTitle, {marginTop: 16}]}>
+          Recent Notifications
+        </Text>
+        {dashboardData?.recentActivity.recentNotifications.map(
+          (notification, index) => (
+            <View key={`notif-${index}`} style={styles.activityItem}>
+              <Icon
+                name="notifications"
+                size={20}
+                color="#FF3B30"
+                style={styles.activityIcon}
+              />
+              <View style={styles.activityContent}>
+                <Text style={styles.activityTitle}>
+                  {notification.location_name}
+                </Text>
+                <Text style={styles.activitySubtitle}>
+                  User: {notification.user_name}
+                </Text>
+                <Text style={styles.activityDate}>
+                  {new Date(notification.timestamp).toLocaleString()}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
+          ),
+        )}
       </View>
     </>
   );
@@ -408,19 +504,36 @@ const DashboardScreen: React.FC = () => {
       <View style={styles.tableContainer}>
         <Text style={styles.chartTitle}>Top Users by Number of Children</Text>
         <View style={styles.tableHeader}>
-          <Text style={[styles.tableColumn, styles.tableHeaderText, { flex: 2 }]}>User</Text>
-          <Text style={[styles.tableColumn, styles.tableHeaderText, { flex: 2 }]}>Email</Text>
-          <Text style={[styles.tableColumn, styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>Children</Text>
+          <Text style={[styles.tableColumn, styles.tableHeaderText, {flex: 2}]}>
+            User
+          </Text>
+          <Text style={[styles.tableColumn, styles.tableHeaderText, {flex: 2}]}>
+            Email
+          </Text>
+          <Text
+            style={[
+              styles.tableColumn,
+              styles.tableHeaderText,
+              {flex: 1, textAlign: 'center'},
+            ]}>
+            Children
+          </Text>
         </View>
         {dashboardData?.topUsers.map((user, index) => (
           <View key={index} style={styles.tableRow}>
-            <Text style={[styles.tableColumn, { flex: 2 }]} numberOfLines={1} ellipsizeMode="tail">
+            <Text
+              style={[styles.tableColumn, {flex: 2}]}
+              numberOfLines={1}
+              ellipsizeMode="tail">
               {user.name}
             </Text>
-            <Text style={[styles.tableColumn, { flex: 2 }]} numberOfLines={1} ellipsizeMode="tail">
+            <Text
+              style={[styles.tableColumn, {flex: 2}]}
+              numberOfLines={1}
+              ellipsizeMode="tail">
               {user.email}
             </Text>
-            <Text style={[styles.tableColumn, { flex: 1, textAlign: 'center' }]}>
+            <Text style={[styles.tableColumn, {flex: 1, textAlign: 'center'}]}>
               {user.child_count}
             </Text>
           </View>
@@ -432,7 +545,12 @@ const DashboardScreen: React.FC = () => {
         <Text style={styles.sectionTitle}>Recently Registered Users</Text>
         {dashboardData?.recentActivity.recentUsers.map((user, index) => (
           <View key={`recent-user-${index}`} style={styles.activityItem}>
-            <Icon name="person" size={20} color="#4A90E2" style={styles.activityIcon} />
+            <Icon
+              name="person"
+              size={20}
+              color="#4A90E2"
+              style={styles.activityIcon}
+            />
             <View style={styles.activityContent}>
               <Text style={styles.activityTitle}>{user.name}</Text>
               <Text style={styles.activitySubtitle}>{user.email}</Text>
@@ -468,27 +586,34 @@ const DashboardScreen: React.FC = () => {
       {/* Children Stats */}
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Children Statistics</Text>
-        
+
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Total Children:</Text>
-          <Text style={styles.statValue}>{dashboardData?.summary.children || 0}</Text>
+          <Text style={styles.statValue}>
+            {dashboardData?.summary.children || 0}
+          </Text>
         </View>
-        
+
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Average Children per User:</Text>
           <Text style={styles.statValue}>
-            {dashboardData?.summary.users 
-              ? (dashboardData.summary.children / dashboardData.summary.users).toFixed(1) 
+            {dashboardData?.summary.users
+              ? (
+                  dashboardData.summary.children / dashboardData.summary.users
+                ).toFixed(1)
               : 0}
           </Text>
         </View>
-        
+
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Most Common Age:</Text>
           <Text style={styles.statValue}>
             {dashboardData?.childrenAges.length
-              ? dashboardData.childrenAges.reduce((a, b) => a.count > b.count ? a : b).age
-              : 'N/A'} years
+              ? dashboardData.childrenAges.reduce((a, b) =>
+                  a.count > b.count ? a : b,
+                ).age
+              : 'N/A'}{' '}
+            years
           </Text>
         </View>
       </View>
@@ -518,15 +643,27 @@ const DashboardScreen: React.FC = () => {
       <View style={styles.tableContainer}>
         <Text style={styles.chartTitle}>Most Used Locations</Text>
         <View style={styles.tableHeader}>
-          <Text style={[styles.tableColumn, styles.tableHeaderText, { flex: 3 }]}>Location</Text>
-          <Text style={[styles.tableColumn, styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>Uses</Text>
+          <Text style={[styles.tableColumn, styles.tableHeaderText, {flex: 3}]}>
+            Location
+          </Text>
+          <Text
+            style={[
+              styles.tableColumn,
+              styles.tableHeaderText,
+              {flex: 1, textAlign: 'center'},
+            ]}>
+            Uses
+          </Text>
         </View>
         {dashboardData?.topLocations.map((location, index) => (
           <View key={index} style={styles.tableRow}>
-            <Text style={[styles.tableColumn, { flex: 3 }]} numberOfLines={1} ellipsizeMode="tail">
+            <Text
+              style={[styles.tableColumn, {flex: 3}]}
+              numberOfLines={1}
+              ellipsizeMode="tail">
               {location.name}
             </Text>
-            <Text style={[styles.tableColumn, { flex: 1, textAlign: 'center' }]}>
+            <Text style={[styles.tableColumn, {flex: 1, textAlign: 'center'}]}>
               {location.notification_count}
             </Text>
           </View>
@@ -536,17 +673,21 @@ const DashboardScreen: React.FC = () => {
       {/* Location Stats */}
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Location Statistics</Text>
-        
+
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Total Locations:</Text>
-          <Text style={styles.statValue}>{dashboardData?.summary.locations || 0}</Text>
+          <Text style={styles.statValue}>
+            {dashboardData?.summary.locations || 0}
+          </Text>
         </View>
-        
+
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Average Locations per User:</Text>
           <Text style={styles.statValue}>
-            {dashboardData?.summary.users 
-              ? (dashboardData.summary.locations / dashboardData.summary.users).toFixed(1) 
+            {dashboardData?.summary.users
+              ? (
+                  dashboardData.summary.locations / dashboardData.summary.users
+                ).toFixed(1)
               : 0}
           </Text>
         </View>
@@ -576,43 +717,62 @@ const DashboardScreen: React.FC = () => {
       {/* Recent Notifications */}
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Recent Notifications</Text>
-        {dashboardData?.recentActivity.recentNotifications.map((notification, index) => (
-          <View key={`notif-detail-${index}`} style={styles.activityItem}>
-            <Icon name="notifications" size={20} color="#FF3B30" style={styles.activityIcon} />
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>{notification.location_name}</Text>
-              <Text style={styles.activitySubtitle}>User: {notification.user_name}</Text>
-              <Text style={styles.activityDate}>
-                {new Date(notification.timestamp).toLocaleString()}
-              </Text>
+        {dashboardData?.recentActivity.recentNotifications.map(
+          (notification, index) => (
+            <View key={`notif-detail-${index}`} style={styles.activityItem}>
+              <Icon
+                name="notifications"
+                size={20}
+                color="#FF3B30"
+                style={styles.activityIcon}
+              />
+              <View style={styles.activityContent}>
+                <Text style={styles.activityTitle}>
+                  {notification.location_name}
+                </Text>
+                <Text style={styles.activitySubtitle}>
+                  User: {notification.user_name}
+                </Text>
+                <Text style={styles.activityDate}>
+                  {new Date(notification.timestamp).toLocaleString()}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
+          ),
+        )}
       </View>
 
       {/* Notification Stats */}
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Notification Statistics</Text>
-        
+
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Total Notifications:</Text>
-          <Text style={styles.statValue}>{dashboardData?.summary.notifications || 0}</Text>
+          <Text style={styles.statValue}>
+            {dashboardData?.summary.notifications || 0}
+          </Text>
         </View>
-        
+
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Notifications per Location:</Text>
           <Text style={styles.statValue}>
-            {dashboardData?.summary.locations 
-              ? (dashboardData.summary.notifications / dashboardData.summary.locations).toFixed(1) 
+            {dashboardData?.summary.locations
+              ? (
+                  dashboardData.summary.notifications /
+                  dashboardData.summary.locations
+                ).toFixed(1)
               : 0}
           </Text>
         </View>
-        
+
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Notifications per User:</Text>
           <Text style={styles.statValue}>
-            {dashboardData?.summary.users 
-              ? (dashboardData.summary.notifications / dashboardData.summary.users).toFixed(1) 
+            {dashboardData?.summary.users
+              ? (
+                  dashboardData.summary.notifications /
+                  dashboardData.summary.users
+                ).toFixed(1)
               : 0}
           </Text>
         </View>
@@ -630,31 +790,27 @@ const DashboardScreen: React.FC = () => {
         </Text>
         <TouchableOpacity
           style={styles.accessDeniedButton}
-          onPress={() => navigation.goBack()}
-        >
+          onPress={() => navigation.goBack()}>
           <Text style={styles.accessDeniedButtonText}>Return to Home</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
-  
-  
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={['#4A90E2', '#357ABD']} style={styles.headerGradient}>
+      <LinearGradient
+        colors={['#4A90E2', '#357ABD']}
+        style={styles.headerGradient}>
         <View style={styles.headerContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
+            onPress={() => navigation.goBack()}>
             <Icon name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>ENACT Dashboard</Text>
-          <TouchableOpacity 
-            style={styles.refreshButton}
-            onPress={onRefresh}
-          >
+          <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
             <Icon name="refresh" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -662,86 +818,118 @@ const DashboardScreen: React.FC = () => {
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
-          <TouchableOpacity 
-            style={[styles.tabButton, activeTab === 'overview' && styles.activeTab]}
-            onPress={() => setActiveTab('overview')}
-          >
-            <Icon 
-              name="dashboard" 
-              size={20} 
-              color={activeTab === 'overview' ? '#4A90E2' : '#666'} 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabScroll}>
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'overview' && styles.activeTab,
+            ]}
+            onPress={() => setActiveTab('overview')}>
+            <Icon
+              name="dashboard"
+              size={20}
+              color={activeTab === 'overview' ? '#4A90E2' : '#666'}
             />
-            <Text style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'overview' && styles.activeTabText,
+              ]}>
               Overview
             </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tabButton, activeTab === 'users' && styles.activeTab]}
-            onPress={() => setActiveTab('users')}
-          >
-            <Icon 
-              name="people" 
-              size={20} 
-              color={activeTab === 'users' ? '#4A90E2' : '#666'} 
+
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'users' && styles.activeTab,
+            ]}
+            onPress={() => setActiveTab('users')}>
+            <Icon
+              name="people"
+              size={20}
+              color={activeTab === 'users' ? '#4A90E2' : '#666'}
             />
-            <Text style={[styles.tabText, activeTab === 'users' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'users' && styles.activeTabText,
+              ]}>
               Users
             </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tabButton, activeTab === 'children' && styles.activeTab]}
-            onPress={() => setActiveTab('children')}
-          >
-            <Icon 
-              name="child-care" 
-              size={20} 
-              color={activeTab === 'children' ? '#4A90E2' : '#666'} 
+
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'children' && styles.activeTab,
+            ]}
+            onPress={() => setActiveTab('children')}>
+            <Icon
+              name="child-care"
+              size={20}
+              color={activeTab === 'children' ? '#4A90E2' : '#666'}
             />
-            <Text style={[styles.tabText, activeTab === 'children' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'children' && styles.activeTabText,
+              ]}>
               Children
             </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tabButton, activeTab === 'locations' && styles.activeTab]}
-            onPress={() => setActiveTab('locations')}
-          >
-            <Icon 
-              name="place" 
-              size={20} 
-              color={activeTab === 'locations' ? '#4A90E2' : '#666'} 
+
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'locations' && styles.activeTab,
+            ]}
+            onPress={() => setActiveTab('locations')}>
+            <Icon
+              name="place"
+              size={20}
+              color={activeTab === 'locations' ? '#4A90E2' : '#666'}
             />
-            <Text style={[styles.tabText, activeTab === 'locations' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'locations' && styles.activeTabText,
+              ]}>
               Locations
             </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tabButton, activeTab === 'notifications' && styles.activeTab]}
-            onPress={() => setActiveTab('notifications')}
-          >
-            <Icon 
-              name="notifications" 
-              size={20} 
-              color={activeTab === 'notifications' ? '#4A90E2' : '#666'} 
+
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'notifications' && styles.activeTab,
+            ]}
+            onPress={() => setActiveTab('notifications')}>
+            <Icon
+              name="notifications"
+              size={20}
+              color={activeTab === 'notifications' ? '#4A90E2' : '#666'}
             />
-            <Text style={[styles.tabText, activeTab === 'notifications' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'notifications' && styles.activeTabText,
+              ]}>
               Notifications
             </Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
 
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+        }>
         <View style={styles.container}>
           {activeTab === 'overview' && renderOverviewTab()}
           {activeTab === 'users' && renderUsersTab()}
@@ -753,9 +941,6 @@ const DashboardScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-
-
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -838,7 +1023,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -871,7 +1056,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
@@ -894,7 +1079,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -975,7 +1160,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,

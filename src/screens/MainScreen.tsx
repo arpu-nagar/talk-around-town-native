@@ -54,6 +54,7 @@ import TipsModal from '../components/MainScreen/TipsModal';
 import {useCache} from '../hooks/useCache';
 import {CopilotStep, useCopilot, walkthroughable} from 'react-native-copilot';
 import PreferencesCard from '../components/MainScreen/PreferencesCard';
+import {BASE_URL, WS_BASE_URL} from '../config';
 
 const STARTUP_CONFIG = {
   MAX_STARTUP_TIME: 8000,
@@ -73,9 +74,8 @@ const LOCATION_CONFIG = {
 };
 
 const API_ENDPOINTS = {
-  // BASE_URL: 'http://68.183.102.75:1337',
-  BASE_URL: 'http://192.168.0.160:1337',
-  WS_BASE_URL: 'ws://192.168.0.160:1337',
+  BASE_URL: BASE_URL,
+  WS_BASE_URL: WS_BASE_URL,
   ASSISTANT_BASE_URL: 'http://68.183.102.75:4000',
   LOCATIONS: '/endpoint/locations',
   ADD_LOCATION: '/endpoint/addLocation',
@@ -148,42 +148,6 @@ const MapViewModal = React.memo(function MapViewModal({
   const [description, setDescription] = useState('');
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
-  // --- Animation Setup ---
-  // 1. Use a ref to hold the animated value. 0 = blurred, 1 = focused.
-  const animation = useRef(new Animated.Value(0)).current;
-
-  // 2. Functions to handle focus and blur events
-  const handleFocus = () => {
-    Animated.timing(animation, {
-      toValue: 1,
-      duration: 350, // Animation duration in ms
-      easing: Easing.out(Easing.ease), // Smooth easing out
-      useNativeDriver: true, // For better performance
-    }).start();
-  };
-
-  const handleBlur = () => {
-    Animated.timing(animation, {
-      toValue: 0,
-      duration: 350,
-      easing: Easing.in(Easing.ease), // Smooth easing in
-      useNativeDriver: true,
-    }).start();
-  };
-
-  // 3. Interpolate the animated value to create dynamic styles
-  const addNewLocationStyle = {
-    transform: [
-      {
-        translateY: animation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, -260],
-        }),
-      },
-    ],
-  };
-  // --- End of Animation Setup ---
-
   const reset = useCallback(() => {
     setNewLocation(null);
     setName('');
@@ -253,7 +217,7 @@ const MapViewModal = React.memo(function MapViewModal({
       onRequestClose={onClose}>
       <View
         style={{
-          flex: 1,
+          ...StyleSheet.absoluteFillObject,
         }}>
         {/* Map */}
         {initialRegion && (
@@ -301,7 +265,9 @@ const MapViewModal = React.memo(function MapViewModal({
 
         {/* Bottom add form */}
         {newLocation && (
-          <Animated.View style={[{flex: 1}, addNewLocationStyle]}>
+          <View
+            pointerEvents="box-none"
+            style={{...StyleSheet.absoluteFillObject, marginBottom: 20}}>
             <LinearGradient
               colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
               start={{x: 0, y: 0}}
@@ -310,7 +276,24 @@ const MapViewModal = React.memo(function MapViewModal({
               <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{flex: 1}}>
-                <Text style={styles.formTitle}>Add New Location</Text>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                  }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      reset();
+                    }}>
+                    <MaterialIcons
+                      name="arrow-back"
+                      size={20}
+                      color="#1F2937"
+                    />
+                  </TouchableOpacity>
+                  <Text style={styles.formTitle}>Add New Location</Text>
+                  <View style={{width: 24}} />
+                </View>
 
                 <Dropdown
                   style={styles.dropdown}
@@ -340,8 +323,6 @@ const MapViewModal = React.memo(function MapViewModal({
                   value={name}
                   onChangeText={setName}
                   placeholderTextColor="#999"
-                  onFocus={handleFocus}
-                  onBlur={handleBlur}
                 />
                 <TextInput
                   placeholder="Description"
@@ -351,8 +332,6 @@ const MapViewModal = React.memo(function MapViewModal({
                   placeholderTextColor="#999"
                   multiline
                   numberOfLines={3}
-                  onFocus={handleFocus}
-                  onBlur={handleBlur}
                 />
 
                 <TouchableOpacity
@@ -362,100 +341,102 @@ const MapViewModal = React.memo(function MapViewModal({
                 </TouchableOpacity>
               </KeyboardAvoidingView>
             </LinearGradient>
-          </Animated.View>
+          </View>
         )}
 
-        <SafeAreaView pointerEvents="box-none" style={styles.searchOverlay}>
-          <LinearGradient
-            colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 1}}
-            style={styles.mapModalContainer}>
-            {/* Header */}
-            <View style={styles.mapHeader}>
-              <TouchableOpacity
-                onPress={() => {
-                  reset();
-                  onClose();
-                }}>
-                <MaterialIcons name="arrow-back" size={20} color="#1F2937" />
-              </TouchableOpacity>
-              <Text style={styles.mapHeaderTitle}>Find Nearby Locations</Text>
-              <View style={{width: 24}} />
-            </View>
+        {!newLocation && (
+          <View pointerEvents="box-none" style={styles.searchOverlay}>
+            <LinearGradient
+              colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
+              style={styles.mapModalContainer}>
+              {/* Header */}
+              <View style={styles.mapHeader}>
+                <TouchableOpacity
+                  onPress={() => {
+                    reset();
+                    onClose();
+                  }}>
+                  <MaterialIcons name="arrow-back" size={20} color="#1F2937" />
+                </TouchableOpacity>
+                <Text style={styles.mapHeaderTitle}>Find Nearby Locations</Text>
+                <View style={{width: 24}} />
+              </View>
 
-            {/* Search */}
-            <View style={styles.searchBarWrapper}>
-              <GooglePlacesAutocomplete
-                placeholder="Search by name or address"
-                fetchDetails
-                minLength={2}
-                debounce={200}
-                keyboardShouldPersistTaps="handled"
-                enablePoweredByContainer={false}
-                onFail={e => console.log('Places error:', e)}
-                onPress={(data, details = null) => {
-                  if (details) {
-                    const latitude = details.geometry.location.lat;
-                    const longitude = details.geometry.location.lng;
-                    setNewLocation({
-                      latitude,
-                      longitude,
-                      latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
-                      longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
-                    });
-                  }
-                }}
-                query={{
-                  key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps',
-                  language: 'en',
-                }}
-                ref={placesRef}
-                textInputProps={{
-                  placeholderTextColor: '#1F2937', // placeholder color
-                }}
-                styles={{
-                  container: {flex: 0, zIndex: 10002, elevation: 10000},
+              {/* Search */}
+              <View style={styles.searchBarWrapper}>
+                <GooglePlacesAutocomplete
+                  placeholder="Search by name or address"
+                  fetchDetails
+                  minLength={2}
+                  debounce={200}
+                  keyboardShouldPersistTaps="handled"
+                  enablePoweredByContainer={false}
+                  onFail={e => console.log('Places error:', e)}
+                  onPress={(data, details = null) => {
+                    if (details) {
+                      const latitude = details.geometry.location.lat;
+                      const longitude = details.geometry.location.lng;
+                      setNewLocation({
+                        latitude,
+                        longitude,
+                        latitudeDelta: LOCATION_CONFIG.DELTAS.LATITUDE,
+                        longitudeDelta: LOCATION_CONFIG.DELTAS.LONGITUDE,
+                      });
+                    }
+                  }}
+                  query={{
+                    key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps',
+                    language: 'en',
+                  }}
+                  ref={placesRef}
+                  textInputProps={{
+                    placeholderTextColor: '#1F2937', // placeholder color
+                  }}
+                  styles={{
+                    container: {flex: 0, zIndex: 10002, elevation: 10000},
 
-                  // Your input
-                  textInput: {
-                    ...styles.searchInput,
-                    // color: 'red',
-                  },
+                    // Your input
+                    textInput: {
+                      ...styles.searchInput,
+                      // color: 'red',
+                    },
 
-                  // 🔴 Make suggestion text visible
-                  description: {
-                    // pick one:
-                    color: '#1F2937', // matches your theme
-                    fontSize: 16,
-                  },
+                    // 🔴 Make suggestion text visible
+                    description: {
+                      // pick one:
+                      color: '#1F2937', // matches your theme
+                      fontSize: 16,
+                    },
 
-                  listView: {
-                    // position: 'absolute',
-                    // top: 52,
-                    // left: 0,
-                    // right: 0,
-                    backgroundColor: 'white',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    zIndex: 10002,
-                    elevation: 10002,
-                    shadowColor: '#000',
-                    shadowOffset: {width: 0, height: 2},
-                    shadowOpacity: 0.15,
-                    shadowRadius: 6,
-                  },
-                  row: {
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    backgroundColor: 'white',
-                  },
-                  separator: {height: 1.5, backgroundColor: '#F3F4F6'},
-                }}
-              />
-            </View>
-          </LinearGradient>
-        </SafeAreaView>
+                    listView: {
+                      // position: 'absolute',
+                      // top: 52,
+                      // left: 0,
+                      // right: 0,
+                      backgroundColor: 'white',
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      zIndex: 10002,
+                      elevation: 10002,
+                      shadowColor: '#000',
+                      shadowOffset: {width: 0, height: 2},
+                      shadowOpacity: 0.15,
+                      shadowRadius: 6,
+                    },
+                    row: {
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      backgroundColor: 'white',
+                    },
+                    separator: {height: 1.5, backgroundColor: '#F3F4F6'},
+                  }}
+                />
+              </View>
+            </LinearGradient>
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -1416,6 +1397,7 @@ Try asking about one of these topics!`;
   }
 
   function showDomainRejectionAlert(message: string) {
+    setShowTipsModal(false); // close modal first
     Alert.alert('Topic Not Supported', message, [
       {
         text: 'See Examples',
@@ -1748,6 +1730,7 @@ Try asking about one of these topics!`;
       };
 
       ws.onmessage = evt => {
+        const messageTime = Date.now();
         let msg: any;
         try {
           msg = JSON.parse(String(evt.data));
@@ -1783,12 +1766,17 @@ Try asking about one of these topics!`;
                       [{text: 'OK'}],
                     ),
                 },
-                {text: 'OK', style: 'cancel'},
+                {
+                  text: 'OK',
+                  style: 'cancel',
+                  onPress: () => setShowTipsModal(false),
+                },
               ],
             );
             break;
 
           case 'tip': {
+            console.log('messageTime,', messageTime - openedAt!);
             // one tip at a time (scored) → append
             const t: Tip = msg.data;
             setTips(prev => {
@@ -1876,6 +1864,7 @@ Try asking about one of these topics!`;
       console.error('ws error', e);
       setIsAssistantLoading(false);
       setIsStreaming(false);
+      setShowTipsModal(false);
       Alert.alert('Error', 'Failed to start the stream. Please try again.');
     }
 
@@ -2649,6 +2638,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     zIndex: 2, // iOS
     elevation: 12, // Android
+    marginTop: 20,
   },
 
   // Header wrapper gives shadow (not applied to LinearGradient to avoid warnings)

@@ -4,6 +4,7 @@ import {Button, StyleSheet, Text, View, TouchableOpacity} from 'react-native';
 import Spinner from 'react-native-loading-spinner-overlay';
 import {AuthContext} from '../context/AuthContext';
 import Tts from 'react-native-tts';
+import {BASE_URL} from '../config';
 
 const HomeScreen = ({route}: {route: any}) => {
   const {userInfo, isLoading, logout} = useContext<any>(AuthContext);
@@ -12,26 +13,22 @@ const HomeScreen = ({route}: {route: any}) => {
 
   const [tips, setTips] = useState<any>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(
-          'http://68.183.102.75:1337/api/tips/get-tips',
-          {
-            method: 'POST',
-            headers: {
-              Accept: 'application/json',
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${userInfo.access_token}`,
-            },
-            body: JSON.stringify({
-              type: notificationTitle,
-              AI: aiTips,
-            }),
+        const response = await fetch(`${BASE_URL}/api/tips/get-tips`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${userInfo.access_token}`,
           },
-        );
+          body: JSON.stringify({
+            type: notificationTitle,
+            AI: aiTips,
+          }),
+        });
         const responseJson = await response.json();
         setTips(responseJson);
       } catch (e) {

@@ -21,6 +21,7 @@ import {NavigationProp} from '@react-navigation/native';
 import messaging from '@react-native-firebase/messaging';
 import LinearGradient from 'react-native-linear-gradient';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {BASE_URL} from '../config';
 // Removed incorrect import of userInfo from 'os'
 
 interface LoginScreenProps {
@@ -63,20 +64,17 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
           console.log('No user info found in AsyncStorage');
         }
 
-        const response = await fetch(
-          'http://68.183.102.75:1337/api/auth/token',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              token: fcmToken,
-              platform: Platform.OS,
-            }),
+        const response = await fetch(`${BASE_URL}/api/auth/token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
           },
-        );
+          body: JSON.stringify({
+            token: fcmToken,
+            platform: Platform.OS,
+          }),
+        });
 
         const responseData = await response.json();
         console.log('SERVER RESPONSE:', responseData);
@@ -438,9 +436,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
           </View>
         </View>
 
-       {/* Loading Spinner (Login screen only) */}
-<Spinner visible={isSubmitting} />
-
+        {/* Loading Spinner (Login screen only) */}
+        <Spinner visible={isSubmitting} />
       </View>
     </LinearGradient>
   );

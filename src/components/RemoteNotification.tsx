@@ -1,14 +1,23 @@
-import { useEffect, useContext, useRef, useCallback, useState } from 'react';
+import {useEffect, useContext, useRef, useCallback, useState} from 'react';
 import Geolocation from '@react-native-community/geolocation';
 import messaging from '@react-native-firebase/messaging';
-import notifee, { AndroidImportance, AndroidStyle, EventType } from '@notifee/react-native';
-import { AuthContext, AuthContextType } from '../context/AuthContext';
-import { AppState, Platform } from 'react-native';
+import notifee, {
+  AndroidImportance,
+  AndroidStyle,
+  EventType,
+} from '@notifee/react-native';
+import {AuthContext, AuthContextType} from '../context/AuthContext';
+import {AppState, Platform} from 'react-native';
+import {BASE_URL} from '../config';
 
 const RemoteNotification: React.FC = () => {
-  const { userInfo } = useContext<AuthContextType>(AuthContext);
-  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const {userInfo} = useContext<AuthContextType>(AuthContext);
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+  const lastLocationRef = useRef<{latitude: number; longitude: number} | null>(
+    null,
+  );
   const [isMoving, setIsMoving] = useState(false);
   const lastPressTime = useRef<number>(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -17,10 +26,10 @@ const RemoteNotification: React.FC = () => {
 
   const verifyAuth = async (token: string) => {
     try {
-      const response = await fetch('http://68.183.102.75:1337/api/auth/verify', {
+      const response = await fetch(`${BASE_URL}/api/auth/verify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ headers: { authorization: `Bearer ${token}` } }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({headers: {authorization: `Bearer ${token}`}}),
       });
       setIsAuthenticated(response.ok);
       return response.ok;
@@ -37,13 +46,13 @@ const RemoteNotification: React.FC = () => {
       if (userInfo?.access_token && token) {
         console.log('FCM token:', token);
         console.log('User token:', userInfo.access_token);
-        const response = await fetch('http://68.183.102.75:1337/api/auth/token', {
+        const response = await fetch(`${BASE_URL}/api/auth/token`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${userInfo.access_token}`,
           },
-          body: JSON.stringify({ token, platform: Platform.OS }),
+          body: JSON.stringify({token, platform: Platform.OS}),
         });
         if (!response.ok) throw new Error('Failed to update token on server');
       }
@@ -66,48 +75,49 @@ const RemoteNotification: React.FC = () => {
         });
       });
 
-      const { latitude, longitude } = position.coords;
-      
+      const {latitude, longitude} = position.coords;
+
       if (lastLocationRef.current) {
         const distance = calculateDistance(
           lastLocationRef.current.latitude,
           lastLocationRef.current.longitude,
           latitude,
-          longitude
+          longitude,
         );
         setIsMoving(distance > 10);
         if (distance <= 10) return;
       }
 
-      lastLocationRef.current = { latitude, longitude };
+      lastLocationRef.current = {latitude, longitude};
 
-      const response = await fetch('http://68.183.102.75:1337/endpoint', {
+      const response = await fetch(`${BASE_URL}/endpoint`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${userInfo.access_token}`,
         },
-        body: JSON.stringify({ latitude, longitude }),
+        body: JSON.stringify({latitude, longitude}),
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
 
       const result = await response.json();
-      
+
       if (result.status === 'success' && result.location) {
-        const tipsResponse = await fetch('http://68.183.102.75:1337/api/tips/get-tips', {
+        const tipsResponse = await fetch(`${BASE_URL}/api/tips/get-tips`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${userInfo.access_token}`,
           },
-          body: JSON.stringify({ type: result.type }),
+          body: JSON.stringify({type: result.type}),
         });
 
         if (!tipsResponse.ok) throw new Error('Failed to fetch tips');
 
         const tipsData = await tipsResponse.json();
-        
+
         if (Array.isArray(tipsData) && tipsData.length > 0) {
           const tipsText = tipsData
             .map(tip => `${tip.title}\n${tip.description}`)
@@ -121,8 +131,8 @@ const RemoteNotification: React.FC = () => {
                 notificationId: result.notificationId || String(Date.now()),
                 locationType: String(result.type || ''),
                 locationId: String(result.locationId || ''),
-                locationName: String(result.location || '')
-              }
+                locationName: String(result.location || ''),
+              },
             );
           }
         }
@@ -149,7 +159,7 @@ const RemoteNotification: React.FC = () => {
 
         await setupFCM();
 
-        notifee.onForegroundEvent(({ type, detail }) => {
+        notifee.onForegroundEvent(({type, detail}) => {
           if (type === EventType.PRESS) {
             const now = Date.now();
             if (now - lastPressTime.current < 1000) return;
@@ -168,7 +178,10 @@ const RemoteNotification: React.FC = () => {
         }
 
         await locationCheck();
-        locationIntervalRef.current = setInterval(locationCheck, isMoving ? 30000 : 60000);
+        locationIntervalRef.current = setInterval(
+          locationCheck,
+          isMoving ? 30000 : 60000,
+        );
 
         setupCompleted.current = true;
       } catch (error) {
@@ -180,11 +193,16 @@ const RemoteNotification: React.FC = () => {
     if (userInfo?.access_token) setup();
 
     return () => {
-      if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+      if (locationIntervalRef.current)
+        clearInterval(locationIntervalRef.current);
     };
   }, [userInfo?.access_token, locationCheck, isMoving]);
 
-  const displayFullNotification = async (title: string, body: string, data: any) => {
+  const displayFullNotification = async (
+    title: string,
+    body: string,
+    data: any,
+  ) => {
     try {
       const channelId = await notifee.createChannel({
         id: 'location-tips',
@@ -195,7 +213,7 @@ const RemoteNotification: React.FC = () => {
         notificationId: String(data.notificationId || ''),
         locationType: String(data.locationType || ''),
         locationId: String(data.locationId || ''),
-        locationName: String(data.locationName || '')
+        locationName: String(data.locationName || ''),
       };
 
       await notifee.displayNotification({
@@ -204,10 +222,10 @@ const RemoteNotification: React.FC = () => {
         body,
         data: notificationData,
         android: {
-           channelId,
+          channelId,
           importance: AndroidImportance.HIGH,
-          style: { type: AndroidStyle.BIGTEXT, text: body },
-          pressAction: { id: 'default' },
+          style: {type: AndroidStyle.BIGTEXT, text: body},
+          pressAction: {id: 'default'},
         },
         ios: {
           critical: true,
@@ -225,14 +243,22 @@ const RemoteNotification: React.FC = () => {
     }
   };
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) => {
     const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c * 1000;
   };
 

@@ -171,7 +171,14 @@ const App = () => {
     <AuthProvider>
       <LocationProvider>
         <CopilotProvider overlay="svg" tooltipComponent={MyTooltip}>
-          <StatusBar backgroundColor="#06bcee" />
+          {/* <StatusBar backgroundColor="#06bcee" /> */}
+          <LinearGradient
+            colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 1}}>
+            <StatusBar />
+          </LinearGradient>
+
           <AppStateTracker />
           {/* <RemoteNotification /> */}
           <Navigation />

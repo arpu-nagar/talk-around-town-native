@@ -24,9 +24,10 @@ import {fetchWithAuth} from '../api/auth';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {LayoutDashboard} from 'lucide-react-native';
 import LikedTipsModal from '../components/SettingsScreen/LikedTipsModal';
+import {BASE_URL} from '../config';
 
 const API_ENDPOINTS = {
-  BASE_URL: 'http://68.183.102.75:1337',
+  BASE_URL: BASE_URL,
 };
 
 interface SettingsScreenProps {
@@ -601,7 +602,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
         <StatusBar
           barStyle="light-content"
           translucent
-          backgroundColor="#4A90E2"
         />
 
         <View style={styles.headerContainer}>

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import {Picker} from '@react-native-picker/picker';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {BASE_URL} from '../config';
 
 interface Child {
   id: number;
@@ -123,25 +124,22 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
       // Log the request data for debugging
       console.log('Updating child with data:', editingChild);
 
-      const response = await fetch(
-        `http://68.183.102.75:1337/endpoint/updateChildren`,
-        {
-          method: 'POST', // Changed from PUT to POST based on your router setup
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userToken}`,
-          },
-          body: JSON.stringify({
-            children: [
-              {
-                id: editingChild.id,
-                nickname: editingChild.nickname,
-                date_of_birth: editingChild.date_of_birth,
-              },
-            ],
-          }),
+      const response = await fetch(`${BASE_URL}/endpoint/updateChildren`, {
+        method: 'POST', // Changed from PUT to POST based on your router setup
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userToken}`,
         },
-      );
+        body: JSON.stringify({
+          children: [
+            {
+              id: editingChild.id,
+              nickname: editingChild.nickname,
+              date_of_birth: editingChild.date_of_birth,
+            },
+          ],
+        }),
+      });
 
       // Log the response for debugging
       console.log('Server response:', await response.clone().text());
@@ -195,17 +193,14 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
 
       console.log('Adding child with data:', childData);
 
-      const response = await fetch(
-        'http://68.183.102.75:1337/endpoint/children',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userToken}`,
-          },
-          body: JSON.stringify(childData),
+      const response = await fetch(`${BASE_URL}/endpoint/children`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userToken}`,
         },
-      );
+        body: JSON.stringify(childData),
+      });
 
       const responseText = await response.text();
       console.log('Server response:', responseText);
@@ -249,7 +244,7 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
       console.log('Deleting child with data:', child);
 
       const response = await fetch(
-        `http://68.183.102.75:1337/endpoint/children/${child.id}`,
+        `${BASE_URL}/endpoint/children/${child.id}`,
         {
           method: 'DELETE', // Changed from PUT to POST based on your router setup
           headers: {

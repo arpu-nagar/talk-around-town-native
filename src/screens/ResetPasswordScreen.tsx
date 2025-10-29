@@ -17,6 +17,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import {Ionicons} from '@expo/vector-icons';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {BASE_URL} from '../config';
 
 // Import the AuthStackParamList from your navigation types
 type AuthStackParamList = {
@@ -32,7 +33,7 @@ type ResetPasswordScreenProps = NativeStackScreenProps<
   'ResetPassword'
 >;
 
-const API_URL = 'http://68.183.102.75:1337/api';
+const API_URL = `${BASE_URL}/api`;
 
 const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   navigation,

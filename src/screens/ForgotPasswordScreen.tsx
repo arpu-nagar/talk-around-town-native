@@ -15,8 +15,9 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import {MaterialIcons} from '@expo/vector-icons';
 import {NavigationProp} from '@react-navigation/native';
+import {BASE_URL} from '../config';
 
-const API_URL = 'http://68.183.102.75:1337/api';
+const API_URL = `${BASE_URL}/api`;
 
 interface ForgotPasswordScreenProps {
   navigation: NavigationProp<any>;
@@ -56,7 +57,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
 
     setIsSubmitting(true);
     try {
-      console.log("inside try")
+      console.log('inside try');
       const response = await fetch(`${API_URL}/auth/request-reset`, {
         method: 'POST',
         headers: {
@@ -65,7 +66,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         body: JSON.stringify({email}),
       });
 
-      console.log("response", response)
+      console.log('response', response);
 
       const data = await response.json();
 

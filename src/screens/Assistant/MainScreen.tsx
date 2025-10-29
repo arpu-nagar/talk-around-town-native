@@ -1139,7 +1139,6 @@ import {
   Alert,
   ScrollView,
   TextInput,
-  SafeAreaView,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -1154,6 +1153,7 @@ import ChildInfoModal from '../ChildInfoModal';
 import {AuthContext, AuthContextType} from '../../context/AuthContext';
 import {useChildrenInfo} from '../../hooks/useChildrenInfo';
 import {Child} from '../../services/ChildrenInfoService';
+import {BASE_URL} from '../../config';
 
 interface Tip {
   id: number;
@@ -1209,7 +1209,7 @@ const detectChildNameInQuery = (query: string, childrenInfo: Child[]) => {
 };
 
 const API_BASE_URL = 'http://68.183.102.75:4000';
-const CRUD_API_BASE_URL = 'http://68.183.102.75:1337';
+const CRUD_API_BASE_URL = BASE_URL;
 
 const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
   const [rating, setRating] = useState<'up' | 'down' | null>(null);
@@ -1866,7 +1866,7 @@ const MainScreen: React.FC = () => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <LinearGradient colors={['#f0f2f5', '#ffffff']} style={styles.container}>
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle}>Parenting Assistant</Text>
@@ -2033,7 +2033,7 @@ const MainScreen: React.FC = () => {
 
         <AgePromptModal />
       </LinearGradient>
-    </SafeAreaView>
+    </View>
   );
 };
 

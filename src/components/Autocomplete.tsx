@@ -8,7 +8,6 @@ import {
   ScrollView,
   Platform,
   Dimensions,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
@@ -223,7 +222,7 @@ const PlacesAutocompleteInput: React.FC<PlacesAutocompleteInputProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {/* Search Input */}
@@ -291,7 +290,7 @@ const PlacesAutocompleteInput: React.FC<PlacesAutocompleteInputProps> = ({
           )}
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 

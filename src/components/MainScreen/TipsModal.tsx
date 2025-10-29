@@ -25,6 +25,7 @@ import Sound from 'react-native-sound';
 import {useCache} from '../../hooks/useCache';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CardSkeleton from '../TipsModal/CardSkeleton';
+import {BASE_URL} from '../../config';
 
 interface Tip {
   id: number | string;
@@ -198,7 +199,7 @@ const TipsModal: React.FC<TipsModal> = ({
     interactionType: 'like' | 'dislike',
   ) => {
     const res = await fetchWithAuth(
-      `http://68.183.102.75:1337/api/personalization/interactions`,
+      `${BASE_URL}/api/personalization/interactions`,
       {
         method: 'POST',
         headers: {
@@ -297,8 +298,8 @@ const TipsModal: React.FC<TipsModal> = ({
       visible={showTipsModal}
       onShow={() => Keyboard.dismiss()}
       animationType="slide"
-      presentationStyle="pageSheet">
-      <SafeAreaView style={styles.modalContainer}>
+      presentationStyle="fullScreen">
+      <View style={styles.modalContainer}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>Personalized Advice</Text>
           <TouchableOpacity
@@ -437,7 +438,7 @@ const TipsModal: React.FC<TipsModal> = ({
           {tips.length === 0 && <CardSkeleton />}
           <View style={{height: 20}} />
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };

@@ -17,8 +17,9 @@ import LinearGradient from 'react-native-linear-gradient';
 import {MaterialIcons} from '@expo/vector-icons';
 import {NavigationProp} from '@react-navigation/native';
 import {AuthContext, AuthContextType} from '../context/AuthContext';
+import {BASE_URL} from '../config';
 
-const API_URL = 'http://68.183.102.75:1337/api';
+const API_URL = `${BASE_URL}/api`;
 
 interface ChangePasswordScreenProps {
   navigation: NavigationProp<any>;

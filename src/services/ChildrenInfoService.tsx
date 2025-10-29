@@ -1,6 +1,7 @@
 // services/ChildrenInfoService.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import {BASE_URL} from '../config';
 
 export interface Child {
   id: number;
@@ -15,7 +16,7 @@ class ChildrenInfoService {
   private cacheTimestamp: number = 0;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   private readonly CACHE_KEY = 'childrenInfoCache';
-  private readonly API_URL = 'http://68.183.102.75:1337/endpoint/children';
+  private readonly API_URL = `${BASE_URL}/endpoint/children`;
   private readonly MAX_RETRY_ATTEMPTS = 3;
 
   public static getInstance(): ChildrenInfoService {
@@ -68,8 +69,10 @@ class ChildrenInfoService {
 
   // Check if cache is still valid
   private isCacheValid(): boolean {
-    return this.cache !== null && 
-           Date.now() - this.cacheTimestamp < this.CACHE_DURATION;
+    return (
+      this.cache !== null &&
+      Date.now() - this.cacheTimestamp < this.CACHE_DURATION
+    );
   }
 
   // Calculate age from date of birth
@@ -80,7 +83,10 @@ class ChildrenInfoService {
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
 
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birthDate.getDate())
+      ) {
         age--;
       }
       return age >= 0 ? age : 0;
@@ -94,21 +100,30 @@ class ChildrenInfoService {
   private processChildrenData(children: any[]): Child[] {
     return children.map(child => ({
       ...child,
-      age: child.date_of_birth ? this.calculateAge(child.date_of_birth) : undefined,
+      age: child.date_of_birth
+        ? this.calculateAge(child.date_of_birth)
+        : undefined,
     }));
   }
 
   // Fetch children info from API with retry logic
-  private async fetchFromAPI(accessToken: string, retryCount = 0): Promise<Child[]> {
+  private async fetchFromAPI(
+    accessToken: string,
+    retryCount = 0,
+  ): Promise<Child[]> {
     try {
-      console.log(`Fetching children info from API (attempt ${retryCount + 1}/${this.MAX_RETRY_ATTEMPTS})`);
-      
+      console.log(
+        `Fetching children info from API (attempt ${retryCount + 1}/${
+          this.MAX_RETRY_ATTEMPTS
+        })`,
+      );
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
       const response = await fetch(this.API_URL, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         signal: controller.signal,
@@ -121,40 +136,46 @@ class ChildrenInfoService {
       }
 
       const data = await response.json();
-      
+
       if (!data || !Array.isArray(data.children)) {
         console.warn('Invalid children data structure:', data);
         return [];
       }
 
       const processedChildren = this.processChildrenData(data.children);
-      
+
       // Update cache
       this.cache = processedChildren;
       this.cacheTimestamp = Date.now();
       await this.saveToCache(processedChildren);
-      
-      console.log('Children info fetched successfully:', processedChildren.length, 'children');
-      return processedChildren;
 
+      console.log(
+        'Children info fetched successfully:',
+        processedChildren.length,
+        'children',
+      );
+      return processedChildren;
     } catch (error) {
       console.error(`API fetch attempt ${retryCount + 1} failed:`, error);
-      
+
       // Retry logic
       if (retryCount < this.MAX_RETRY_ATTEMPTS - 1) {
         const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
         console.log(`Retrying in ${delay}ms...`);
-        
+
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.fetchFromAPI(accessToken, retryCount + 1);
       }
-      
+
       throw error;
     }
   }
 
   // Main method to get children info
-  public async getChildrenInfo(accessToken: string, forceRefresh = false): Promise<{
+  public async getChildrenInfo(
+    accessToken: string,
+    forceRefresh = false,
+  ): Promise<{
     children: Child[];
     fromCache: boolean;
     error?: string;
@@ -179,23 +200,23 @@ class ChildrenInfoService {
 
       // Check network connectivity
       const isConnected = await this.checkNetworkConnectivity();
-      
+
       if (!isConnected) {
         console.log('No network connection, loading from cache');
         const cachedChildren = await this.loadFromCache();
-        
+
         if (cachedChildren) {
           const processedChildren = this.processChildrenData(cachedChildren);
           this.cache = processedChildren;
           this.cacheTimestamp = Date.now();
-          
+
           return {
             children: processedChildren,
             fromCache: true,
             error: 'Using cached data - no network connection',
           };
         }
-        
+
         return {
           children: [],
           fromCache: false,
@@ -212,22 +233,22 @@ class ChildrenInfoService {
         };
       } catch (apiError) {
         console.error('API fetch failed, trying cache fallback:', apiError);
-        
+
         // Fallback to cache if API fails
         const cachedChildren = await this.loadFromCache();
-        
+
         if (cachedChildren) {
           const processedChildren = this.processChildrenData(cachedChildren);
           this.cache = processedChildren;
           this.cacheTimestamp = Date.now();
-          
+
           return {
             children: processedChildren,
             fromCache: true,
             error: 'Using cached data - API temporarily unavailable',
           };
         }
-        
+
         // No cache available, return error
         return {
           children: [],
@@ -235,7 +256,6 @@ class ChildrenInfoService {
           error: this.getErrorMessage(apiError),
         };
       }
-
     } catch (error) {
       console.error('Unexpected error in getChildrenInfo:', error);
       return {
@@ -251,27 +271,27 @@ class ChildrenInfoService {
     if (error.name === 'AbortError') {
       return 'Request timed out. Please try again.';
     }
-    
+
     if (error.message.includes('Network request failed')) {
       return 'Network connection failed. Please check your internet.';
     }
-    
+
     if (error.message.includes('HTTP 401')) {
       return 'Authentication failed. Please log in again.';
     }
-    
+
     if (error.message.includes('HTTP 403')) {
       return 'Access denied. Please check your permissions.';
     }
-    
+
     if (error.message.includes('HTTP 404')) {
       return 'Children information not found.';
     }
-    
+
     if (error.message.includes('HTTP 500')) {
       return 'Server error. Please try again later.';
     }
-    
+
     return 'Failed to fetch children information. Please try again.';
   }
 
@@ -288,19 +308,22 @@ class ChildrenInfoService {
   }
 
   // Update children info after modifications
-  public async updateChildren(accessToken: string, updatedChildren: any[]): Promise<{
+  public async updateChildren(
+    accessToken: string,
+    updatedChildren: any[],
+  ): Promise<{
     success: boolean;
     error?: string;
   }> {
     try {
-      const response = await fetch('http://68.183.102.75:1337/endpoint/updateChildren', {
+      const response = await fetch(`${BASE_URL}/endpoint/updateChildren`, {
         method: 'POST',
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ children: updatedChildren }),
+        body: JSON.stringify({children: updatedChildren}),
       });
 
       if (!response.ok) {
@@ -309,10 +332,9 @@ class ChildrenInfoService {
 
       // Clear cache to force refresh on next fetch
       await this.clearCache();
-      
-      console.log('Children info updated successfully');
-      return { success: true };
 
+      console.log('Children info updated successfully');
+      return {success: true};
     } catch (error) {
       console.error('Error updating children info:', error);
       return {
