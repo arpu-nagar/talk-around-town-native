@@ -9,7 +9,7 @@ const AppStateTracker = () => {
   const [sessionId, setSessionId] = useState(null);
   const {userInfo} = useContext(AuthContext);
 
-  // const API_URL = 'http://68.183.102.75:1337';
+  // const API_URL = 'https://enact.education.ufl.edu';
   const API_URL = BASE_URL;
 
   // Run this effect when userInfo changes (user logs in or out)

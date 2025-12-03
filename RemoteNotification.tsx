@@ -1,7 +1,7 @@
 import {useEffect} from 'react';
 import {PermissionsAndroid, Platform} from 'react-native';
 import PushNotification from 'react-native-push-notification';
-// 68.183.102.75
+// https://enact.education.ufl.edu
 const checkApplicationPermission = async () => {
   if (Platform.OS === 'android') {
     try {

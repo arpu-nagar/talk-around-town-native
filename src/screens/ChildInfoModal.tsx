@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
 import {
   Modal,
   View,
@@ -17,14 +17,12 @@ import {BASE_URL} from '../config';
 interface Child {
   id: number;
   nickname?: string;
-  date_of_birth: string;
-  age?: number;
+  age: number;
 }
 
 interface NewChild {
   nickname: string;
-  birthYear: string;
-  birthMonth: string;
+  age: string;
 }
 
 interface ChildInfoModalProps {
@@ -32,64 +30,16 @@ interface ChildInfoModalProps {
   onClose: () => void;
   children: Child[];
   userToken: string;
-  // setChildDataShouldLoadFromCache: (_arg0: boolean) => void;
-  // childDataShouldLoadFromCache: boolean;
   onChildrenUpdate: () => void;
 }
-// --- Time constants ---
-const now = new Date();
-const currentYear = now.getFullYear();
-const currentMonth = now.getMonth() + 1; // 1..12
 
-// Show only current year + previous 4 (total = 5)
-const years = Array.from({length: 5}, (_, i) => String(currentYear - i));
-
-const months = [
-  {label: 'January', value: '01'},
-  {label: 'February', value: '02'},
-  {label: 'March', value: '03'},
-  {label: 'April', value: '04'},
-  {label: 'May', value: '05'},
-  {label: 'June', value: '06'},
-  {label: 'July', value: '07'},
-  {label: 'August', value: '08'},
-  {label: 'September', value: '09'},
-  {label: 'October', value: '10'},
-  {label: 'November', value: '11'},
-  {label: 'December', value: '12'},
+const AGES = [
+  {label: '1 year', value: '1'},
+  {label: '2 years', value: '2'},
+  {label: '3 years', value: '3'},
+  {label: '4 years', value: '4'},
+  {label: '5 years', value: '5'},
 ];
-
-// Avoid timezone issues: parse by string, not Date
-const getDateParts = (dateString: string) => {
-  const [year, month] = dateString.split('-'); // "YYYY-MM-DD"
-  return {
-    year,
-    month,
-  };
-};
-
-const monthNames = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-const formatMonthYear = (ymd: string) => {
-  const [y, m] = ymd.split('-');
-  const name = monthNames[Number(m) - 1] ?? '';
-  return `${name} ${y}`;
-};
-
-const isNotFuture = (y: number, m: number) =>
-  y < currentYear || (y === currentYear && m <= currentMonth);
 
 const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
   visible,
@@ -105,8 +55,7 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [newChild, setNewChild] = useState<NewChild>({
     nickname: '',
-    birthYear: String(currentYear),
-    birthMonth: String(currentMonth).padStart(2, '0'),
+    age: '1',
   });
 
   const handleEdit = (child: Child) => {
@@ -121,11 +70,10 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
       setIsLoading(true);
       setError(null);
 
-      // Log the request data for debugging
       console.log('Updating child with data:', editingChild);
 
       const response = await fetch(`${BASE_URL}/endpoint/updateChildren`, {
-        method: 'POST', // Changed from PUT to POST based on your router setup
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${userToken}`,
@@ -135,13 +83,12 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
             {
               id: editingChild.id,
               nickname: editingChild.nickname,
-              date_of_birth: editingChild.date_of_birth,
+              age: editingChild.age,
             },
           ],
         }),
       });
 
-      // Log the response for debugging
       console.log('Server response:', await response.clone().text());
 
       if (!response.ok) {
@@ -170,15 +117,8 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
   };
 
   const handleAdd = async () => {
-    if (!newChild.nickname || !newChild.birthYear || !newChild.birthMonth) {
+    if (!newChild.nickname || !newChild.age) {
       Alert.alert('Required Fields', 'Please fill in all fields');
-      return;
-    }
-
-    const y = Number(newChild.birthYear);
-    const m = Number(newChild.birthMonth);
-    if (!isNotFuture(y, m)) {
-      Alert.alert('Invalid date', 'Future dates are not allowed.');
       return;
     }
 
@@ -188,7 +128,7 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
 
       const childData = {
         nickname: newChild.nickname,
-        date_of_birth: `${newChild.birthYear}-${newChild.birthMonth}-01`,
+        age: parseInt(newChild.age),
       };
 
       console.log('Adding child with data:', childData);
@@ -216,11 +156,9 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
         setShowAddForm(false);
         setNewChild({
           nickname: '',
-          birthYear: new Date().getFullYear().toString(),
-          birthMonth: '01',
+          age: '1',
         });
         onChildrenUpdate();
-        // setChildDataShouldLoadFromCache(!childDataShouldLoadFromCache);
       } catch (e) {
         throw new Error('Invalid server response');
       }
@@ -240,13 +178,12 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
       setIsLoading(true);
       setError(null);
 
-      // Log the request data for debugging
       console.log('Deleting child with data:', child);
 
       const response = await fetch(
         `${BASE_URL}/endpoint/children/${child.id}`,
         {
-          method: 'DELETE', // Changed from PUT to POST based on your router setup
+          method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${userToken}`,
@@ -254,7 +191,6 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
         },
       );
 
-      // Log the response for debugging
       console.log('Server response:', await response.clone().text());
 
       if (!response.ok) {
@@ -268,7 +204,6 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
 
       Alert.alert('Success', "Child's data deleted successfully");
       onChildrenUpdate();
-      // setChildDataShouldLoadFromCache(!childDataShouldLoadFromCache);
     } catch (error) {
       console.error('Update child error:', error);
       Alert.alert(
@@ -294,38 +229,20 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
             placeholder="Enter nickname"
           />
 
-          <View style={styles.dateContainer}>
-            <View style={styles.pickerContainer}>
-              <Text style={styles.formLabel}>Birth Month</Text>
-              <Picker
-                selectedValue={newChild.birthMonth}
-                style={styles.picker}
-                onValueChange={value =>
-                  setNewChild({...newChild, birthMonth: value})
-                }>
-                {months.map(month => (
-                  <Picker.Item
-                    key={month.value}
-                    label={month.label}
-                    value={month.value}
-                  />
-                ))}
-              </Picker>
-            </View>
-
-            <View style={styles.pickerContainer}>
-              <Text style={styles.formLabel}>Birth Year</Text>
-              <Picker
-                selectedValue={newChild.birthYear}
-                style={styles.picker}
-                onValueChange={value =>
-                  setNewChild({...newChild, birthYear: value})
-                }>
-                {years.map(year => (
-                  <Picker.Item key={year} label={year} value={year} />
-                ))}
-              </Picker>
-            </View>
+          <Text style={styles.formLabel}>Age</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={newChild.age}
+              style={styles.picker}
+              onValueChange={value => setNewChild({...newChild, age: value})}>
+              {AGES.map(age => (
+                <Picker.Item
+                  key={age.value}
+                  label={age.label}
+                  value={age.value}
+                />
+              ))}
+            </Picker>
           </View>
 
           <View style={styles.buttonRow}>
@@ -346,11 +263,6 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
 
     if (!editingChild) return null;
 
-    const dateParts = getDateParts(editingChild.date_of_birth);
-    const yearsForEdit = years.includes(dateParts.year)
-      ? years
-      : [dateParts.year, ...years]; // ensure current value is visible
-
     return (
       <View style={styles.formContainer}>
         <Text style={styles.formLabel}>Nickname</Text>
@@ -363,44 +275,25 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
           placeholder="Enter nickname"
         />
 
-        <View style={styles.dateContainer}>
-          <View style={styles.pickerContainer}>
-            <Text style={styles.formLabel}>Birth Month</Text>
-            <Picker
-              selectedValue={dateParts.month}
-              style={styles.picker}
-              onValueChange={value => {
-                setEditingChild({
-                  ...editingChild,
-                  date_of_birth: `${dateParts.year}-${value}-01`,
-                });
-              }}>
-              {months.map(month => (
-                <Picker.Item
-                  key={month.value}
-                  label={month.label}
-                  value={month.value}
-                />
-              ))}
-            </Picker>
-          </View>
-
-          <View style={styles.pickerContainer}>
-            <Text style={styles.formLabel}>Birth Year</Text>
-            <Picker
-              selectedValue={dateParts.year}
-              style={styles.picker}
-              onValueChange={value => {
-                setEditingChild({
-                  ...editingChild,
-                  date_of_birth: `${value}-${dateParts.month}-01`,
-                });
-              }}>
-              {yearsForEdit.map(year => (
-                <Picker.Item key={year} label={year} value={year} />
-              ))}
-            </Picker>
-          </View>
+        <Text style={styles.formLabel}>Age</Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={String(editingChild.age)}
+            style={styles.picker}
+            onValueChange={value => {
+              setEditingChild({
+                ...editingChild,
+                age: parseInt(value),
+              });
+            }}>
+            {AGES.map(age => (
+              <Picker.Item
+                key={age.value}
+                label={age.label}
+                value={age.value}
+              />
+            ))}
+          </Picker>
         </View>
 
         <View style={styles.buttonRow}>
@@ -448,7 +341,7 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
                           {child.nickname || `Child ${child.id}`}
                         </Text>
                         <Text style={styles.childDate}>
-                          Birth date: {formatMonthYear(child.date_of_birth)}
+                          Age: {child.age} {child.age === 1 ? 'year' : 'years'}
                         </Text>
                       </View>
 
@@ -470,7 +363,7 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
                                 {
                                   text: 'Yes',
                                   style: 'destructive',
-                                  onPress: () => handleDelete(child), // ← pass child directly
+                                  onPress: () => handleDelete(child),
                                 },
                               ],
                               {cancelable: true},
@@ -563,12 +456,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1F2937',
   },
-  editButton: {
-    // backgroundColor: '#3B82F6',
-    // padding: 8,
-    // borderRadius: 6,
-    // marginLeft: 10,
-  },
+  editButton: {},
   editButtonText: {
     color: 'white',
     fontSize: 14,
@@ -619,19 +507,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   pickerContainer: {
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  picker: {
-    backgroundColor: '#F8F9FA',
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: 8,
+    overflow: 'hidden',
+  },
+  picker: {
+    backgroundColor: '#F8F9FA',
     color: '#1F2937',
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 16,
   },
   cancelButton: {
     backgroundColor: '#FF3B30',

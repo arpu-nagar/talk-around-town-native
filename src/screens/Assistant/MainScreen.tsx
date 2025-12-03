@@ -83,8 +83,8 @@
 //   return null;
 // };
 
-// const API_BASE_URL = 'http://68.183.102.75:4000';
-// const CRUD_API_BASE_URL = 'http://68.183.102.75:1337';
+// const API_BASE_URL = 'http://https://enact.education.ufl.edu:4000';
+// const CRUD_API_BASE_URL = 'https://enact.education.ufl.edu';
 
 // const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {
 //   const [rating, setRating] = useState<'up' | 'down' | null>(null);
@@ -1208,7 +1208,7 @@ const detectChildNameInQuery = (query: string, childrenInfo: Child[]) => {
   return null;
 };
 
-const API_BASE_URL = 'http://68.183.102.75:4000';
+const API_BASE_URL = 'http://https://enact.education.ufl.edu:4000';
 const CRUD_API_BASE_URL = BASE_URL;
 
 const RatingButtons: React.FC<{tipId: number}> = ({tipId}) => {

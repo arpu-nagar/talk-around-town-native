@@ -319,14 +319,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
       return audioCache.current.get(tip.id);
     }
     if (tip.audioUrl) {
-      const fullAudioUrl = `http://68.183.102.75:4000/audio${tip.audioUrl}`;
+      const fullAudioUrl = `http://https://enact.education.ufl.edu:4000/audio${tip.audioUrl}`;
       audioCache.current.set(tip.id, fullAudioUrl);
       return fullAudioUrl;
     }
     setAudioLoadingIndex(index);
     try {
       const response = await fetch(
-        `http://68.183.102.75:4000/generate-tip-audio`,
+        `http://https://enact.education.ufl.edu:4000/generate-tip-audio`,
         {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -340,7 +340,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
       );
       if (!response.ok) throw new Error('Failed to generate audio');
       const {audioUrl} = await response.json();
-      const fullAudioUrl = `http://68.183.102.75:4000/audio${audioUrl}`;
+      const fullAudioUrl = `http://https://enact.education.ufl.edu:4000/audio${audioUrl}`;
       tip.audioUrl = audioUrl;
       audioCache.current.set(tip.id, fullAudioUrl);
       return fullAudioUrl;

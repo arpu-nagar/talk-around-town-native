@@ -840,6 +840,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     if (data) {
       try {
         const parsed: Child[] = JSON.parse(data);
+        console.log('Loaded children from cache in MainScreen:', JSON.stringify(parsed, null, 2));
         setUserChildren(parsed);
       } catch (e) {
         console.error('Failed to parse childrenInfoCache', e);
@@ -963,6 +964,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       if (childrenResponse.ok) {
         const data = await childrenResponse.json();
         if (data.children) {
+          console.log('Children data from backend:', JSON.stringify(data.children, null, 2));
           setUserChildren(data.children);
           await saveToCache(
             LOCATION_CONFIG.CACHE_KEYS.CHILDREN_INFO,
@@ -1477,8 +1479,13 @@ Try asking about one of these topics!`;
     levenshtein(a, b) <= maxDist;
 
   // Age in years & months for nicer prompts
-  const ageYMMM = (dob: string) => {
+  const ageYMMM = (dob: string | undefined) => {
+    if (!dob) return 'Unknown age';
+
     const birth = new Date(dob);
+    // Check if date is invalid
+    if (isNaN(birth.getTime())) return 'Unknown age';
+
     const now = new Date();
     let years = now.getFullYear() - birth.getFullYear();
     let months = now.getMonth() - birth.getMonth();
@@ -1601,11 +1608,32 @@ Try asking about one of these topics!`;
   }
 
   const getPersonalizedTips = async () => {
+    console.log('getPersonalizedTips called, current isAssistantLoading:', isAssistantLoading);
+
     const query = searchText?.trim();
     if (!query) {
       return Alert.alert(
         'Input Required',
         'Please enter what you need help with',
+      );
+    }
+
+    // Minimum query length validation
+    if (query.length < 3) {
+      return Alert.alert(
+        'We only provide parenting tips',
+        'Please ask a complete question about parenting (e.g., "tips for reading", "help with bedtime").',
+      );
+    }
+
+    // Check if query is just random characters (no actual words)
+    const words = query.split(/\s+/).filter(w => w.length > 0);
+    const hasValidWords = words.some(word => word.length >= 3);
+
+    if (!hasValidWords) {
+      return Alert.alert(
+        'We only provide parenting tips',
+        'Please ask a complete question about parenting (e.g., "tips for reading", "help with bedtime").',
       );
     }
 
@@ -1696,6 +1724,7 @@ Try asking about one of these topics!`;
         ? `${query} (Focus on: ${childContext}).`
         : `${query}. Child context: ${childContext}.`;
 
+    console.log('Setting isAssistantLoading=true before starting WebSocket');
     setIsAssistantLoading(true);
     setTips([]);
     setStreamError(null);
@@ -1803,6 +1832,7 @@ Try asking about one of these topics!`;
             break;
 
           case 'done':
+            console.log('Received done message, closing WS and setting loading=false');
             closeWS();
             setIsAssistantLoading(false);
             // Check if no tips were received using a ref to avoid closure issues
@@ -1857,6 +1887,7 @@ Try asking about one of these topics!`;
             reason: e.reason,
           });
         }
+        console.log('Setting isStreaming=false and isAssistantLoading=false in onclose');
         setIsStreaming(false);
         setIsAssistantLoading(false);
       };
@@ -2064,12 +2095,10 @@ Try asking about one of these topics!`;
           placeholderTextColor="#9AA0A6"
           multiline
           editable={!isListening}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
           returnKeyType="search"
           blurOnSubmit={false}
           onSubmitEditing={() => getPersonalizedTips()}
-          onTouchStart={e => e.stopPropagation()}
+          autoCorrect={false}
         />
         <TouchableOpacity
           style={styles.micPill}
@@ -2347,7 +2376,10 @@ Try asking about one of these topics!`;
           </CopilotStep>
         </View>
 
-        <View style={{flex: 1}}>
+        <KeyboardAvoidingView
+          style={{flex: 1}}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}>
           {/* Content Preferences Card */}
           <Animated.View
             style={[{paddingHorizontal: 20}, preferencesCardStyle]}>
@@ -2379,7 +2411,7 @@ Try asking about one of these topics!`;
               AskCompanionCard
             )}
           </Animated.View>
-        </View>
+        </KeyboardAvoidingView>
 
         {/* Floating pill nav */}
         {!isKeyboardVisible && (
@@ -2405,12 +2437,6 @@ Try asking about one of these topics!`;
         currentSound={currentSound}
         showTipsModal={showTipsModal}
         setShowTipsModal={setShowTipsModal}
-        onReact={(
-          tipId: string | number,
-          type: 'like' | 'dislike' | 'save' | 'unsave',
-        ) => {
-          enqueueAIReaction(tipId, type);
-        }}
       />
       <MapViewModal
         visible={showMapView}
@@ -2485,100 +2511,173 @@ Try asking about one of these topics!`;
                     // Close modal and immediately continue with this selection
                     setShowChildDisambiguationModal(false);
 
-                    // Re-run the request with this single 'mentioned' child:
+                    // Re-run the request with this single 'mentioned' child using WebSocket:
                     (async () => {
                       try {
                         setIsAssistantLoading(true);
 
                         const nm = c.nickname || 'Child';
-                        const childLines = [
-                          `My ${nm} is ${ageYMMM(c.date_of_birth)} old`,
-                        ];
+                        // Use the same format as when child name is in query
+                        const childLines = [`${nm}: ${ageYMMM(c.date_of_birth)} old`];
                         const childContext = childLines.join(', ');
-                        const childrenContext = [
-                          {
-                            name: c.nickname,
-                            dob: c.date_of_birth,
-                            agePretty: ageYMMM(c.date_of_birth),
-                            ageYears: calculateAge(c.date_of_birth),
-                          },
-                        ];
 
                         const q = searchText.trim();
-                        const explicitlyChildish =
-                          CHILD_TERMS.some(w => normalize(q).includes(w)) ||
-                          AGE_PATTERNS.some(re => re.test(q));
-                        const ambiguityHint = explicitlyChildish
-                          ? ''
-                          : ' Strictly tailor this for kids.';
-                        const prompt = `${childContext}. Please give me the ${q}${ambiguityHint}.`;
+                        // Use exact same format as when child is mentioned in query
+                        const prompt = `${q} (Focus on: ${childContext}).`;
 
-                        const endpoint = `${API_ENDPOINTS.BASE_URL}/api/personalization/enhanced-tips-survey`;
-                        // const endpoint = "http://192.168.0.43:1337/api/personalization/enhanced-tips-survey"
-                        const enhancedContext = {
-                          prompt,
-                          contentPreferences,
-                          generateMode: 'hybrid',
-                          strictParenting: true,
-                          childrenContext,
+                        // Clear previous tips and errors
+                        setTips([]);
+                        setStreamError(null);
+
+                        // Use WebSocket streaming (same as normal flow)
+                        let openedAt: number | null = null;
+                        const wsUrl = `${
+                          API_ENDPOINTS.WS_BASE_URL
+                        }/ws/personalization?token=${encodeURIComponent(userInfo.access_token)}`;
+
+                        const ws = new WebSocket(wsUrl);
+                        wsRef.current = ws;
+                        setIsStreaming(true);
+
+                        // Open modal early so user sees tips appear
+                        setShowTipsModal(true);
+
+                        ws.onopen = () => {
+                          openedAt = Date.now();
+                          console.log('[RN] WS OPEN (from modal)');
+                          // First message must be {type:'start', ...}
+                          ws.send(
+                            JSON.stringify({
+                              type: 'start',
+                              prompt,
+                              contentPreferences,
+                              generateMode: 'hybrid',
+                            }),
+                          );
                         };
 
-                        const res = await fetchWithAuth(endpoint, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${userInfo.access_token}`,
-                          },
-                          body: JSON.stringify(enhancedContext),
-                        });
-
-                        const data = await res.json();
-
-                        if (!res.ok) {
-                          if (
-                            data.error === 'safety' ||
-                            data.error === 'non_parenting'
-                          ) {
-                            Alert.alert(
-                              'We only provide parenting tips',
-                              data.message ||
-                                'Please ask a parenting-related question.',
-                            );
+                        ws.onmessage = evt => {
+                          const messageTime = Date.now();
+                          let msg: any;
+                          try {
+                            msg = JSON.parse(String(evt.data));
+                          } catch {
                             return;
                           }
-                          throw new Error(
-                            `Server responded with ${res.status}: ${
-                              data.message || 'Unknown error'
-                            }`,
-                          );
-                        }
 
-                        if (Array.isArray(data.tips) && data.tips.length) {
-                          setTips(data.tips);
-                          tipLookupRef.current = new Map(
-                            (data.tips || []).map((t: Tip) => [t.id, t]),
-                          );
-                          Keyboard.dismiss();
-                          setShowTipsModal(true);
-                          if (data.hasSurveyPersonalization) {
-                            console.log(
-                              '🎯 Tips personalized using survey data!',
-                            );
+                          switch (msg.type) {
+                            case 'start':
+                              break;
+
+                            case 'phase':
+                              break;
+
+                            case 'out_of_scope':
+                              closeWS();
+                              setIsAssistantLoading(false);
+                              Alert.alert(
+                                'Topic Not Supported',
+                                msg.payload?.message || REJECTION_MESSAGE,
+                                [
+                                  {
+                                    text: 'See Examples',
+                                    onPress: () =>
+                                      Alert.alert(
+                                        'Try asking about:',
+                                        EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
+                                        [{text: 'OK'}],
+                                      ),
+                                  },
+                                  {
+                                    text: 'OK',
+                                    style: 'cancel',
+                                    onPress: () => setShowTipsModal(false),
+                                  },
+                                ],
+                              );
+                              break;
+
+                            case 'tip': {
+                              console.log('messageTime (from modal)', messageTime - openedAt!);
+                              const t: Tip = msg.data;
+                              setTips(prev => {
+                                const next = [...prev, t];
+                                tipLookupRef.current = new Map(next.map((x: Tip) => [x.id, x]));
+                                return next;
+                              });
+                              break;
+                            }
+
+                            case 'batch': {
+                              const items: Tip[] = msg.items || [];
+                              setTips(prev => {
+                                const next = [...prev, ...items];
+                                tipLookupRef.current = new Map(next.map((x: Tip) => [x.id, x]));
+                                return next;
+                              });
+                              break;
+                            }
+
+                            case 'error':
+                              setStreamError(msg.message || 'Stream error');
+                              break;
+
+                            case 'done':
+                              closeWS();
+                              setIsAssistantLoading(false);
+                              setTimeout(() => {
+                                setTips(currentTips => {
+                                  if (currentTips.length === 0) {
+                                    Alert.alert(
+                                      'No Tips Found',
+                                      'Try asking about reading, science exploration, social skills, or language activities.',
+                                      [
+                                        {
+                                          text: 'See Examples',
+                                          onPress: () =>
+                                            Alert.alert(
+                                              'Try asking about:',
+                                              EXAMPLE_QUERIES.map(q => `• ${q}`).join('\n'),
+                                              [{text: 'OK'}],
+                                            ),
+                                        },
+                                        {text: 'OK', style: 'cancel'},
+                                      ],
+                                    );
+                                    setShowTipsModal(false);
+                                  }
+                                  return currentTips;
+                                });
+                              }, 0);
+                              break;
+
+                            default:
+                              break;
                           }
-                        } else {
-                          Alert.alert(
-                            'No Tips Found',
-                            'Try asking about bedtime routines, tantrums, potty training, language activities, or milestones.',
-                          );
-                        }
+                        };
+
+                        ws.onerror = () => {
+                          setStreamError('Connection error');
+                        };
+
+                        ws.onclose = e => {
+                          if (openedAt) {
+                            const lifetime = Date.now() - openedAt;
+                            console.log(`[RN] WS CLOSED (from modal) after ${lifetime} ms`, {
+                              code: e.code,
+                              reason: e.reason || '(none)',
+                            });
+                          }
+                          setIsStreaming(false);
+                        };
                       } catch (e) {
-                        console.error('tips error', e);
+                        console.error('tips error from modal', e);
+                        closeWS();
+                        setIsAssistantLoading(false);
                         Alert.alert(
                           'Error',
                           'Failed to get advice. Please check your connection and try again.',
                         );
-                      } finally {
-                        setIsAssistantLoading(false);
                       }
                     })();
                   }}

@@ -25,8 +25,10 @@ export interface AuthContextType {
     location: {latitude: number; longitude: number},
     childrenData?: {
       numberOfChildren: number;
+      caregiverType: string;
       childrenDetails: Array<{
         nickname: string;
+        age: number;
         date_of_birth: string;
       }>;
     },
@@ -134,8 +136,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
     location: {latitude: number; longitude: number},
     childrenData?: {
       numberOfChildren: number;
+      caregiverType: string;
       childrenDetails: Array<{
         nickname: string;
+        age: number;
         date_of_birth: string;
       }>;
     },

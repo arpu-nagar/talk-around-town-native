@@ -1,8 +1,8 @@
+// src/components/TipsModal/TipsModal.tsx
 import React, {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from 'react';
 import {
@@ -40,7 +40,7 @@ interface Tip {
   isGenerated?: boolean;
 }
 
-interface TipsModal {
+interface TipsModalProps {
   tips: Tip[];
   likedTips: Tip[];
   setLikedTips: (_arg0: Tip[]) => void;
@@ -49,13 +49,11 @@ interface TipsModal {
   showTipsModal: boolean;
   setShowTipsModal: (_arg0: boolean) => void;
   currentSound: React.MutableRefObject<Sound | null>;
-  onReact: (
-    tipId: string | number,
-    type: 'like' | 'dislike' | 'save' | 'unsave',
-  ) => void;
 }
 
-const TipsModal: React.FC<TipsModal> = ({
+const HEADER_HEIGHT = 60;
+
+const TipsModal: React.FC<TipsModalProps> = ({
   tips,
   likedTips,
   setLikedTips,
@@ -75,10 +73,9 @@ const TipsModal: React.FC<TipsModal> = ({
   );
   const {loadFromCache, saveToCache} = useCache();
 
-  //   const audioCache = useRef<Map<string, string>>(new Map());
-
   const tinyHash = (s: string) =>
     [...s].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0).toString();
+
   const tipKey = (t: Tip) =>
     typeof t.id === 'number' && !t.isGenerated
       ? `db:${t.id}`
@@ -88,101 +85,10 @@ const TipsModal: React.FC<TipsModal> = ({
     likedTips.some(x => tipKey(x) === tipKey(tip));
   const isTipDisliked = (tip: Tip) =>
     dislikedTips.some(x => tipKey(x) === tipKey(tip));
+
   const setLikedCache = async (arr: Tip[]) => saveToCache('likedTips', arr);
   const setDislikedCache = async (arr: Tip[]) =>
     saveToCache('dislikedTips', arr);
-
-  useEffect(() => {
-    cleanupSound();
-  }, [showTipsModal]);
-
-  const speakTip = useCallback(
-    async (tip: Tip) => {
-      const key = tipKey(tip);
-
-      // If this tip is already playing, toggle to stop
-      if (activeAudioKey === key && isPlaying) {
-        if (currentSound.current) {
-          currentSound.current.stop();
-          currentSound.current.release();
-          currentSound.current = null;
-        }
-        setIsPlaying(false);
-        setActiveAudioKey(null);
-        return;
-      }
-
-      // Stop anything else that might be playing
-      if (currentSound.current) {
-        currentSound.current.stop();
-        currentSound.current.release();
-        currentSound.current = null;
-      }
-      setIsPlaying(false);
-      setActiveAudioKey(key);
-
-      try {
-        // let audioUrl = audioCache.current.get(key);
-
-        let audioUrl = '';
-
-        if (tip.audioUrl) {
-          audioUrl = `http://68.183.102.75:4000/audio${tip.audioUrl}`;
-          //   audioCache.current.set(key, audioUrl);
-        } else {
-          const res = await fetch(
-            `http://68.183.102.75:4000/generate-tip-audio`,
-            // 'http://localhost:4000/generate-tip-audio',
-            {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({
-                tipId: tip.id,
-                title: tip.title,
-                body: tip.body,
-                details: tip.details,
-              }),
-            },
-          );
-
-          if (!res.ok) throw new Error('Failed to generate audio');
-          const {audioUrl: newUrl} = await res.json();
-          audioUrl = `http://68.183.102.75:4000/audio${newUrl}`;
-          //   audioUrl = `http://localhost:4000/audio${newUrl}`;
-          tip.audioUrl = newUrl;
-          //   audioCache.current.set(key, audioUrl);
-        }
-
-        if (!audioUrl) return;
-
-        currentSound.current = new Sound(audioUrl, '', err => {
-          if (err) {
-            console.error('load sound error', err);
-            Alert.alert('Error', 'Failed to play audio. Please try again.');
-            setIsPlaying(false);
-            setActiveAudioKey(null);
-            return;
-          }
-          setIsPlaying(true);
-          currentSound.current?.play(success => {
-            if (!success)
-              Alert.alert('Error', 'Audio playback failed. Please try again.');
-            setIsPlaying(false);
-            setActiveAudioKey(null);
-            currentSound.current?.release();
-            currentSound.current = null;
-          });
-        });
-      } catch (e) {
-        console.error('playback error', e);
-        setIsPlaying(false);
-        setActiveAudioKey(null);
-      }
-
-      setAudioLoadingIndex(null);
-    },
-    [activeAudioKey, isPlaying],
-  );
 
   const cleanupSound = () => {
     if (currentSound.current) {
@@ -193,6 +99,111 @@ const TipsModal: React.FC<TipsModal> = ({
     setIsPlaying(false);
     setActiveAudioKey(null);
   };
+
+  useEffect(() => {
+    if (!showTipsModal) {
+      cleanupSound();
+    }
+  }, [showTipsModal]);
+
+  const speakTip = useCallback(
+    async (tip: Tip) => {
+      const key = tipKey(tip);
+
+      // toggle stop
+      if (activeAudioKey === key && isPlaying) {
+        cleanupSound();
+        setAudioLoadingIndex(null);
+        return;
+      }
+
+      // stop any previous
+      if (currentSound.current) {
+        currentSound.current.stop();
+        currentSound.current.release();
+        currentSound.current = null;
+      }
+      setIsPlaying(false);
+      setActiveAudioKey(key);
+
+      try {
+        let audioUrl = '';
+
+        if (typeof tip.id === 'number') {
+          const res = await fetchWithAuth(
+            `${BASE_URL}/api/tips/audio/${tip.id}/generate`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${userInfo.access_token}`,
+              },
+            },
+          );
+
+          if (!res.ok) throw new Error('Failed to generate audio');
+          const data = await res.json();
+          audioUrl = `${BASE_URL}${data.audioUrl}`;
+        } else {
+          const res = await fetchWithAuth(
+            `${BASE_URL}/api/tips/audio/generate-from-content`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${userInfo.access_token}`,
+              },
+              body: JSON.stringify({
+                title: tip.title,
+                body: tip.body,
+                details: tip.details,
+              }),
+            },
+          );
+
+          if (!res.ok) throw new Error('Failed to generate audio');
+          const data = await res.json();
+          audioUrl = `${BASE_URL}${data.audioUrl}`;
+        }
+
+        if (!audioUrl) {
+          throw new Error('No audio URL received');
+        }
+
+        currentSound.current = new Sound(audioUrl, '', err => {
+          if (err) {
+            console.error('Load sound error:', err);
+            Alert.alert('Error', 'Failed to load audio. Please try again.');
+            setIsPlaying(false);
+            setActiveAudioKey(null);
+            setAudioLoadingIndex(null);
+            return;
+          }
+
+          setIsPlaying(true);
+
+          currentSound.current?.play(success => {
+            if (!success) {
+              console.error('Playback failed');
+              Alert.alert('Error', 'Audio playback failed. Please try again.');
+            }
+            setIsPlaying(false);
+            setActiveAudioKey(null);
+            currentSound.current?.release();
+            currentSound.current = null;
+            setAudioLoadingIndex(null);
+          });
+        });
+      } catch (e) {
+        console.error('Playback error:', e);
+        Alert.alert('Error', 'Failed to play audio. Please try again.');
+        setIsPlaying(false);
+        setActiveAudioKey(null);
+        setAudioLoadingIndex(null);
+      }
+    },
+    [activeAudioKey, isPlaying, userInfo, currentSound],
+  );
 
   const postInteraction = async (
     tip: Tip,
@@ -209,7 +220,6 @@ const TipsModal: React.FC<TipsModal> = ({
         body: JSON.stringify({
           tipId: tip.id,
           interactionType,
-          // Only needed/used if tip.id starts with "generated_"
           tipPayload:
             typeof tip.id !== 'number' ||
             String(tip.id).startsWith('generated_') ||
@@ -278,8 +288,7 @@ const TipsModal: React.FC<TipsModal> = ({
 
       try {
         await postInteraction(tip, reaction);
-      } catch (e) {
-        // Offline or server hiccup → queue for later with full payload
+      } catch {
         await queueAIInteraction(tip, reaction);
       }
     } catch (e) {
@@ -296,19 +305,32 @@ const TipsModal: React.FC<TipsModal> = ({
   return (
     <Modal
       visible={showTipsModal}
-      onShow={() => Keyboard.dismiss()}
       animationType="slide"
-      presentationStyle="fullScreen">
-      <View style={styles.modalContainer}>
+      presentationStyle="fullScreen"
+      onShow={() => Keyboard.dismiss()}
+      onRequestClose={() => {
+        console.log('onRequestClose fired');
+        setShowTipsModal(false);
+      }}>
+      <SafeAreaView style={styles.modalContainer}>
+        {/* HEADER */}
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Personalized Advice</Text>
+          <Text style={styles.modalTitle} numberOfLines={1}>
+            Personalized Advice
+          </Text>
           <TouchableOpacity
             style={styles.closeModalButton}
-            onPress={() => setShowTipsModal(false)}>
-            <MaterialIcons name="close" size={24} color="#666" />
+            hitSlop={{top: 20, bottom: 20, left: 20, right: 20}}
+            activeOpacity={0.7}
+            onPress={() => {
+              console.log('Close button pressed');
+              setShowTipsModal(false);
+            }}>
+            <MaterialIcons name="close" size={28} color="#333" />
           </TouchableOpacity>
         </View>
 
+        {/* CONTENT */}
         <ScrollView
           style={styles.modalContent}
           keyboardShouldPersistTaps="always"
@@ -317,7 +339,6 @@ const TipsModal: React.FC<TipsModal> = ({
           {tips.length > 0 &&
             tips.map((tip, index) => {
               const key = tipKey(tip);
-              // const playing = activeAudioKey === key && isPlaying;
 
               return (
                 <View key={`tip-${key}`} style={styles.tipItem}>
@@ -336,7 +357,9 @@ const TipsModal: React.FC<TipsModal> = ({
                       </View>
 
                       <Text style={styles.tipBody}>{tip.body || ''}</Text>
-                      <Text style={styles.tipDetails}>{tip.details || ''}</Text>
+                      <Text style={styles.tipDetails}>
+                        {tip.details || ''}
+                      </Text>
 
                       <View style={styles.tipActions}>
                         <TouchableOpacity
@@ -369,34 +392,17 @@ const TipsModal: React.FC<TipsModal> = ({
                               color="white"
                             />
                           )}
-                          <Text
-                            style={{
-                              color: 'white',
-                              fontSize: 12,
-                              fontWeight: '600',
-                              marginLeft: 4,
-                            }}>
+                          <Text style={styles.playButtonText}>
                             {audioLoadingIndex === index
                               ? 'Loading...'
                               : activeAudioKey === key && isPlaying
                               ? 'Stop'
                               : 'Play'}
                           </Text>
-                          {/* <MaterialIcons
-                          name={playing ? 'stop' : 'play-arrow'}
-                          size={20}
-                          color="#fff"
-                        /> */}
-                          {/* <Text style={styles.playButtonText}>
-                          {playing ? 'Stop' : 'Play'}
-                        </Text> */}
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                          style={{
-                            marginLeft: 8,
-                            padding: 6,
-                          }}
+                          style={styles.iconReactionButton}
                           onPress={() => {
                             setReaction(tip, 'like');
                           }}>
@@ -410,11 +416,10 @@ const TipsModal: React.FC<TipsModal> = ({
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                          style={{
-                            marginLeft: 4,
-                            padding: 6,
-                            opacity: tip.isGenerated ? 0.4 : 1,
-                          }}
+                          style={[
+                            styles.iconReactionButton,
+                            {opacity: tip.isGenerated ? 0.4 : 1},
+                          ]}
                           onPress={() => setReaction(tip, 'dislike')}>
                           <MaterialIcons
                             name={
@@ -438,7 +443,7 @@ const TipsModal: React.FC<TipsModal> = ({
           {tips.length === 0 && <CardSkeleton />}
           <View style={{height: 20}} />
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };
@@ -446,43 +451,35 @@ const TipsModal: React.FC<TipsModal> = ({
 export default TipsModal;
 
 const styles = StyleSheet.create({
-  modalContainer: {flex: 1, backgroundColor: '#fff'},
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   modalHeader: {
+    height: HEADER_HEIGHT,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E8E8E8',
   },
-  modalTitle: {fontSize: 18, fontWeight: '600', color: '#333'},
-  closeModalButton: {padding: 8},
-  modalContent: {flex: 1, padding: 16},
-
-  heroSearch: {
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
-  heroSearchText: {flex: 1, marginLeft: 8, color: '#9AA0A6', fontSize: 15},
-  iconBtn: {
-    height: 44,
-    width: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+  closeModalButton: {
+    padding: 8,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
 
-  // Tips
+  // tips
   tipItem: {marginBottom: 16},
   tipCardShadow: {
     backgroundColor: '#FFFFFF',
@@ -493,7 +490,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  tipGradient: {borderRadius: 16, padding: 20, elevation: 5},
+  tipGradient: {borderRadius: 16, padding: 20},
   tipHeader: {flexDirection: 'row', alignItems: 'center', marginBottom: 12},
   tipTitle: {fontSize: 18, fontWeight: 'bold', color: '#333', flex: 1},
   tipBody: {fontSize: 16, color: '#444', lineHeight: 24, marginBottom: 12},
@@ -517,4 +514,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
   },
+  iconReactionButton: {marginLeft: 8, padding: 6},
 });

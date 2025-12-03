@@ -1,12 +1,11 @@
 import React from 'react';
-import {Platform, StyleSheet, Text, TextInput, View} from 'react-native';
+import {StyleSheet, Text, TextInput, View} from 'react-native';
 import {v4 as uuidv4} from 'uuid';
 
 interface ChildDetail {
   id: string;
   nickname: string;
-  birthMonth: string;
-  birthYear: string;
+  age: string;
 }
 
 interface NumberOfChildrenProps {
@@ -40,8 +39,7 @@ const NumberOfChildren = ({
       const newItems: ChildDetail[] = Array.from({length: toAdd}, () => ({
         id: uuidv4(),
         nickname: '',
-        birthYear: String(new Date().getFullYear()),
-        birthMonth: '01',
+        age: '',
       }));
 
       return [...prevDetails, ...newItems];

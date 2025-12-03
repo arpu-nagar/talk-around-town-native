@@ -91,11 +91,11 @@ const LikedTipsModal: React.FC<LikedTipsModal> = ({
         let audioUrl = '';
 
         if (tip.audioUrl) {
-          audioUrl = `http://68.183.102.75:4000/audio${tip.audioUrl}`;
+          audioUrl = `http://https://enact.education.ufl.edu:4000/audio${tip.audioUrl}`;
           //   audioCache.current.set(key, audioUrl);
         } else {
           const res = await fetch(
-            `http://68.183.102.75:4000/generate-tip-audio`,
+            `http://https://enact.education.ufl.edu:4000/generate-tip-audio`,
             {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
@@ -109,7 +109,7 @@ const LikedTipsModal: React.FC<LikedTipsModal> = ({
           );
           if (!res.ok) throw new Error('Failed to generate audio');
           const {audioUrl: newUrl} = await res.json();
-          audioUrl = `http://68.183.102.75:4000/audio${newUrl}`;
+          audioUrl = `http://https://enact.education.ufl.edu:4000/audio${newUrl}`;
           tip.audioUrl = newUrl;
           //   audioCache.current.set(key, audioUrl);
         }

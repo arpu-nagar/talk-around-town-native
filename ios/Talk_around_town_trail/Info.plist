@@ -45,7 +45,7 @@
 	<dict>
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>68.183.102.75</key>
+			<key>https://enact.education.ufl.edu</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
 				<true/>

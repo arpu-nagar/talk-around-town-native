@@ -27,6 +27,7 @@ import ProgressBar from '../components/Register/ProgressBar';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import NumberOfChildren from '../components/Register/NumberOfChildren';
 import ChildrenDetailsStep from '../components/Register/ChildrenDetailsStep';
+import {Picker} from '@react-native-picker/picker';
 
 const {width, height} = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -35,8 +36,7 @@ const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
 interface ChildDetail {
   nickname: string;
-  birthMonth: string;
-  birthYear: string;
+  age: string;
   id: string;
 }
 
@@ -170,9 +170,19 @@ const HomeAddress: React.FC<{onLocationChange: (location: any) => void}> = ({
   );
 };
 
+const CAREGIVER_TYPES = [
+  {label: 'Parent', value: 'parent'},
+  {label: 'Grandparent', value: 'grandparent'},
+  {label: 'Guardian', value: 'guardian'},
+  {label: 'Nanny/Babysitter', value: 'nanny'},
+  {label: 'Other Family Member', value: 'other_family'},
+  {label: 'Other', value: 'other'},
+];
+
 const RegisterScreen = ({navigation}: any) => {
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
+  const [caregiverType, setCaregiverType] = useState('');
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [location, setLocation] = useState<{
@@ -219,8 +229,8 @@ const RegisterScreen = ({navigation}: any) => {
   };
 
   const handleNext = async () => {
-    if (step === 1 && !name.trim()) {
-      Alert.alert('Invalid Name', 'Please enter your name');
+    if (step === 1 && !caregiverType) {
+      Alert.alert('Role Required', 'Please select your role');
       return;
     }
 
@@ -248,8 +258,8 @@ const RegisterScreen = ({navigation}: any) => {
       return;
     }
 
-    if (step === 5 && childrenAges.some(age => !age)) {
-      Alert.alert('Ages Required', 'Please enter ages for all children');
+    if (step === 5 && childrenDetails.some(child => !child.age)) {
+      Alert.alert('Ages Required', 'Please select age for all children');
       return;
     }
 
@@ -275,7 +285,7 @@ const RegisterScreen = ({navigation}: any) => {
     try {
       console.log('Starting registration process');
 
-      if (!name.trim() || !email.trim() || !password.trim()) {
+      if (!email.trim() || !password.trim() || !caregiverType) {
         Alert.alert(
           'Missing Information',
           'Please fill in all required fields',
@@ -283,25 +293,37 @@ const RegisterScreen = ({navigation}: any) => {
         return;
       }
 
+      // Convert age to date of birth
+      const today = new Date();
       const registrationData = {
         numberOfChildren: parseInt(numberOfChildren),
-        childrenDetails: childrenDetails.map(child => ({
-          nickname:
-            child.nickname || `Child_${childrenDetails.indexOf(child) + 1}`,
-          date_of_birth: `${child.birthYear}-${child.birthMonth}-01`,
-        })),
+        caregiverType,
+        childrenDetails: childrenDetails.map(child => {
+          const ageInYears = parseInt(child.age);
+          const birthYear = today.getFullYear() - ageInYears;
+          // Set birth date to January 1st of the calculated year
+          const dateOfBirth = new Date(birthYear, 0, 1);
+
+          return {
+            nickname:
+              child.nickname || `Child_${childrenDetails.indexOf(child) + 1}`,
+            age: ageInYears,
+            date_of_birth: dateOfBirth.toISOString().split('T')[0], // Format: YYYY-MM-DD
+          };
+        }),
       };
 
       console.log('Registration data:', {
-        name: name.trim(),
+        name: name.trim() || null,
         email: email.trim(),
         password,
         location,
+        caregiverType,
         childrenData: registrationData,
       });
 
       const success = await register(
-        name.trim(),
+        name.trim() || null,
         email.trim(),
         password,
         location,
@@ -348,12 +370,35 @@ const RegisterScreen = ({navigation}: any) => {
           <View style={styles.stepContainer}>
             <View style={styles.stepHeader}>
               <RenderBackButton />
-              <Text style={styles.stepTitle}>What's your name?</Text>
+              <View style={{flexDirection: 'column', alignItems: 'center'}}>
+                <Text style={styles.stepTitle}>About You</Text>
+                <Text style={styles.stepDescription}>
+                  Tell us a bit about yourself
+                </Text>
+              </View>
               <View style={{width: 22}} />
             </View>
+            <Text style={styles.fieldLabel}>I am a...</Text>
+            <View style={styles.caregiverPickerContainer}>
+              <Picker
+                selectedValue={caregiverType}
+                onValueChange={value => setCaregiverType(value)}
+                style={styles.caregiverPicker}
+                enabled={true}
+                mode="dropdown">
+                <Picker.Item label="Select your role" value="" enabled={false} />
+                {CAREGIVER_TYPES.map(type => (
+                  <Picker.Item
+                    key={type.value}
+                    label={type.label}
+                    value={type.value}
+                  />
+                ))}
+              </Picker>
+            </View>
             <TextInput
-              style={commonInputStyle}
-              placeholder="Enter your name"
+              style={[commonInputStyle, {marginTop: 16}]}
+              placeholder="Enter your name (optional)"
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
@@ -815,6 +860,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
+    color: '#1F2937',
+  },
+  fieldLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333333',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  caregiverPickerContainer: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    overflow: 'hidden',
+    height: Platform.OS === 'ios' ? 150 : 50,
+  },
+  caregiverPicker: {
+    height: Platform.OS === 'ios' ? 150 : 50,
+    backgroundColor: '#F5F5F5',
     color: '#1F2937',
   },
   nextButton: {
