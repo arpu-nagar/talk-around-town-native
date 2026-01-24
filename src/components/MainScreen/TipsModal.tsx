@@ -49,6 +49,7 @@ interface TipsModalProps {
   showTipsModal: boolean;
   setShowTipsModal: (_arg0: boolean) => void;
   currentSound: React.MutableRefObject<Sound | null>;
+  isOnline?: boolean;
 }
 
 const HEADER_HEIGHT = 60;
@@ -62,6 +63,7 @@ const TipsModal: React.FC<TipsModalProps> = ({
   showTipsModal,
   setShowTipsModal,
   currentSound,
+  isOnline = true,
 }) => {
   const {userInfo} = useContext<any>(AuthContext);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -330,6 +332,16 @@ const TipsModal: React.FC<TipsModalProps> = ({
           </TouchableOpacity>
         </View>
 
+        {/* OFFLINE BANNER */}
+        {!isOnline && (
+          <View style={styles.offlineBanner}>
+            <MaterialIcons name="wifi-off" size={20} color="#FF9800" />
+            <Text style={styles.offlineBannerText}>
+              You're offline. Showing popular tips.
+            </Text>
+          </View>
+        )}
+
         {/* CONTENT */}
         <ScrollView
           style={styles.modalContent}
@@ -472,6 +484,21 @@ const styles = StyleSheet.create({
   },
   closeModalButton: {
     padding: 8,
+  },
+  offlineBanner: {
+    backgroundColor: '#FFF3E0',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE0B2',
+  },
+  offlineBannerText: {
+    fontSize: 14,
+    color: '#E65100',
+    fontWeight: '500',
   },
   modalContent: {
     flex: 1,

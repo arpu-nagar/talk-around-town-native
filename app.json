@@ -1,8 +1,8 @@
 {
-  "name": "Talk_around_town_trail",
+  "name": "ENACT",
   "expo": {
-    "name": "Talk_around_town_trail",
-    "slug": "talk-around-town-native",
+    "name": "ENACT",
+    "slug": "enact",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -33,14 +33,14 @@
       [
         "@react-native-voice/voice",
         {
-          "microphonePermission": "Allow Talk Around Town to access the microphone",
-          "speechRecognitionPermission": "Allow Talk Around Town to securely recognize user speech"
+          "microphonePermission": "Allow ENACT to access the microphone",
+          "speechRecognitionPermission": "Allow ENACT to securely recognize user speech"
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Talk Around Town to use your location.",
+          "locationAlwaysAndWhenInUsePermission": "Allow ENACT to use your location.",
           "isAndroidBackgroundLocationEnabled": true        
 }
       ]

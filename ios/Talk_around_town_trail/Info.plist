@@ -4,7 +4,7 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.yourdomain.Talk_around_town_trail.backgroundtask</string>
+		<string>com.yourdomain.enact.backgroundtask</string>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
@@ -30,10 +30,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.talk_around_town_trail</string>
+			<string>com.enact</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>talkaroundtown</string>
+				<string>enact</string>
 			</array>
 		</dict>
 	</array>
@@ -65,7 +65,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs access to your microphone for speech recognition.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Talk Around Town Trail needs access to your photo library to allow you to choose and share images of points of interest along the trail.</string>
+	<string>ENACT needs access to your photo library to allow you to choose and share images of points of interest.</string>
 	<key>NSRemoteNotificationUsageDescription</key>
 	<string>ENACT sends notifications to provide timely tips and engagement suggestions based on your location.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

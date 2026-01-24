@@ -32,7 +32,7 @@
     NSLog(@"Error setting audio session category: %@", error);
   }
 
-  self.moduleName = @"Talk_around_town_trail";
+  self.moduleName = @"ENACT";
   self.initialProps = @{};
 
   // Configure UNUserNotificationCenter

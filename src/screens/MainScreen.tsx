@@ -23,6 +23,8 @@ import {
   InteractionManager,
   SafeAreaView,
   KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  ScrollView,
 } from 'react-native';
 import MapView, {Marker, Circle} from 'react-native-maps';
 import {Dropdown} from 'react-native-element-dropdown';
@@ -55,6 +57,7 @@ import {useCache} from '../hooks/useCache';
 import {CopilotStep, useCopilot, walkthroughable} from 'react-native-copilot';
 import PreferencesCard from '../components/MainScreen/PreferencesCard';
 import {BASE_URL, WS_BASE_URL} from '../config';
+import {OFFLINE_TIPS} from '../data/offlineTips';
 
 const STARTUP_CONFIG = {
   MAX_STARTUP_TIME: 8000,
@@ -265,83 +268,98 @@ const MapViewModal = React.memo(function MapViewModal({
 
         {/* Bottom add form */}
         {newLocation && (
-          <View
-            pointerEvents="box-none"
-            style={{...StyleSheet.absoluteFillObject, marginBottom: 20}}>
-            <LinearGradient
-              colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
-              style={[styles.addLocationForm, {bottom: insets.bottom}]}>
-              <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{flex: 1}}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                  }}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      reset();
-                    }}>
-                    <MaterialIcons
-                      name="arrow-back"
-                      size={20}
-                      color="#1F2937"
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{...StyleSheet.absoluteFillObject, marginBottom: 20}}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={{flex: 1}}>
+                <LinearGradient
+                  colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 1}}
+                  style={[styles.addLocationForm, {bottom: insets.bottom}]}>
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{flexGrow: 1}}
+                    showsVerticalScrollIndicator={false}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                      }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          reset();
+                        }}>
+                        <MaterialIcons
+                          name="arrow-back"
+                          size={20}
+                          color="#1F2937"
+                        />
+                      </TouchableOpacity>
+                      <Text style={styles.formTitle}>Add New Location</Text>
+                      <View style={{width: 24}} />
+                    </View>
+
+                    <Dropdown
+                      style={styles.dropdown}
+                      placeholderStyle={styles.dropdownPlaceholder}
+                      selectedTextStyle={styles.dropdownSelected}
+                      itemTextStyle={{color: '#1F2937'}}
+                      data={[
+                        {label: 'Grocery Store', value: 'Grocery Store'},
+                        {label: 'Bus/Walk', value: 'Bus/Walk'},
+                        {label: 'Library', value: 'Library'},
+                        {label: 'Park', value: 'Park'},
+                        {label: 'Restaurant', value: 'Restaurant'},
+                        {label: 'Waiting Room', value: 'Waiting Room'},
+                        {label: "Other's Home", value: "Other's Home"},
+                      ]}
+                      maxHeight={300}
+                      labelField="label"
+                      valueField="value"
+                      placeholder="Select location type"
+                      value={selectedOption}
+                      onChange={item => setSelectedOption(item.value)}
                     />
-                  </TouchableOpacity>
-                  <Text style={styles.formTitle}>Add New Location</Text>
-                  <View style={{width: 24}} />
-                </View>
 
-                <Dropdown
-                  style={styles.dropdown}
-                  placeholderStyle={styles.dropdownPlaceholder}
-                  selectedTextStyle={styles.dropdownSelected}
-                  itemTextStyle={{color: '#1F2937'}}
-                  data={[
-                    {label: 'Grocery Store', value: 'Grocery Store'},
-                    {label: 'Bus/Walk', value: 'Bus/Walk'},
-                    {label: 'Library', value: 'Library'},
-                    {label: 'Park', value: 'Park'},
-                    {label: 'Restaurant', value: 'Restaurant'},
-                    {label: 'Waiting Room', value: 'Waiting Room'},
-                    {label: "Other's Home", value: "Other's Home"},
-                  ]}
-                  maxHeight={300}
-                  labelField="label"
-                  valueField="value"
-                  placeholder="Select location type"
-                  value={selectedOption}
-                  onChange={item => setSelectedOption(item.value)}
-                />
+                    <TextInput
+                      placeholder="Location name"
+                      style={styles.input}
+                      value={name}
+                      onChangeText={setName}
+                      placeholderTextColor="#999"
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                    />
+                    <TextInput
+                      placeholder="Description"
+                      style={[styles.input, styles.textArea]}
+                      value={description}
+                      onChangeText={setDescription}
+                      placeholderTextColor="#999"
+                      multiline
+                      numberOfLines={3}
+                      returnKeyType="done"
+                      blurOnSubmit={true}
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                    />
 
-                <TextInput
-                  placeholder="Location name"
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholderTextColor="#999"
-                />
-                <TextInput
-                  placeholder="Description"
-                  style={[styles.input, styles.textArea]}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholderTextColor="#999"
-                  multiline
-                  numberOfLines={3}
-                />
-
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={addLocation}>
-                  <Text style={styles.addButtonText}>Add Location</Text>
-                </TouchableOpacity>
-              </KeyboardAvoidingView>
-            </LinearGradient>
-          </View>
+                    <TouchableOpacity
+                      style={styles.addButton}
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        addLocation();
+                      }}>
+                      <Text style={styles.addButtonText}>Add Location</Text>
+                    </TouchableOpacity>
+                  </ScrollView>
+                </LinearGradient>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
         )}
 
         {!newLocation && (
@@ -624,6 +642,8 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   const [surveyCompleted, setSurveyCompleted] = useState(false);
   const [bootChecked, setBootChecked] = useState(false); // ensure we decide once per mount
   const [tourRunning, setTourRunning] = useState(false);
+  const [showHelperTip, setShowHelperTip] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   const {loadFromCache, saveToCache} = useCache();
 
@@ -805,27 +825,66 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   };
   // --- End of Animation Setup ---
 
-  // Keyboard listeners
-  // useEffect(() => {
-  //   const keyboardDidShowListener = Keyboard.addListener(
-  //     'keyboardDidShow',
-  //     () => {
-  //       setIsKeyboardVisible(true);
-  //     },
-  //   );
-  //   const keyboardDidHideListener = Keyboard.addListener(
-  //     'keyboardDidHide',
-  //     () => {
-  //       setIsKeyboardVisible(false);
-  //       // handleBlur();
-  //     },
-  //   );
+  // Keyboard animation
+  const keyboardAnimation = useRef(new Animated.Value(0)).current;
 
-  //   return () => {
-  //     keyboardDidShowListener?.remove();
-  //     keyboardDidHideListener?.remove();
-  //   };
-  // }, []);
+  const keyboardAnimatedStyle = {
+    transform: [
+      {
+        translateY: keyboardAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -350], // Move companion card up by 350px when keyboard appears
+        }),
+      },
+    ],
+  };
+
+  // Style for content preferences to fade out when keyboard appears
+  const preferencesKeyboardStyle = {
+    opacity: keyboardAnimation.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 0], // Fade out
+    }),
+    transform: [
+      {
+        scaleY: keyboardAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 0.3], // Shrink to 30% height
+        }),
+      },
+    ],
+  };
+
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setIsKeyboardVisible(true);
+        Animated.timing(keyboardAnimation, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }).start();
+      },
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+        Animated.timing(keyboardAnimation, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }).start();
+      },
+    );
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
 
   function buildAgeFromInputs(yy: string, mm: string) {
     const y = Math.max(0, parseInt(yy || '0', 10) || 0);
@@ -1150,6 +1209,17 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       if (isStreaming) closeWS();
     }
   }, [showTipsModal]);
+
+  // Network connectivity listener
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const enqueueAIReaction = useCallback(
     async (
@@ -1649,6 +1719,18 @@ Try asking about one of these topics!`;
       `✅ Query approved for domain: ${validation.domain || 'unknown'}`,
     );
 
+    // Check network connectivity - show offline tips if no connection
+    if (!isOnline) {
+      setTips(OFFLINE_TIPS);
+      setShowTipsModal(true);
+      Alert.alert(
+        'Offline Mode',
+        'You are currently offline. Here are some popular parenting tips to help you out!',
+        [{text: 'OK'}],
+      );
+      return;
+    }
+
     let mentioned = resolveChildrenFromQuery(query, userChildren);
 
     if (mentioned.length === 0) {
@@ -2079,7 +2161,15 @@ Try asking about one of these topics!`;
   const AskCompanionCard = (
     <CompanionView style={styles.card}>
       <View style={styles.cardHeaderRow}>
-        <Text style={styles.cardTitleRow}>Ask your companion</Text>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+          <Text style={styles.cardTitleRow}>Ask your companion</Text>
+          <TouchableOpacity
+            onPress={() => setShowHelperTip(true)}
+            style={{padding: 4}}
+            activeOpacity={0.7}>
+            <MaterialIcons name="info-outline" size={20} color="#6366F1" />
+          </TouchableOpacity>
+        </View>
         <Text style={styles.cardSub}>Get personalized advice</Text>
       </View>
 
@@ -2099,6 +2189,22 @@ Try asking about one of these topics!`;
           blurOnSubmit={false}
           onSubmitEditing={() => getPersonalizedTips()}
           autoCorrect={false}
+          onFocus={() => {
+            // Trigger keyboard animation when input is focused
+            Animated.timing(keyboardAnimation, {
+              toValue: 1,
+              duration: 250,
+              useNativeDriver: true,
+            }).start();
+          }}
+          onBlur={() => {
+            // Reset animation when input loses focus
+            Animated.timing(keyboardAnimation, {
+              toValue: 0,
+              duration: 250,
+              useNativeDriver: true,
+            }).start();
+          }}
         />
         <TouchableOpacity
           style={styles.micPill}
@@ -2319,16 +2425,17 @@ Try asking about one of these topics!`;
         onSkip={handleSurveySkip}
         isOptional
       />
-      <View style={{flex: 1}} onLayout={() => setReady(true)}>
-        {/* Blue header only behind ENACT */}
-        <LinearGradient
-          colors={['#3B82F6', '#8B5CF6']}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 1}}
-          style={styles.headerBar}></LinearGradient>
-        <View
-          style={{
-            paddingHorizontal: 20,
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={{flex: 1}} onLayout={() => setReady(true)}>
+          {/* Blue header only behind ENACT */}
+          <LinearGradient
+            colors={['#3B82F6', '#8B5CF6']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 1}}
+            style={styles.headerBar}></LinearGradient>
+          <View
+            style={{
+              paddingHorizontal: 20,
             paddingTop: insets.top + 5,
           }}>
           <View style={styles.topRow}>
@@ -2376,13 +2483,14 @@ Try asking about one of these topics!`;
           </CopilotStep>
         </View>
 
-        <KeyboardAvoidingView
-          style={{flex: 1}}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}>
+        <View style={{flex: 1}}>
           {/* Content Preferences Card */}
           <Animated.View
-            style={[{paddingHorizontal: 20}, preferencesCardStyle]}>
+            style={[
+              {paddingHorizontal: 20},
+              preferencesCardStyle,
+              preferencesKeyboardStyle,
+            ]}>
             <CopilotStep
               order={3}
               name="Content preferences"
@@ -2399,7 +2507,11 @@ Try asking about one of these topics!`;
 
           {/* Ask your companion Card */}
           <Animated.View
-            style={[{paddingHorizontal: 20}, askCompanionCardStyle]}>
+            style={[
+              {paddingHorizontal: 20},
+              askCompanionCardStyle,
+              keyboardAnimatedStyle,
+            ]}>
             {tourRunning ? (
               <CopilotStep
                 order={4}
@@ -2411,7 +2523,7 @@ Try asking about one of these topics!`;
               AskCompanionCard
             )}
           </Animated.View>
-        </KeyboardAvoidingView>
+        </View>
 
         {/* Floating pill nav */}
         {!isKeyboardVisible && (
@@ -2426,7 +2538,8 @@ Try asking about one of these topics!`;
             </TouchableOpacity>
           </View>
         )}
-      </View>
+        </View>
+      </TouchableWithoutFeedback>
       {/* Modals */}
       <TipsModal
         tips={tips}
@@ -2437,6 +2550,7 @@ Try asking about one of these topics!`;
         currentSound={currentSound}
         showTipsModal={showTipsModal}
         setShowTipsModal={setShowTipsModal}
+        isOnline={isOnline}
       />
       <MapViewModal
         visible={showMapView}
@@ -2721,6 +2835,253 @@ Try asking about one of these topics!`;
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Helper Tip Modal */}
+      <Modal
+        visible={showHelperTip}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowHelperTip(false)}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}>
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              borderRadius: 20,
+              backgroundColor: '#fff',
+              padding: 24,
+              shadowColor: '#000',
+              shadowOffset: {width: 0, height: 4},
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 8,
+            }}>
+            {/* Header */}
+            <View style={{marginBottom: 20}}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
+                }}>
+                <View
+                  style={{
+                    backgroundColor: '#EEF2FF',
+                    borderRadius: 12,
+                    padding: 12,
+                  }}>
+                  <MaterialIcons name="lightbulb" size={28} color="#6366F1" />
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowHelperTip(false)}
+                  style={{padding: 4}}>
+                  <MaterialIcons name="close" size={24} color="#9AA0A6" />
+                </TouchableOpacity>
+              </View>
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontWeight: '700',
+                  color: '#111827',
+                  marginBottom: 6,
+                }}>
+                How to Ask Better Questions
+              </Text>
+              <Text style={{fontSize: 14, color: '#6B7280'}}>
+                Get more relevant tips with these examples
+              </Text>
+            </View>
+
+            {/* Examples */}
+            <View style={{marginBottom: 24}}>
+              {/* Good Example */}
+              <View style={{marginBottom: 20}}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                  }}>
+                  <MaterialIcons name="check-circle" size={20} color="#10B981" />
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#10B981',
+                      marginLeft: 6,
+                    }}>
+                    Try asking like this:
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    backgroundColor: '#F0FDF4',
+                    borderLeftWidth: 3,
+                    borderLeftColor: '#10B981',
+                    padding: 12,
+                    borderRadius: 8,
+                  }}>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      color: '#065F46',
+                      fontWeight: '500',
+                      marginBottom: 4,
+                    }}>
+                    "bathtime activities"
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      color: '#065F46',
+                      fontWeight: '500',
+                      marginBottom: 4,
+                    }}>
+                    "reading activities"
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      color: '#065F46',
+                      fontWeight: '500',
+                    }}>
+                    "outdoor play ideas"
+                  </Text>
+                </View>
+              </View>
+
+              {/* Bad Example */}
+              <View>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                  }}>
+                  <MaterialIcons name="cancel" size={20} color="#EF4444" />
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#EF4444',
+                      marginLeft: 6,
+                    }}>
+                    Avoid asking like this:
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    backgroundColor: '#FEF2F2',
+                    borderLeftWidth: 3,
+                    borderLeftColor: '#EF4444',
+                    padding: 12,
+                    borderRadius: 8,
+                  }}>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      color: '#991B1B',
+                      fontWeight: '500',
+                      marginBottom: 4,
+                    }}>
+                    "bathtime tips" ❌
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      color: '#991B1B',
+                      fontWeight: '500',
+                      marginBottom: 4,
+                    }}>
+                    "reading tips" ❌
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      color: '#991B1B',
+                      fontWeight: '500',
+                    }}>
+                    "give me tips" ❌
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Pro Tip */}
+            <View
+              style={{
+                backgroundColor: '#FEF3C7',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 20,
+                borderWidth: 1,
+                borderColor: '#FDE68A',
+              }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                }}>
+                <MaterialIcons
+                  name="star"
+                  size={18}
+                  color="#D97706"
+                  style={{marginTop: 2}}
+                />
+                <View style={{flex: 1, marginLeft: 8}}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: '#92400E',
+                      marginBottom: 4,
+                    }}>
+                    Pro Tip
+                  </Text>
+                  <Text style={{fontSize: 13, color: '#78350F', lineHeight: 18}}>
+                    Use words like "activities", "ideas", or "games" instead of
+                    "tips" for better results!
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Close Button */}
+            <TouchableOpacity
+              onPress={() => setShowHelperTip(false)}
+              activeOpacity={0.8}
+              style={{borderRadius: 12, overflow: 'hidden'}}>
+              <LinearGradient
+                colors={['#3B82F6', '#7C4DFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={{
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Text
+                  style={{
+                    color: '#fff',
+                    fontWeight: '700',
+                    fontSize: 16,
+                  }}>
+                  Got it!
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
