@@ -1,13 +1,9 @@
 import {useEffect, useContext, useRef, useCallback, useState} from 'react';
 import Geolocation from '@react-native-community/geolocation';
 import messaging from '@react-native-firebase/messaging';
-import notifee, {
-  AndroidImportance,
-  AndroidStyle,
-  EventType,
-} from '@notifee/react-native';
+import notifee, {EventType} from '@notifee/react-native';
 import {AuthContext, AuthContextType} from '../context/AuthContext';
-import {AppState, Platform} from 'react-native';
+import {Platform} from 'react-native';
 import {BASE_URL} from '../config';
 
 const RemoteNotification: React.FC = () => {
@@ -21,7 +17,6 @@ const RemoteNotification: React.FC = () => {
   const [isMoving, setIsMoving] = useState(false);
   const lastPressTime = useRef<number>(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const appState = useRef(AppState.currentState);
   const setupCompleted = useRef(false);
 
   const verifyAuth = async (token: string) => {
@@ -104,38 +99,10 @@ const RemoteNotification: React.FC = () => {
 
       const result = await response.json();
 
+      // Backend sends personalized tips via FCM notification
+      // No need to fetch tips or display local notification here
       if (result.status === 'success' && result.location) {
-        const tipsResponse = await fetch(`${BASE_URL}/api/tips/get-tips`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userInfo.access_token}`,
-          },
-          body: JSON.stringify({type: result.type}),
-        });
-
-        if (!tipsResponse.ok) throw new Error('Failed to fetch tips');
-
-        const tipsData = await tipsResponse.json();
-
-        if (Array.isArray(tipsData) && tipsData.length > 0) {
-          const tipsText = tipsData
-            .map(tip => `${tip.title}\n${tip.description}`)
-            .join('\n\n');
-
-          if (tipsText.trim()) {
-            await displayFullNotification(
-              `You have arrived at ${result.location}`,
-              `${result.type} Tips:\n\n${tipsText}`,
-              {
-                notificationId: result.notificationId || String(Date.now()),
-                locationType: String(result.type || ''),
-                locationId: String(result.locationId || ''),
-                locationName: String(result.location || ''),
-              },
-            );
-          }
-        }
+        console.log(`Geofence detected: ${result.location} (${result.type})`);
       }
     } catch (error) {
       console.error('Location check error:', error);
@@ -197,51 +164,6 @@ const RemoteNotification: React.FC = () => {
         clearInterval(locationIntervalRef.current);
     };
   }, [userInfo?.access_token, locationCheck, isMoving]);
-
-  const displayFullNotification = async (
-    title: string,
-    body: string,
-    data: any,
-  ) => {
-    try {
-      const channelId = await notifee.createChannel({
-        id: 'location-tips',
-        name: 'Location Tips',
-        importance: AndroidImportance.HIGH,
-      });
-      const notificationData = {
-        notificationId: String(data.notificationId || ''),
-        locationType: String(data.locationType || ''),
-        locationId: String(data.locationId || ''),
-        locationName: String(data.locationName || ''),
-      };
-
-      await notifee.displayNotification({
-        id: notificationData.notificationId,
-        title,
-        body,
-        data: notificationData,
-        android: {
-          channelId,
-          importance: AndroidImportance.HIGH,
-          style: {type: AndroidStyle.BIGTEXT, text: body},
-          pressAction: {id: 'default'},
-        },
-        ios: {
-          critical: true,
-          interruptionLevel: 'active',
-          foregroundPresentationOptions: {
-            badge: true,
-            sound: true,
-            banner: true,
-            list: true,
-          },
-        },
-      });
-    } catch (error) {
-      console.error('Error displaying notification:', error);
-    }
-  };
 
   const calculateDistance = (
     lat1: number,

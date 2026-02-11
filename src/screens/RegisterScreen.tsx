@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect, useContext} from 'react';
+import React, {useState, useContext} from 'react';
 import {
   View,
   Text,
@@ -15,160 +15,21 @@ import {
 import {AuthContext} from '../context/AuthContext';
 import {Ionicons} from '@expo/vector-icons';
 import {MaterialIcons} from '@expo/vector-icons';
-import {Icon} from 'react-native-elements';
-import MapView, {Circle, Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import Spinner from 'react-native-loading-spinner-overlay';
 import LinearGradient from 'react-native-linear-gradient';
-import {
-  GooglePlacesAutocomplete,
-  GooglePlacesAutocompleteRef,
-} from 'react-native-google-places-autocomplete';
 import ProgressBar from '../components/Register/ProgressBar';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import NumberOfChildren from '../components/Register/NumberOfChildren';
 import ChildrenDetailsStep from '../components/Register/ChildrenDetailsStep';
 import {Picker} from '@react-native-picker/picker';
 
-const {width, height} = Dimensions.get('window');
-const ASPECT_RATIO = width / height;
-const LATITUDE_DELTA = 0.015;
-const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
+const {height} = Dimensions.get('window');
 
 interface ChildDetail {
   nickname: string;
   age: string;
   id: string;
 }
-
-const HomeAddress: React.FC<{onLocationChange: (location: any) => void}> = ({
-  onLocationChange,
-}) => {
-  const [location, setLocation] = useState<any>({});
-  const [mapReady, setMapReady] = useState(false);
-  const placesRef = useRef<GooglePlacesAutocompleteRef>(null);
-  const mapRef = useRef<MapView | null>(null);
-  // const placesRef = useRef(null);
-
-  const initialRegion = {
-    latitude: 37.78825,
-    longitude: -122.4324,
-    latitudeDelta: LATITUDE_DELTA,
-    longitudeDelta: LONGITUDE_DELTA,
-  };
-
-  useEffect(() => {
-    if (mapReady && Object.keys(location).length > 0 && mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          ...location,
-          latitudeDelta: LATITUDE_DELTA,
-          longitudeDelta: LONGITUDE_DELTA,
-        },
-        1000,
-      );
-    }
-  }, [location, mapReady]);
-
-  const handleLocationChange = (newLocation: any) => {
-    setLocation(newLocation);
-    onLocationChange(newLocation);
-  };
-
-  return (
-    <View style={styles.addressContainer}>
-      <View style={styles.searchContainer}>
-        {/* Using GooglePlacesAutocomplete directly like in the example */}
-        <GooglePlacesAutocomplete
-          ref={placesRef}
-          placeholder="Search for your home"
-          textInputProps={{
-            placeholderTextColor: '#1F2937',
-            autoCorrect: false,
-            returnKeyType: 'search',
-          }}
-          fetchDetails={true}
-          styles={{
-            container: {
-              flex: 0,
-            },
-            textInputContainer: {
-              backgroundColor: 'white',
-              borderRadius: 12,
-              borderWidth: 0,
-            },
-            textInput: {
-              color: '#1F2937',
-              fontSize: 16,
-              borderRadius: 12,
-              paddingHorizontal: 15,
-            },
-            listView: {
-              backgroundColor: 'white',
-              borderRadius: 12,
-              marginTop: 5,
-              color: 'black',
-            },
-            row: {
-              padding: 13,
-              height: 50,
-            },
-            description: {
-              color: '#1F2937',
-            },
-          }}
-          onPress={(data, details = null) => {
-            if (details) {
-              const latitude = details.geometry.location.lat;
-              const longitude = details.geometry.location.lng;
-              const newLocation = {
-                latitude,
-                longitude,
-              };
-              handleLocationChange(newLocation);
-            }
-          }}
-          query={{
-            key: 'AIzaSyBczo2yBRbSwa4IVQagZKNfTje0JJ_HEps',
-            language: 'en',
-          }}
-          renderRightButton={() => (
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={() => {
-                placesRef.current?.clear();
-                handleLocationChange({});
-              }}>
-              <Icon name="close" size={20} color="#666" />
-            </TouchableOpacity>
-          )}
-        />
-      </View>
-
-      <View style={styles.mapContainer}>
-        <MapView
-          ref={mapRef}
-          provider={PROVIDER_GOOGLE}
-          style={styles.map}
-          initialRegion={initialRegion}
-          onMapReady={() => setMapReady(true)}
-          showsUserLocation={true}
-          showsMyLocationButton={true}>
-          {Object.keys(location).length > 0 && (
-            <>
-              <Marker coordinate={location} />
-              <Circle
-                center={location}
-                radius={100}
-                fillColor="rgba(0, 0, 255, 0.1)"
-                strokeColor="rgba(0, 0, 255, 0.3)"
-              />
-            </>
-          )}
-        </MapView>
-      </View>
-    </View>
-  );
-};
 
 const CAREGIVER_TYPES = [
   {label: 'Parent', value: 'parent'},
@@ -185,10 +46,6 @@ const RegisterScreen = ({navigation}: any) => {
   const [caregiverType, setCaregiverType] = useState('');
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [location, setLocation] = useState<{
-    latitude?: number;
-    longitude?: number;
-  }>({});
   const [numberOfChildren, setNumberOfChildren] = useState('');
   const [childrenAges, setChildrenAges] = useState<string[]>([]);
   const {isLoading, register} = useContext<any>(AuthContext);
@@ -222,10 +79,6 @@ const RegisterScreen = ({navigation}: any) => {
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
-  };
-
-  const handleLocationChange = (newLocation: any) => {
-    setLocation(newLocation);
   };
 
   const handleNext = async () => {
@@ -263,12 +116,7 @@ const RegisterScreen = ({navigation}: any) => {
       return;
     }
 
-    if (step === 6 && Object.keys(location).length === 0) {
-      Alert.alert('Location Required', 'Please select your location');
-      return;
-    }
-
-    if (step < 6) {
+    if (step < 5) {
       setStep(step + 1);
     } else {
       await handleRegister();
@@ -317,7 +165,6 @@ const RegisterScreen = ({navigation}: any) => {
         name: name.trim() || null,
         email: email.trim(),
         password,
-        location,
         caregiverType,
         childrenData: registrationData,
       });
@@ -326,7 +173,6 @@ const RegisterScreen = ({navigation}: any) => {
         name.trim() || null,
         email.trim(),
         password,
-        location,
         registrationData,
       );
 
@@ -522,25 +368,6 @@ const RegisterScreen = ({navigation}: any) => {
             RenderBackButton={RenderBackButton}
           />
         );
-      case 6:
-        return (
-          <View style={styles.stepContainer}>
-            <View style={styles.stepHeader}>
-              <RenderBackButton />
-
-              <View style={{flexDirection: 'column', alignItems: 'center'}}>
-                <Text style={styles.stepTitle}>Home Location</Text>
-                <Text style={styles.stepDescription}>
-                  Help us find learning opportunities near you
-                </Text>
-              </View>
-
-              <View style={{width: 22}} />
-            </View>
-
-            <HomeAddress onLocationChange={handleLocationChange} />
-          </View>
-        );
       default:
         return null;
     }
@@ -567,7 +394,7 @@ const RegisterScreen = ({navigation}: any) => {
             nestedScrollEnabled={true}>
             <Spinner visible={isLoading} />
 
-            <ProgressBar step={step} total={6} />
+            <ProgressBar step={step} total={5} />
 
             <View style={styles.contentCard}>
               {renderStep()}
@@ -578,8 +405,7 @@ const RegisterScreen = ({navigation}: any) => {
                     styles.nextButton,
                     (step === 2 && !validateEmail(email) && email.length > 0) ||
                     (step === 4 && !numberOfChildren.trim()) ||
-                    (step === 5 && childrenAges.some(age => !age)) ||
-                    (step === 6 && Object.keys(location).length === 0)
+                    (step === 5 && childrenAges.some(age => !age))
                       ? styles.buttonDisabled
                       : null,
                   ]}
@@ -587,7 +413,7 @@ const RegisterScreen = ({navigation}: any) => {
                   start={{x: 0, y: 0}}
                   end={{x: 1, y: 0}}>
                   <Text style={styles.nextButtonText}>
-                    {step === 6 ? 'Complete Registration' : 'Continue'}
+                    {step === 5 ? 'Complete Registration' : 'Continue'}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -737,35 +563,6 @@ const styles = StyleSheet.create({
   picker: {
     height: 50,
     backgroundColor: '#FFFFFF',
-  },
-
-  // Location selection styles
-  addressContainer: {
-    width: '100%',
-    height: 400,
-    borderRadius: 16,
-    overflow: 'hidden',
-    // marginTop: 16,
-  },
-  searchContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
-    padding: 16,
-  },
-  clearButton: {
-    padding: 12,
-  },
-  mapContainer: {
-    flex: 1,
-    marginTop: 60,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  map: {
-    flex: 1,
   },
   container: {
     flex: 1,
