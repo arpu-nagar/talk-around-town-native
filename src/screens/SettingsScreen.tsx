@@ -24,6 +24,8 @@ import {fetchWithAuth} from '../api/auth';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {LayoutDashboard} from 'lucide-react-native';
 import LikedTipsModal from '../components/SettingsScreen/LikedTipsModal';
+import RecordingSection from '../components/SettingsScreen/RecordingSection';
+import RecordingsListModal from '../components/SettingsScreen/RecordingsListModal';
 import {BASE_URL} from '../config';
 
 const API_ENDPOINTS = {
@@ -56,6 +58,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
   const [likedTips, setLikedTips] = useState<Tip[]>([]);
   const [showSavedTipsModal, setShowSavedTipsModal] = useState(false);
   const [showLikedTipsModal, setShowLikedTipsModal] = useState(false);
+  const [showRecordingsModal, setShowRecordingsModal] = useState(false);
   const [activeAudioIndex, setActiveAudioIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioLoadingIndex, setAudioLoadingIndex] = useState<number | null>(
@@ -854,6 +857,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
               </Pressable>
             </View>
 
+            {/* Research Tools Section - Recording */}
+            <RecordingSection
+              styles={styles}
+              onViewRecordings={() => setShowRecordingsModal(true)}
+            />
+
             {/* Error banner for children info */}
             {childrenError && !isFromCache && (
               <View style={styles.errorBanner}>
@@ -917,6 +926,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
           likedTips={likedTips}
           setShowLikedTipsModal={setShowLikedTipsModal}
           showLikedTipsModal={showLikedTipsModal}
+        />
+
+        {/* Recordings List Modal */}
+        <RecordingsListModal
+          visible={showRecordingsModal}
+          onClose={() => setShowRecordingsModal(false)}
         />
 
         {/* Personalization Survey Modal */}

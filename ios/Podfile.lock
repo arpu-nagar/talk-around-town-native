@@ -1765,6 +1765,8 @@ PODS:
   - ReactNativeGetLocation (4.0.1):
     - React-Core
   - RecaptchaInterop (100.0.0)
+  - RNAudioRecorderPlayer (3.6.12):
+    - React-Core
   - RNBackgroundFetch (4.2.6):
     - React-Core
   - RNCAsyncStorage (1.24.0):
@@ -1953,6 +1955,7 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeGetLocation (from `../node_modules/react-native-get-location`)
   - RecaptchaInterop
+  - RNAudioRecorderPlayer (from `../node_modules/react-native-audio-recorder-player`)
   - RNBackgroundFetch (from `../node_modules/react-native-background-fetch`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNCPicker (from `../node_modules/@react-native-picker/picker`)"
@@ -2167,6 +2170,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   ReactNativeGetLocation:
     :path: "../node_modules/react-native-get-location"
+  RNAudioRecorderPlayer:
+    :path: "../node_modules/react-native-audio-recorder-player"
   RNBackgroundFetch:
     :path: "../node_modules/react-native-background-fetch"
   RNCAsyncStorage:
@@ -2309,6 +2314,7 @@ SPEC CHECKSUMS:
   ReactCommon: 1007c09a406a451ddbd874e51511aa541d6034f6
   ReactNativeGetLocation: b4379a01dff72507d9abce5f4d569b98abef7761
   RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
+  RNAudioRecorderPlayer: 224c7de87722938aedce04000d09baa633148f5b
   RNBackgroundFetch: 3a45a819bafb71ce405ae3899714bbac0972f1d2
   RNCAsyncStorage: ec53e44dc3e75b44aa2a9f37618a49c3bc080a7a
   RNCPicker: d162737e03e48797110dbb60e5ddc03012e87e0b

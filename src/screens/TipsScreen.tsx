@@ -10,7 +10,9 @@ import {
   Image,
   Animated,
   Dimensions,
-  Platform
+  Platform,
+  Share,
+  Alert,
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -87,6 +89,21 @@ const TipsScreen = () => {
   
   const [tipData, setTipData] = useState<TipData | null>(null);
 
+  const handleShare = async () => {
+    if (!tipData) return;
+
+    try {
+      const shareMessage = `${tipData.title}\n\n${tipData.message}\n\nShared from ENACT App`;
+
+      await Share.share({
+        message: shareMessage,
+        title: tipData.title,
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Unable to share this tip');
+    }
+  };
+
   useEffect(() => {
     // Extract notification data from route params
     if (route.params?.notificationData) {
@@ -162,11 +179,7 @@ const TipsScreen = () => {
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Parenting Tip</Text>
-          <TouchableOpacity 
-            style={styles.bookmarkButton}
-          >
-            <Ionicons name="bookmark-outline" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={styles.placeholderView} />
         </View>
         
         <ScrollView 
@@ -214,35 +227,10 @@ const TipsScreen = () => {
             )} */}
             
             <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
                 <Ionicons name="share-social-outline" size={22} color="#4A90E2" />
                 <Text style={styles.actionButtonText}>Share</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.actionButton}>
-                <Ionicons name="star-outline" size={22} color="#4A90E2" />
-                <Text style={styles.actionButtonText}>Save</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.actionButton}>
-                <Ionicons name="chatbubble-outline" size={22} color="#4A90E2" />
-                <Text style={styles.actionButtonText}>Discuss</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.relatedTipsContainer}>
-              <Text style={styles.relatedTipsHeading}>Related Tips</Text>
-              <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
-                <TouchableOpacity style={styles.relatedTipCard}>
-                  <Ionicons name={categoryIcon} size={22} color="#4A90E2" style={styles.relatedTipIcon} />
-                  <Text style={styles.relatedTipText}>Similar advice for older children</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.relatedTipCard}>
-                  <Ionicons name={categoryIcon} size={22} color="#4A90E2" style={styles.relatedTipIcon} />
-                  <Text style={styles.relatedTipText}>Common questions about this topic</Text>
-                </TouchableOpacity>
-              </ScrollView>
             </View>
           </Animated.View>
         </ScrollView>
@@ -268,9 +256,6 @@ const styles = StyleSheet.create({
     height: 60,
   },
   backButton: {
-    padding: 8,
-  },
-  bookmarkButton: {
     padding: 8,
   },
   placeholderView: {
@@ -369,32 +354,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontSize: 12,
     color: '#666',
-  },
-  relatedTipsContainer: {
-    marginTop: 10,
-  },
-  relatedTipsHeading: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-    color: '#333',
-  },
-  relatedTipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9F9FB',
-    borderRadius: 12,
-    padding: 16,
-    marginRight: 12,
-    width: 250,
-  },
-  relatedTipIcon: {
-    marginRight: 12,
-  },
-  relatedTipText: {
-    fontSize: 14,
-    width: '80%',
-    color: '#444',
   },
   emptyStateContainer: {
     flex: 1,

@@ -283,8 +283,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
     try {
       await login(email, password);
 
-      // Try to get FCM token after successful login if not already obtained
-      if (fcmTokenStatus !== 'success') {
+      // Always send FCM token to server after successful login
+      // The token was retrieved on mount but couldn't be sent without auth
+      console.log('Login successful, sending FCM token to server...');
+      const storedToken = await AsyncStorage.getItem('deviceToken');
+      if (storedToken) {
+        const {token} = JSON.parse(storedToken);
+        const userInfo = await AsyncStorage.getItem('userInfo');
+        if (userInfo && token) {
+          const {access_token} = JSON.parse(userInfo);
+          await updateServerToken(token, access_token);
+        }
+      } else {
+        // If token wasn't retrieved earlier, try again
         await getAndStoreToken();
       }
     } catch (error) {

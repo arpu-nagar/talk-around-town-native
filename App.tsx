@@ -12,6 +12,7 @@ import {
 import Navigation from './src/components/Navigation';
 import {AuthProvider} from './src/context/AuthContext';
 import {LocationProvider} from './src/context/LocationContext';
+import {AudioRecordingProvider} from './src/context/AudioRecordingContext';
 // import RemoteNotification from './src/components/RemoteNotification';
 import messaging from '@react-native-firebase/messaging';
 import AppStateTracker from './src/components/AppStateTracker';
@@ -170,19 +171,21 @@ const App = () => {
   return (
     <AuthProvider>
       <LocationProvider>
-        <CopilotProvider overlay="svg" tooltipComponent={MyTooltip}>
-          {/* <StatusBar backgroundColor="#06bcee" /> */}
-          <LinearGradient
-            colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 1}}>
-            <StatusBar />
-          </LinearGradient>
+        <AudioRecordingProvider>
+          <CopilotProvider overlay="svg" tooltipComponent={MyTooltip}>
+            {/* <StatusBar backgroundColor="#06bcee" /> */}
+            <LinearGradient
+              colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}>
+              <StatusBar />
+            </LinearGradient>
 
-          <AppStateTracker />
-          {/* <RemoteNotification /> */}
-          <Navigation />
-        </CopilotProvider>
+            <AppStateTracker />
+            {/* <RemoteNotification /> */}
+            <Navigation />
+          </CopilotProvider>
+        </AudioRecordingProvider>
       </LocationProvider>
     </AuthProvider>
   );

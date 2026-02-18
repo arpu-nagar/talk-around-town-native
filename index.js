@@ -10,6 +10,10 @@ import PushNotification from 'react-native-push-notification';
 import {navigationRef} from './src/ref/NavigationRef';
 import {Platform} from 'react-native';
 import messaging from '@react-native-firebase/messaging';
+import BackgroundFetch from 'react-native-background-fetch';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Geolocation from '@react-native-community/geolocation';
+import {BASE_URL} from './src/config';
 
 // Enable comprehensive notification logging
 const enableNotificationLogging = () => {
@@ -36,10 +40,11 @@ const enableNotificationLogging = () => {
 // Call this function to enable all notification logging
 enableNotificationLogging();
 
-// Enhanced background message handler with better data preservation
+console.log('🔔 Registering FCM message handlers...');
+
 // Enhanced background message handler with better data preservation
 messaging().setBackgroundMessageHandler(async remoteMessage => {
-  console.log('Background message received:', remoteMessage);
+  console.log('📩 Background message received:', remoteMessage);
 
   // Store complete data including metadata to help with debugging
   const enhancedData = {
@@ -91,42 +96,57 @@ messaging().setBackgroundMessageHandler(async remoteMessage => {
   return Promise.resolve();
 });
 
-// iOS foreground notification handling
-if (Platform.OS === 'ios') {
-  messaging().onMessage(async remoteMessage => {
-    console.log('Foreground message received on iOS:', remoteMessage);
+// Foreground notification handling (both iOS and Android)
+console.log('🔔 Registering foreground message handler...');
+messaging().onMessage(async remoteMessage => {
+  console.log('📩 Foreground message received:', remoteMessage);
 
-    // Similar enhancement of data for iOS
-    const enhancedData = {
-      ...remoteMessage.data,
-      _receivedAt: new Date().toISOString(),
-      _isForeground: true,
-    };
+  const enhancedData = {
+    ...remoteMessage.data,
+    _receivedAt: new Date().toISOString(),
+    _isForeground: true,
+  };
 
-    // Parse tips if present
-    if (remoteMessage.data?.tips) {
-      try {
-        const parsedTips = JSON.parse(remoteMessage.data.tips);
-        enhancedData.parsedTips = parsedTips;
-      } catch (error) {
-        console.error('Error parsing tips from iOS notification:', error);
-      }
+  // Extract title and message
+  const title =
+    remoteMessage.data?.title ||
+    remoteMessage.notification?.title ||
+    'New notification';
+
+  const message =
+    remoteMessage.data?.message ||
+    remoteMessage.notification?.body ||
+    'You have a new notification';
+
+  enhancedData.title = title;
+  enhancedData.message = message;
+
+  // Parse tips if present
+  if (remoteMessage.data?.tips) {
+    try {
+      const parsedTips = JSON.parse(remoteMessage.data.tips);
+      enhancedData.parsedTips = parsedTips;
+    } catch (error) {
+      console.error('Error parsing tips from foreground notification:', error);
     }
+  }
 
-    // Create local notification
-    PushNotification.localNotification({
-      channelId: 'location-tips',
-      title: remoteMessage.notification?.title || 'New notification',
-      message:
-        remoteMessage.notification?.body || 'You have a new notification',
-      userInfo: enhancedData,
-      data: enhancedData,
-      playSound: true,
-      soundName: 'default',
-    });
+  // Create local notification to display while app is in foreground
+  PushNotification.localNotification({
+    channelId: 'location-tips',
+    title: title,
+    message: message,
+    userInfo: enhancedData,
+    data: enhancedData,
+    playSound: true,
+    soundName: 'default',
+    importance: 'high',
+    priority: 'high',
   });
+});
 
-  // Request permissions explicitly for iOS
+// Request permissions explicitly for iOS
+if (Platform.OS === 'ios') {
   messaging()
     .requestPermission()
     .then(authStatus => {
@@ -134,35 +154,42 @@ if (Platform.OS === 'ios') {
     });
 }
 
-// Clear and recreate notification channels
-PushNotification.getChannels(function (channel_ids) {
-  channel_ids.forEach(id => {
-    PushNotification.deleteChannel(id);
-  });
+// Create notification channels (don't delete existing - just ensure they exist)
+console.log('📱 Setting up notification channels...');
+
+PushNotification.channelExists('location-tips', exists => {
+  if (!exists) {
+    PushNotification.createChannel(
+      {
+        channelId: 'location-tips',
+        channelName: 'Location Tips',
+        channelDescription: 'Notifications for location updates',
+        importance: 4,
+        vibrate: true,
+      },
+      created => console.log(`Main channel created: ${created}`),
+    );
+  } else {
+    console.log('Main channel already exists');
+  }
 });
 
-// Create notification channels
-PushNotification.createChannel(
-  {
-    channelId: 'location-tips',
-    channelName: 'Location Tips',
-    channelDescription: 'Notifications for location updates',
-    importance: 4,
-    vibrate: true,
-  },
-  created => console.log(`Main channel created: ${created}`),
-);
-
-PushNotification.createChannel(
-  {
-    channelId: 'app-reminders',
-    channelName: 'App Reminders',
-    channelDescription: 'Reminders to open the app',
-    importance: 4,
-    vibrate: true,
-  },
-  created => console.log(`Reminders channel created: ${created}`),
-);
+PushNotification.channelExists('app-reminders', exists => {
+  if (!exists) {
+    PushNotification.createChannel(
+      {
+        channelId: 'app-reminders',
+        channelName: 'App Reminders',
+        channelDescription: 'Reminders to open the app',
+        importance: 4,
+        vibrate: true,
+      },
+      created => console.log(`Reminders channel created: ${created}`),
+    );
+  } else {
+    console.log('Reminders channel already exists');
+  }
+});
 
 // Improved navigation function with retry mechanism
 const navigateToNotification = (title, message, data) => {
@@ -296,5 +323,80 @@ PushNotification.configure({
   popInitialNotification: true,
   requestPermissions: true,
 });
+
+// Headless task for BackgroundFetch - runs when app is killed
+const headlessTask = async (event) => {
+  const taskId = event.taskId;
+  const isTimeout = event.timeout;
+
+  if (isTimeout) {
+    console.log('[BackgroundFetch Headless] Task timed out:', taskId);
+    BackgroundFetch.finish(taskId);
+    return;
+  }
+
+  console.log('[BackgroundFetch Headless] Starting task:', taskId);
+
+  try {
+    const userInfoStr = await AsyncStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      console.log('[BackgroundFetch Headless] No user info, skipping');
+      BackgroundFetch.finish(taskId);
+      return;
+    }
+
+    const userInfo = JSON.parse(userInfoStr);
+    if (!userInfo.access_token) {
+      console.log('[BackgroundFetch Headless] No access token, skipping');
+      BackgroundFetch.finish(taskId);
+      return;
+    }
+
+    // Get current position
+    const coords = await new Promise((resolve, reject) => {
+      Geolocation.getCurrentPosition(
+        position => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        error => reject(error),
+        {
+          enableHighAccuracy: false,
+          timeout: 30000,
+          maximumAge: 60000,
+        },
+      );
+    });
+
+    console.log('[BackgroundFetch Headless] Got location:', coords);
+
+    // Send to server for geofence check
+    const response = await fetch(`${BASE_URL}/endpoint`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userInfo.access_token}`,
+      },
+      body: JSON.stringify({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      }),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('[BackgroundFetch Headless] Server response:', result);
+    }
+  } catch (error) {
+    console.error('[BackgroundFetch Headless] Error:', error);
+  }
+
+  BackgroundFetch.finish(taskId);
+};
+
+// Register the headless task for Android
+BackgroundFetch.registerHeadlessTask(headlessTask);
 
 AppRegistry.registerComponent(appName, () => App);

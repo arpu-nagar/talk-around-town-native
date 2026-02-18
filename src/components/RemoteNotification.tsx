@@ -5,6 +5,7 @@ import notifee, {EventType} from '@notifee/react-native';
 import {AuthContext, AuthContextType} from '../context/AuthContext';
 import {Platform} from 'react-native';
 import {BASE_URL} from '../config';
+import BackgroundFetch from 'react-native-background-fetch';
 
 const RemoteNotification: React.FC = () => {
   const {userInfo} = useContext<AuthContextType>(AuthContext);
@@ -16,31 +17,36 @@ const RemoteNotification: React.FC = () => {
   );
   const [isMoving, setIsMoving] = useState(false);
   const lastPressTime = useRef<number>(0);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const isAuthenticatedRef = useRef(false);
   const setupCompleted = useRef(false);
 
   const verifyAuth = async (token: string) => {
     try {
+      console.log('[RemoteNotification] Verifying auth token...');
       const response = await fetch(`${BASE_URL}/api/auth/verify`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({headers: {authorization: `Bearer ${token}`}}),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       });
-      setIsAuthenticated(response.ok);
+      console.log('[RemoteNotification] Auth verification response:', response.ok);
+      isAuthenticatedRef.current = response.ok;
       return response.ok;
     } catch (error) {
-      console.error('Auth verification error:', error);
-      setIsAuthenticated(false);
+      console.error('[RemoteNotification] Auth verification error:', error);
+      isAuthenticatedRef.current = false;
       return false;
     }
   };
 
   const setupFCM = async () => {
     try {
+      console.log('[RemoteNotification] Setting up FCM...');
       const token = await messaging().getToken();
+      console.log('[RemoteNotification] FCM token obtained:', token?.substring(0, 20) + '...');
       if (userInfo?.access_token && token) {
-        console.log('FCM token:', token);
-        console.log('User token:', userInfo.access_token);
+        console.log('[RemoteNotification] Sending FCM token to server...');
         const response = await fetch(`${BASE_URL}/api/auth/token`, {
           method: 'POST',
           headers: {
@@ -49,17 +55,44 @@ const RemoteNotification: React.FC = () => {
           },
           body: JSON.stringify({token, platform: Platform.OS}),
         });
+        const responseData = await response.json();
+        console.log('[RemoteNotification] Server response:', response.ok, responseData);
         if (!response.ok) throw new Error('Failed to update token on server');
+      } else {
+        console.log('[RemoteNotification] Missing access_token or FCM token, skipping server update');
       }
       return token;
     } catch (error) {
-      console.error('Error setting up FCM:', error);
+      console.error('[RemoteNotification] Error setting up FCM:', error);
       return null;
     }
   };
 
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c * 1000;
+  };
+
   const locationCheck = useCallback(async () => {
-    if (!userInfo?.access_token || !isAuthenticated) return;
+    console.log('[RemoteNotification] Location check - authenticated:', isAuthenticatedRef.current, 'hasToken:', !!userInfo?.access_token);
+    if (!userInfo?.access_token || !isAuthenticatedRef.current) {
+      console.log('[RemoteNotification] Skipping location check - not authenticated');
+      return;
+    }
 
     try {
       const position = await new Promise<any>((resolve, reject) => {
@@ -80,11 +113,15 @@ const RemoteNotification: React.FC = () => {
           longitude,
         );
         setIsMoving(distance > 10);
-        if (distance <= 10) return;
+        if (distance <= 10) {
+          console.log('[RemoteNotification] Location unchanged, skipping server check');
+          return;
+        }
       }
 
       lastLocationRef.current = {latitude, longitude};
 
+      console.log('[RemoteNotification] Sending location to server:', {latitude, longitude});
       const response = await fetch(`${BASE_URL}/endpoint`, {
         method: 'POST',
         headers: {
@@ -98,31 +135,44 @@ const RemoteNotification: React.FC = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
 
       const result = await response.json();
+      console.log('[RemoteNotification] Location response:', result);
 
-      // Backend sends personalized tips via FCM notification
-      // No need to fetch tips or display local notification here
       if (result.status === 'success' && result.location) {
-        console.log(`Geofence detected: ${result.location} (${result.type})`);
+        console.log(`[RemoteNotification] Geofence detected: ${result.location} (${result.type})`);
       }
     } catch (error) {
-      console.error('Location check error:', error);
+      console.error('[RemoteNotification] Location check error:', error);
       if (error instanceof Error && error.message.includes('401')) {
-        setIsAuthenticated(false);
+        isAuthenticatedRef.current = false;
       }
     }
-  }, [userInfo?.access_token, isAuthenticated]);
+  }, [userInfo?.access_token]);
 
   useEffect(() => {
     const setup = async () => {
-      if (!userInfo?.access_token || setupCompleted.current) return;
+      console.log('[RemoteNotification] Setup check - access_token:', !!userInfo?.access_token, 'setupCompleted:', setupCompleted.current);
+      if (!userInfo?.access_token || setupCompleted.current) {
+        console.log('[RemoteNotification] Skipping setup - no token or already completed');
+        return;
+      }
+
+      // Mark as completed immediately to prevent race condition
+      setupCompleted.current = true;
 
       try {
         const isValid = await verifyAuth(userInfo.access_token);
-        if (!isValid) return;
+        if (!isValid) {
+          console.log('[RemoteNotification] Auth verification failed, skipping setup');
+          setupCompleted.current = false;
+          return;
+        }
 
         const authStatus = await messaging().requestPermission();
-        // console.log('FCM Auth Status:', authStatus);
-        if (authStatus !== messaging.AuthorizationStatus.AUTHORIZED) return;
+        if (authStatus !== messaging.AuthorizationStatus.AUTHORIZED) {
+          console.log('[RemoteNotification] FCM permission not granted');
+          setupCompleted.current = false;
+          return;
+        }
 
         await setupFCM();
 
@@ -144,45 +194,80 @@ const RemoteNotification: React.FC = () => {
           console.log('Quit state notification pressed:', initialNotification);
         }
 
+        // Start location checking with interval (foreground only)
+        console.log('[RemoteNotification] Starting location check interval...');
         await locationCheck();
         locationIntervalRef.current = setInterval(
           locationCheck,
           isMoving ? 30000 : 60000,
         );
 
-        setupCompleted.current = true;
+        // Configure BackgroundFetch for background location checks
+        console.log('[RemoteNotification] Configuring BackgroundFetch...');
+        await BackgroundFetch.configure(
+          {
+            minimumFetchInterval: 15, // 15 minutes minimum (iOS limitation)
+            stopOnTerminate: false,   // Keep running after app is closed
+            startOnBoot: true,        // Start on device boot
+            enableHeadless: true,     // Enable headless mode for Android
+          },
+          async (taskId: string) => {
+            console.log('[BackgroundFetch] Fetch event:', taskId);
+            // Perform location check in background
+            try {
+              const position = await new Promise<any>((resolve, reject) => {
+                Geolocation.getCurrentPosition(resolve, reject, {
+                  enableHighAccuracy: false,
+                  timeout: 30000,
+                  maximumAge: 60000,
+                });
+              });
+
+              const {latitude, longitude} = position.coords;
+              console.log('[BackgroundFetch] Got location:', {latitude, longitude});
+
+              const response = await fetch(`${BASE_URL}/endpoint`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${userInfo.access_token}`,
+                },
+                body: JSON.stringify({latitude, longitude}),
+              });
+
+              if (response.ok) {
+                const result = await response.json();
+                console.log('[BackgroundFetch] Server response:', result);
+              }
+            } catch (error) {
+              console.error('[BackgroundFetch] Error:', error);
+            }
+            BackgroundFetch.finish(taskId);
+          },
+          async (taskId: string) => {
+            console.log('[BackgroundFetch] Timeout:', taskId);
+            BackgroundFetch.finish(taskId);
+          },
+        );
+
+        await BackgroundFetch.start();
+        console.log('[RemoteNotification] BackgroundFetch started');
       } catch (error) {
-        console.error('Setup error:', error);
-        setupCompleted.current = false;
+        console.error('[RemoteNotification] Setup error:', error);
+        setupCompleted.current = false; // Reset on error to allow retry
       }
     };
 
     if (userInfo?.access_token) setup();
 
     return () => {
-      if (locationIntervalRef.current)
+      if (locationIntervalRef.current) {
         clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = null;
+      }
+      // Note: BackgroundFetch continues running intentionally for background location
     };
   }, [userInfo?.access_token, locationCheck, isMoving]);
-
-  const calculateDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ) => {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c * 1000;
-  };
 
   return null;
 };

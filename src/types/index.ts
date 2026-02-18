@@ -39,4 +39,26 @@ export interface Location {
     };
     [key: string]: any; // Allow for additional properties
   }
+
+  export interface RecordingState {
+    isRecording: boolean;
+    isPaused: boolean;
+    recordingStartTime: number | null;
+    recordingDuration: number;
+    recordingPath: string | null;
+    error: string | null;
+  }
+
+  export interface RecordingSession {
+    id: string;
+    filePath: string;
+    startTime: number;
+    endTime: number | null;
+    duration: number;
+    location: {
+      latitude: number;
+      longitude: number;
+      locationName?: string;
+    } | null;
+  }
   
