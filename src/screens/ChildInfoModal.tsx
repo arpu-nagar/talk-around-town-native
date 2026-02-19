@@ -126,9 +126,14 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
       setIsLoading(true);
       setError(null);
 
+      const ageInYears = parseInt(newChild.age);
+      const birthYear = new Date().getFullYear() - ageInYears;
+      const dateOfBirth = new Date(birthYear, 0, 1).toISOString().split('T')[0];
+
       const childData = {
         nickname: newChild.nickname,
-        age: parseInt(newChild.age),
+        age: ageInYears,
+        date_of_birth: dateOfBirth,
       };
 
       console.log('Adding child with data:', childData);
@@ -145,23 +150,24 @@ const ChildInfoModal: React.FC<ChildInfoModalProps> = ({
       const responseText = await response.text();
       console.log('Server response:', responseText);
 
+      let data: any;
       try {
-        const data = JSON.parse(responseText);
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to add child');
-        }
-
-        Alert.alert('Success', data.message || 'Child added successfully');
-        setShowAddForm(false);
-        setNewChild({
-          nickname: '',
-          age: '1',
-        });
-        onChildrenUpdate();
+        data = JSON.parse(responseText);
       } catch (e) {
         throw new Error('Invalid server response');
       }
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to add child');
+      }
+
+      Alert.alert('Success', data.message || 'Child added successfully');
+      setShowAddForm(false);
+      setNewChild({
+        nickname: '',
+        age: '1',
+      });
+      onChildrenUpdate();
     } catch (error) {
       console.error('Add child error:', error);
       Alert.alert(

@@ -363,7 +363,12 @@ const MapViewModal = React.memo(function MapViewModal({
         )}
 
         {!newLocation && (
-          <View pointerEvents="box-none" style={styles.searchOverlay}>
+          <View
+            pointerEvents="box-none"
+            style={[
+              styles.searchOverlay,
+              Platform.OS === 'ios' && {paddingTop: insets.top + 8},
+            ]}>
             <LinearGradient
               colors={['#EFF6FF', '#FFFFFF', '#F5F3FF']}
               start={{x: 0, y: 0}}
@@ -3098,7 +3103,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     zIndex: 2, // iOS
     elevation: 12, // Android
-    marginTop: 20,
+    paddingTop: 20,
   },
 
   // Header wrapper gives shadow (not applied to LinearGradient to avoid warnings)
