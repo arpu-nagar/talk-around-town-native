@@ -1322,6 +1322,7 @@ const MainScreen: React.FC = () => {
   const currentSound = useRef<Sound | null>(null);
   const lastResult = useRef<string>('');
   const audioCache = useRef<Map<number, string>>(new Map());
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Use the enhanced children info hook
   const {
@@ -1389,6 +1390,14 @@ const MainScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       fetchContentPreferences();
+      setSearchText('');
+      setIsLoading(false);
+      setLoadingProgress(0);
+      return () => {
+        abortControllerRef.current?.abort();
+        setIsLoading(false);
+        setLoadingProgress(0);
+      };
     }, [fetchContentPreferences]),
   );
 
@@ -1674,6 +1683,10 @@ const MainScreen: React.FC = () => {
     setTips([]); // Clear previous tips
     setHasSearched(false);
 
+    // Cancel any in-flight request and create a new one
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+
     // Start progress simulation
     const cleanupProgress = simulateProgress();
 
@@ -1695,6 +1708,7 @@ const MainScreen: React.FC = () => {
           prompt: query,
           contentPreferences: contentPreferences,
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
@@ -1715,7 +1729,10 @@ const MainScreen: React.FC = () => {
       // Show tips immediately (without audio)
       setTips(data.tips);
       setHasSearched(true);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        return; // User navigated away, silently cancel
+      }
       console.error('Error fetching tips:', error);
       Alert.alert(
         'Error',
@@ -1915,12 +1932,45 @@ const MainScreen: React.FC = () => {
             style={[styles.micButton, isListening && styles.micButtonActive]}
             onPress={toggleListening}>
             <Icon
-              name={isListening ? 'mic-off' : 'mic'}
+              name={isListening ? 'mic' : 'mic-off'}
               size={24}
               color="white"
             />
           </TouchableOpacity>
         </View>
+
+        {/* Hint chips — only show before any search */}
+        {!hasSearched && !isLoading && (
+          <View style={styles.hintSection}>
+            <Text style={styles.hintLabel}>Try asking about:</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hintScroll}>
+              {[
+                'Pretend play tips',
+                'Bath time ideas',
+                'At the grocery store',
+                'Puzzle activities',
+                'Potty training help',
+                'During sports',
+                'At the park',
+                'Screen time limits',
+                'Bedtime routine',
+                'At a restaurant',
+                'Sensory toys',
+                'At the library',
+              ].map(hint => (
+                <TouchableOpacity
+                  key={hint}
+                  style={styles.hintChip}
+                  onPress={() => setSearchText(hint)}>
+                  <Text style={styles.hintChipText}>{hint}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -2142,6 +2192,33 @@ const styles = StyleSheet.create({
   buttonFlex: {
     flex: 1,
     marginHorizontal: 4,
+  },
+  hintSection: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  hintLabel: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  hintScroll: {
+    paddingBottom: 4,
+  },
+  hintChip: {
+    backgroundColor: '#EEF4FF',
+    borderWidth: 1,
+    borderColor: '#C7D9F8',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginRight: 8,
+  },
+  hintChipText: {
+    color: '#3B72C3',
+    fontSize: 13,
+    fontWeight: '500',
   },
   newQuestionContainer: {
     paddingHorizontal: 16,

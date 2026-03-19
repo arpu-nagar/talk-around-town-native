@@ -267,7 +267,11 @@ const RemoteNotification: React.FC = () => {
       }
       // Note: BackgroundFetch continues running intentionally for background location
     };
-  }, [userInfo?.access_token, locationCheck, isMoving]);
+  // isMoving intentionally omitted: including it would cause the interval to be
+  // cleared and never recreated (setupCompleted blocks re-setup). The interval
+  // runs at a fixed 60s cadence; adaptive timing is a future improvement.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userInfo?.access_token, locationCheck]);
 
   return null;
 };

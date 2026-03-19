@@ -183,6 +183,7 @@ const TipsModal: React.FC<TipsModalProps> = ({
           }
 
           setIsPlaying(true);
+          setAudioLoadingIndex(null);
 
           currentSound.current?.play(success => {
             if (!success) {
@@ -292,6 +293,15 @@ const TipsModal: React.FC<TipsModalProps> = ({
         await postInteraction(tip, reaction);
       } catch {
         await queueAIInteraction(tip, reaction);
+      }
+
+      // Sync community like/unlike for DB tips (non-generated, integer id)
+      if (!tip.isGenerated && typeof tip.id === 'number') {
+        if (reaction === 'like' && !isTipLiked(tip)) {
+          fetchWithAuth(`${BASE_URL}/api/tips/${tip.id}/like`, {method: 'POST'}).catch(() => {});
+        } else if (reaction === 'dislike' && isTipLiked(tip)) {
+          fetchWithAuth(`${BASE_URL}/api/tips/${tip.id}/unlike`, {method: 'DELETE'}).catch(() => {});
+        }
       }
     } catch (e) {
       console.error(e);

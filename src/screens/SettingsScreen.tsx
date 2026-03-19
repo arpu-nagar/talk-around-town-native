@@ -10,11 +10,13 @@ import {
   StatusBar,
   Modal,
   Pressable,
+  FlatList,
+  SafeAreaView,
 } from 'react-native';
 import {AuthContext, AuthContextType} from '../context/AuthContext';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import {NavigationProp, useNavigation} from '@react-navigation/native';
+import {NavigationProp, useNavigation, useFocusEffect} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChildInfoModal from './ChildInfoModal';
 import {useChildrenInfo} from '../hooks/useChildrenInfo';
@@ -56,6 +58,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
   const [likedTips, setLikedTips] = useState<Tip[]>([]);
   const [showSavedTipsModal, setShowSavedTipsModal] = useState(false);
   const [showLikedTipsModal, setShowLikedTipsModal] = useState(false);
+  const [showMostLikedModal, setShowMostLikedModal] = useState(false);
+  const [mostLikedTips, setMostLikedTips] = useState<Tip[]>([]);
+  const [mostLikedLoading, setMostLikedLoading] = useState(false);
   const [activeAudioIndex, setActiveAudioIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioLoadingIndex, setAudioLoadingIndex] = useState<number | null>(
@@ -177,8 +182,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save survey');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save survey');
       }
 
       setSurveyData(completedSurveyData);
@@ -187,7 +192,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
       setShowPersonalizationSurvey(false);
 
       Alert.alert(
-        'Thank you! 🎉',
+        'Thank you!',
         "Your preferences have been saved. You'll now receive more personalized parenting tips!",
         [{text: 'Great!'}],
       );
@@ -195,16 +200,29 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
       console.error('Survey completion error:', error);
       Alert.alert(
         'Error',
-        `Failed to save your preferences: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
+        'Failed to save your preferences. Please try again.',
       );
     }
   };
 
-  useEffect(() => {
-    loadContentPreferences();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadContentPreferences();
+      // Check server for survey completion status so the badge persists across app launches
+      if (userInfo?.access_token) {
+        fetch(`${BASE_URL}/api/personalization/survey-status`, {
+          headers: {Authorization: `Bearer ${userInfo.access_token}`},
+        })
+          .then(r => (r.ok ? r.json() : null))
+          .then(json => {
+            if (json?.hasCompletedSurvey) {
+              setSurveyCompleted(true);
+            }
+          })
+          .catch(() => {});
+      }
+    }, [userInfo?.access_token]),
+  );
 
   // Handle children info button press with error handling
   const handleChildrenInfoPress = () => {
@@ -312,6 +330,29 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
     });
     return unsubscribe;
   }, [loadTipsFromStorage, navigation]);
+
+  const fetchMostLikedTips = useCallback(async () => {
+    setMostLikedLoading(true);
+    try {
+      const res = await fetchWithAuth(
+        `${API_ENDPOINTS.BASE_URL}/api/tips/most-liked?limit=10`,
+      );
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setMostLikedTips(
+          data.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            body: t.description,
+            details: '',
+            audioUrl: null,
+            categories: t.type ? [t.type] : [],
+          })),
+        );
+      }
+    } catch {}
+    setMostLikedLoading(false);
+  }, []);
 
   // Audio functions (copied from MainScreen)
   const loadAudio = async (tip: Tip, index: number) => {
@@ -833,6 +874,24 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
               </Pressable>
 
               <Pressable
+                style={styles.menuItem}
+                onPress={() => {
+                  fetchMostLikedTips();
+                  setShowMostLikedModal(true);
+                }}>
+                <View style={styles.itemLeft}>
+                  <Icon
+                    name="trending-up"
+                    size={22}
+                    color="#F59E0B"
+                    style={styles.menuIcon}
+                  />
+                  <Text style={styles.menuText}>Most Liked Tips</Text>
+                </View>
+                <Icon name="chevron-right" size={20} color="#1F2937" />
+              </Pressable>
+
+              <Pressable
                 style={styles.dangerMenuItem}
                 onPress={() => setShowPersonalizationSurvey(true)}>
                 <View style={styles.itemLeft}>
@@ -919,12 +978,144 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
           showLikedTipsModal={showLikedTipsModal}
         />
 
+        {/* Most Liked Tips Modal */}
+        <Modal
+          visible={showMostLikedModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowMostLikedModal(false)}>
+          <SafeAreaView style={{flex: 1, backgroundColor: '#F9FAFB'}}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: '#E5E7EB',
+                backgroundColor: '#fff',
+              }}>
+              <Text
+                style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>
+                Most Liked Tips
+              </Text>
+              <TouchableOpacity onPress={() => setShowMostLikedModal(false)}>
+                <Icon name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {mostLikedLoading ? (
+              <ActivityIndicator
+                style={{marginTop: 40}}
+                size="large"
+                color="#F59E0B"
+              />
+            ) : mostLikedTips.length === 0 ? (
+              <View
+                style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                <Icon name="trending-up" size={48} color="#D1D5DB" />
+                <Text
+                  style={{
+                    marginTop: 12,
+                    fontSize: 16,
+                    color: '#9CA3AF',
+                    textAlign: 'center',
+                  }}>
+                  No liked tips yet.{'\n'}Start liking tips to see them here!
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={mostLikedTips}
+                keyExtractor={item => String(item.id)}
+                contentContainerStyle={{padding: 16, gap: 12}}
+                renderItem={({item, index}) => (
+                  <View
+                    style={{
+                      backgroundColor: '#fff',
+                      borderRadius: 14,
+                      padding: 16,
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                      shadowColor: '#000',
+                      shadowOpacity: 0.04,
+                      shadowRadius: 4,
+                      shadowOffset: {width: 0, height: 2},
+                      elevation: 1,
+                    }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        marginBottom: 8,
+                        gap: 8,
+                      }}>
+                      <View
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          backgroundColor: '#FEF3C7',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: '700',
+                            color: '#D97706',
+                          }}>
+                          {index + 1}
+                        </Text>
+                      </View>
+                      <Text
+                        style={{
+                          fontSize: 15,
+                          fontWeight: '600',
+                          color: '#1F2937',
+                          flex: 1,
+                        }}
+                        numberOfLines={2}>
+                        {item.title}
+                      </Text>
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: '#4B5563',
+                        lineHeight: 20,
+                      }}>
+                      {item.body}
+                    </Text>
+                    {item.categories && item.categories.length > 0 && (
+                      <View
+                        style={{
+                          marginTop: 10,
+                          alignSelf: 'flex-start',
+                          backgroundColor: '#EEF2FF',
+                          paddingHorizontal: 10,
+                          paddingVertical: 3,
+                          borderRadius: 20,
+                        }}>
+                        <Text
+                          style={{fontSize: 12, color: '#6366F1', fontWeight: '500'}}>
+                          {item.categories[0]}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              />
+            )}
+          </SafeAreaView>
+        </Modal>
+
         {/* Personalization Survey Modal */}
         <PersonalizationSurvey
           visible={showPersonalizationSurvey}
           onClose={() => setShowPersonalizationSurvey(false)}
           onComplete={handleSurveyComplete}
-          isOptional={true}
         />
       </View>
     </LinearGradient>

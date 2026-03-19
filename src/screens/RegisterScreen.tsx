@@ -244,7 +244,7 @@ const RegisterScreen = ({navigation}: any) => {
             </View>
             <TextInput
               style={[commonInputStyle, {marginTop: 16}]}
-              placeholder="Enter your name (optional)"
+              placeholder="Enter your name"
               value={name}
               onChangeText={setName}
               autoCapitalize="words"

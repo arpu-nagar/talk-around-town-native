@@ -16,8 +16,9 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {LineChart, BarChart, PieChart} from 'react-native-chart-kit';
 import {AuthContext, AuthContextType} from '../../context/AuthContext';
-import {Alert} from 'react-native';
+import {Alert, Share} from 'react-native';
 import {BASE_URL} from '../../config';
+import RNFS from 'react-native-fs';
 
 interface DashboardData {
   summary: {
@@ -71,7 +72,27 @@ const DashboardScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [isExporting, setIsExporting] = useState(false);
   const {isAdmin} = useContext(AuthContext);
+
+  const exportToExcel = async () => {
+    try {
+      setIsExporting(true);
+      const response = await fetch(`${API_BASE_URL}/api/admin/export/excel`, {
+        headers: {Authorization: `Bearer ${userInfo.access_token}`},
+      });
+      if (!response.ok) throw new Error('Export request failed');
+      const {data, filename} = await response.json();
+      const path = `${RNFS.DocumentDirectoryPath}/${filename}`;
+      await RNFS.writeFile(path, data, 'base64');
+      await Share.share({title: 'ENACT Dashboard Export', url: `file://${path}`});
+    } catch (error) {
+      console.error('Export error:', error);
+      Alert.alert('Export Failed', 'Could not export data to Excel. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
   useEffect(() => {
     if (!isAdmin) {
       Alert.alert(
@@ -810,9 +831,24 @@ const DashboardScreen: React.FC = () => {
             <Icon name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>ENACT Dashboard</Text>
-          <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-            <Icon name="refresh" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerIconButton} onPress={onRefresh}>
+              <Icon name="refresh" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.exportButton}
+              onPress={exportToExcel}
+              disabled={isExporting}>
+              {isExporting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Icon name="file-download" size={22} color="#FFFFFF" />
+              )}
+              <Text style={styles.exportButtonText}>
+                {isExporting ? 'Exporting...' : 'Export'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
@@ -960,8 +996,27 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
-  refreshButton: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIconButton: {
     padding: 8,
+  },
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 4,
+  },
+  exportButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   headerTitle: {
     fontSize: 20,

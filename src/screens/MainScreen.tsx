@@ -111,6 +111,7 @@ interface Child {
   id?: number;
   nickname: string;
   date_of_birth: string;
+  age?: number;
 }
 
 interface Location {
@@ -172,6 +173,31 @@ const MapViewModal = React.memo(function MapViewModal({
       );
       return;
     }
+    if (name.trim().toLowerCase() === 'home') {
+      Alert.alert(
+        'Home Location Not Recommended',
+        "Just a reminder: to ensure your privacy, please don't save your home address as a location to receive tips.\n\nIf you're adding a friend's or relative's home, feel free to proceed.",
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {text: 'Proceed Anyway', onPress: () => saveLocation()},
+        ],
+      );
+      return;
+    }
+    await saveLocation();
+  }, [
+    newLocation,
+    name,
+    description,
+    selectedOption,
+    token,
+    onRefresh,
+    reset,
+    onClose,
+  ]);
+
+  const saveLocation = useCallback(async () => {
+    if (!newLocation) return;
     try {
       const res = await fetchWithAuth(
         `${API_ENDPOINTS.BASE_URL}${API_ENDPOINTS.ADD_LOCATION}`,
@@ -191,7 +217,15 @@ const MapViewModal = React.memo(function MapViewModal({
           }),
         },
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const isDuplicate = body.error?.toLowerCase().includes('already exists');
+        Alert.alert(
+          isDuplicate ? 'Duplicate Location' : 'Error',
+          body.error || 'Failed to add location. Please try again.',
+        );
+        return;
+      }
 
       await onRefresh();
       Alert.alert('Success', 'Location added successfully!');
@@ -309,13 +343,35 @@ const MapViewModal = React.memo(function MapViewModal({
                       selectedTextStyle={styles.dropdownSelected}
                       itemTextStyle={{color: '#1F2937'}}
                       data={[
-                        {label: 'Grocery Store', value: 'Grocery Store'},
-                        {label: 'Bus/Walk', value: 'Bus/Walk'},
-                        {label: 'Library', value: 'Library'},
-                        {label: 'Park', value: 'Park'},
+                        {label: 'Park / outside', value: 'Park / outside'},
+                        {label: 'School / daycare', value: 'School / daycare'},
+                        {
+                          label: "Friend / relative's home",
+                          value: "Friend / relative's home",
+                        },
+                        {label: 'Museum', value: 'Museum'},
+                        {
+                          label: 'Athletic event / stadium',
+                          value: 'Athletic event / stadium',
+                        },
                         {label: 'Restaurant', value: 'Restaurant'},
-                        {label: 'Waiting Room', value: 'Waiting Room'},
-                        {label: "Other's Home", value: "Other's Home"},
+                        {label: 'Library', value: 'Library'},
+                        {
+                          label: 'Grocery / big box store',
+                          value: 'Grocery / big box store',
+                        },
+                        {
+                          label: 'Office building (e.g., medical or therapy office)',
+                          value: 'Office building',
+                        },
+                        {
+                          label: 'In a vehicle (e.g., car, bus)',
+                          value: 'In a vehicle',
+                        },
+                        {
+                          label: 'Faith-based organization',
+                          value: 'Faith-based organization',
+                        },
                       ]}
                       maxHeight={300}
                       labelField="label"
@@ -571,6 +627,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
   // Context & refs
   const {userInfo, isLoading} = useContext<any>(AuthContext);
   const lastResult = useRef<string>('');
+  const accumulatedText = useRef<string>('');
   const currentSound = useRef<Sound | null>(null);
 
   // UI
@@ -604,6 +661,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
   // Companion
   const [isListening, setIsListening] = useState(false);
+  const isListeningRef = useRef(false);
   const [isAssistantLoading, setIsAssistantLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [tips, setTips] = useState<Tip[]>([]);
@@ -620,7 +678,7 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     null,
   );
 
-  // When user selects a child in the modal, we’ll stash it here to resume the flow
+  // When user selects a child in the modal, we'll stash it here to resume the flow
   const selectedChildRef = useRef<Child | null>(null);
 
   // Preferences
@@ -660,8 +718,18 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
 
   const KEYS = surveyKeys(userKey);
 
+  // Per-user walkthrough key so tour runs once after login
+  const HAS_SEEN_WALKTHROUGH_KEY = `@hasSeenWalkthrough:${userKey}`;
+
   const loadStatus = useCallback(async () => {
-    // 1) server completion check (optional but nice for cross-device)
+    // Don't show survey until the walkthrough is done — prevents both appearing at once
+    const hasSeenWalkthrough = await AsyncStorage.getItem(HAS_SEEN_WALKTHROUGH_KEY);
+    if (!hasSeenWalkthrough) {
+      setBootChecked(true);
+      return;
+    }
+
+    // 1) server completion check
     let completed = false;
     try {
       const res = await fetchWithAuth(
@@ -676,13 +744,13 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       );
       if (res.ok) {
         const json = await res.json();
-        completed = !!json?.hasCompletedSurvey; // ← backend returns this
+        completed = !!json?.hasCompletedSurvey;
       }
     } catch (_) {
-      // ignore network errors; we’ll fall back to local flags
+      // ignore network errors; fall back to local flags
     }
 
-    // 2) fallback to local flag if server didn’t say completed
+    // 2) fallback to local flag
     if (!completed) {
       const localCompleted = await AsyncStorage.getItem(KEYS.completed);
       completed = localCompleted === 'true';
@@ -696,17 +764,10 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       return;
     }
 
-    // 3) cadence check
-    const lastPromptStr = await AsyncStorage.getItem(KEYS.lastPrompt);
-    const lastPromptTs = lastPromptStr ? Number(lastPromptStr) : undefined;
-
-    if (isDue(lastPromptTs, REMIND_EVERY_DAYS)) {
-      setShowSurvey(true);
-    } else {
-      setShowSurvey(false);
-    }
+    // Show survey once
+    setShowSurvey(true);
     setBootChecked(true);
-  }, [userInfo?.access_token, KEYS.completed, KEYS.lastPrompt]);
+  }, [userInfo?.access_token, KEYS.completed, HAS_SEEN_WALKTHROUGH_KEY]);
 
   // First mount → decide whether to show
   useEffect(() => {
@@ -723,8 +784,6 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       }
     }, [bootChecked, surveyCompleted, showSurvey, loadStatus]),
   );
-  // Per-user walkthrough key so tour runs once after login
-  const HAS_SEEN_WALKTHROUGH_KEY = `@hasSeenWalkthrough:${userKey}`;
   const WalkthroughableView = walkthroughable(View);
 
   const {start, copilotEvents} = useCopilot();
@@ -753,9 +812,10 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       setTourRunning(true);
     };
 
-    const handleStop = () => {
+    const handleStop = async () => {
       setTourRunning(false);
-      AsyncStorage.setItem(HAS_SEEN_WALKTHROUGH_KEY, 'true');
+      await AsyncStorage.setItem(HAS_SEEN_WALKTHROUGH_KEY, 'true');
+      loadStatus();
     };
 
     copilotEvents.on('start', handleStart);
@@ -765,17 +825,30 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
       copilotEvents.off('start', handleStart);
       copilotEvents.off('stop', handleStop);
     };
-  }, [copilotEvents, HAS_SEEN_WALKTHROUGH_KEY]);
+  }, [copilotEvents, HAS_SEEN_WALKTHROUGH_KEY, loadStatus]);
 
   // Handlers coming from the survey
-  const handleSurveyComplete = async (_data: any) => {
+  const handleSurveyComplete = async (data: any) => {
+    try {
+      await fetchWithAuth(`${API_ENDPOINTS.BASE_URL}/api/personalization/survey`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo?.access_token}`,
+        },
+        body: JSON.stringify({surveyData: data}),
+      });
+    } catch (e) {
+      console.error('[Survey] Failed to save survey to server:', e);
+    }
     await AsyncStorage.setItem(KEYS.completed, 'true');
     setSurveyCompleted(true);
     setShowSurvey(false);
   };
 
   const handleSurveySkip = async () => {
-    await AsyncStorage.setItem(KEYS.lastPrompt, String(Date.now()));
+    await AsyncStorage.setItem(KEYS.completed, 'true');
+    setSurveyCompleted(true);
     setShowSurvey(false);
   };
 
@@ -1119,7 +1192,12 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     };
   }, [getQuickLocation, loadFromCache, refreshDataInBackground]);
 
-  // Voice
+  // Keep ref in sync so closures always see the latest value
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  // Voice — registered once; uses ref to avoid stale closures on Android
   useEffect(() => {
     const initVoice = async () => {
       try {
@@ -1143,20 +1221,39 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
             const res = e.value[0];
             if (res !== lastResult.current) {
               lastResult.current = res;
-              setSearchText(res);
+              const prefix = accumulatedText.current;
+              setSearchText(prefix ? `${prefix} ${res}` : res);
             }
           }
         };
-        Voice.onSpeechError = () => setIsListening(false);
-        Voice.onSpeechEnd = () => {
-          if (isListening) Voice.start('en-US');
+        Voice.onSpeechError = () => {
+          isListeningRef.current = false;
+          setIsListening(false);
+        };
+        Voice.onSpeechEnd = async () => {
+          if (isListeningRef.current) {
+            if (lastResult.current) {
+              accumulatedText.current = accumulatedText.current
+                ? `${accumulatedText.current} ${lastResult.current}`
+                : lastResult.current;
+              lastResult.current = '';
+            }
+            await new Promise(resolve => setTimeout(resolve, 400));
+            try {
+              await Voice.start('en-US');
+            } catch (e) {
+              console.error('voice restart error', e);
+              isListeningRef.current = false;
+              setIsListening(false);
+            }
+          }
         };
       } catch (e) {
         console.error('voice init error', e);
       }
     };
     initVoice();
-  }, [isListening]);
+  }, []);
 
   // Queue & network sync for reactions
   const flushAIReactionsQueue = useCallback(async () => {
@@ -1204,14 +1301,24 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     setIsStreaming(false);
   };
 
+  // cancel an in-flight tips request from anywhere
+  const cancelTips = () => {
+    closeWS();
+    setIsAssistantLoading(false);
+    setShowTipsModal(false);
+    setTips([]);
+  };
+
   useEffect(() => {
     return () => closeWS(); // unmount cleanup
   }, []);
 
   useEffect(() => {
     if (!showTipsModal) {
-      // if a user closes the modal mid-stream, stop the stream
-      if (isStreaming) closeWS();
+      // always close WS on modal dismiss — safe even when not streaming
+      closeWS();
+      setIsAssistantLoading(false);
+      setSearchText('');
     }
   }, [showTipsModal]);
 
@@ -1269,8 +1376,10 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     try {
       if (isListening) {
         await Voice.stop();
+        isListeningRef.current = false;
         setIsListening(false);
         lastResult.current = '';
+        accumulatedText.current = '';
       } else {
         const ok = await Voice.isAvailable();
         if (!ok)
@@ -1280,7 +1389,9 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
           );
         setSearchText('');
         lastResult.current = '';
+        accumulatedText.current = '';
         await Voice.start('en-US');
+        isListeningRef.current = true;
         setIsListening(true);
       }
     } catch (e) {
@@ -1738,6 +1849,11 @@ Try asking about one of these topics!`;
 
     let mentioned = resolveChildrenFromQuery(query, userChildren);
 
+    // Single child — always use them, no need to ask
+    if (mentioned.length === 0 && userChildren.length === 1) {
+      mentioned = userChildren;
+    }
+
     if (mentioned.length === 0) {
       const ageMention = parseAgeMention(query);
       if (ageMention) {
@@ -1748,32 +1864,15 @@ Try asking about one of these topics!`;
           granularity,
         );
 
+        // Age is already stated in the query — never interrupt with a modal.
+        // If exactly one saved child matches, use them for richer context;
+        // otherwise the age in the query text already gives the AI what it needs.
         if (exact.length === 1) {
           mentioned = exact;
-        } else if (exact.length > 1) {
-          setChildDisambigReason('multiple');
-          setChildCandidates(exact);
-          setExpressedAgeMonths(months);
-          setShowChildDisambiguationModal(true);
-          setIsAssistantLoading(false);
-          return;
         } else if (close.length === 1) {
           mentioned = close;
-        } else if (close.length > 1) {
-          setChildDisambigReason('multiple');
-          setChildCandidates(close);
-          setExpressedAgeMonths(months);
-          setShowChildDisambiguationModal(true);
-          setIsAssistantLoading(false);
-          return;
-        } else {
-          setChildDisambigReason('none');
-          setChildCandidates(userChildren);
-          setExpressedAgeMonths(months);
-          setShowChildDisambiguationModal(true);
-          setIsAssistantLoading(false);
-          return;
         }
+        // multiple matches or no match → proceed with age in query as context
       } else {
         const {known, unknown} = resolveChildrenAndUnknownNames(
           query,
@@ -1792,7 +1891,9 @@ Try asking about one of these topics!`;
 
     const childLines = (mentioned.length ? mentioned : userChildren).map(c => {
       const nm = c.nickname || 'Child';
-      return `${nm}: ${ageYMMM(c.date_of_birth)} old`;
+      if (c.age) return `${nm}: ${c.age} year${c.age === 1 ? '' : 's'} old`;
+      const ageStr = ageYMMM(c.date_of_birth);
+      return ageStr === 'Unknown age' ? nm : `${nm}: ${ageStr} old`;
     });
 
     const childContext = childLines.join(', ');
@@ -1800,8 +1901,8 @@ Try asking about one of these topics!`;
       c => ({
         name: c.nickname,
         dob: c.date_of_birth,
-        agePretty: ageYMMM(c.date_of_birth),
-        ageYears: calculateAge(c.date_of_birth),
+        agePretty: c.age ? `${c.age}y` : ageYMMM(c.date_of_birth),
+        ageYears: c.age ?? calculateAge(c.date_of_birth),
       }),
     );
 
@@ -1858,7 +1959,7 @@ Try asking about one of these topics!`;
 
         switch (msg.type) {
           case 'start':
-            // could show a “personalizing…” banner if you want
+            // could show a "personalizing…" banner if you want
             break;
 
           case 'phase':
@@ -2179,7 +2280,7 @@ Try asking about one of these topics!`;
       </View>
 
       <View style={styles.inputField}>
-        <MaterialIcons name="chat-bubble-outline" size={18} color="#9AA0A6" />
+        <MaterialIcons name="chat-bubble-outline" size={18} color="#9AA0A6" style={{marginTop: 2}} />
         <TextInput
           style={styles.fieldText}
           value={searchText}
@@ -2189,6 +2290,7 @@ Try asking about one of these topics!`;
           }
           placeholderTextColor="#9AA0A6"
           multiline
+          scrollEnabled={false}
           editable={!isListening}
           returnKeyType="search"
           blurOnSubmit={false}
@@ -2216,7 +2318,7 @@ Try asking about one of these topics!`;
           onPress={toggleListening}
           activeOpacity={0.8}>
           <MaterialIcons
-            name={isListening ? 'mic-off' : 'mic'}
+            name={isListening ? 'mic' : 'mic-off'}
             size={18}
             color={isListening ? '#FF3B30' : '#6366F1'}
           />
@@ -2225,19 +2327,16 @@ Try asking about one of these topics!`;
 
       <TouchableOpacity
         activeOpacity={0.9}
-        disabled={isAssistantLoading}
-        onPress={getPersonalizedTips}
+        onPress={isAssistantLoading ? cancelTips : getPersonalizedTips}
         style={{borderRadius: 22, overflow: 'hidden', marginBottom: 12}}>
         <LinearGradient
-          colors={['#3B82F6', '#7C4DFF']}
+          colors={isAssistantLoading ? ['#EF4444', '#DC2626'] : ['#3B82F6', '#7C4DFF']}
           start={{x: 0, y: 0}}
           end={{x: 1, y: 1}}
           style={styles.ctaGradient}>
-          {isAssistantLoading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.ctaText}>Get Parenting Advice</Text>
-          )}
+          <Text style={styles.ctaText}>
+            {isAssistantLoading ? 'Cancel' : 'Get Parenting Advice'}
+          </Text>
         </LinearGradient>
       </TouchableOpacity>
     </CompanionView>
@@ -2428,7 +2527,6 @@ Try asking about one of these topics!`;
         onClose={() => setShowSurvey(false)} // close from back button/etc
         onComplete={handleSurveyComplete}
         onSkip={handleSurveySkip}
-        isOptional
       />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={{flex: 1}} onLayout={() => setReady(true)}>
@@ -2451,7 +2549,7 @@ Try asking about one of these topics!`;
               </Text>
             </View>
 
-            <View>
+            <View style={{alignItems: 'center'}}>
               <CopilotStep
                 order={1}
                 name="Saved Locations"
@@ -2463,10 +2561,13 @@ Try asking about one of these topics!`;
                     }
                     style={styles.iconBtn}
                     hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-                    <MaterialIcons name="bookmark" size={22} color="#5973FF" />
+                    <MaterialIcons name="place" size={22} color="#5973FF" />
                   </TouchableOpacity>
                 </WalkthroughableView>
               </CopilotStep>
+              <Text style={{fontSize: 9, color: '#5973FF', fontWeight: '700', marginTop: 3, letterSpacing: 0.3}}>
+                Locations
+              </Text>
             </View>
           </View>
 
@@ -2610,7 +2711,7 @@ Try asking about one of these topics!`;
 
             {childDisambigReason === 'name' && (
               <Text style={{color: '#1F2937', marginBottom: 12}}>
-                We didn’t find a saved child by that name. Pick the right child:
+                We didn't find a saved child by that name. Pick the right child:
               </Text>
             )}
 
@@ -2637,7 +2738,10 @@ Try asking about one of these topics!`;
 
                         const nm = c.nickname || 'Child';
                         // Use the same format as when child name is in query
-                        const childLines = [`${nm}: ${ageYMMM(c.date_of_birth)} old`];
+                        const childLabel = c.age
+                          ? `${nm}: ${c.age} year${c.age === 1 ? '' : 's'} old`
+                          : (() => { const s = ageYMMM(c.date_of_birth); return s === 'Unknown age' ? nm : `${nm}: ${s} old`; })();
+                        const childLines = [childLabel];
                         const childContext = childLines.join(', ');
 
                         const q = searchText.trim();
@@ -2811,7 +2915,12 @@ Try asking about one of these topics!`;
                     alignItems: 'center',
                   }}>
                   <Text style={{color: '#1F2937', fontSize: 15}}>
-                    {c.nickname || 'Child'} — {ageYMMM(c.date_of_birth)}
+                    {c.nickname || 'Child'}
+                    {c.age != null
+                      ? ` — ${c.age}y`
+                      : ageYMMM(c.date_of_birth) !== 'Unknown age'
+                      ? ` — ${ageYMMM(c.date_of_birth)}`
+                      : ''}
                   </Text>
                   <MaterialIcons
                     name="chevron-right"
@@ -2872,21 +2981,21 @@ Try asking about one of these topics!`;
               elevation: 8,
             }}>
             {/* Header */}
-            <View style={{marginBottom: 20}}>
+            <View style={{marginBottom: 16}}>
               <View
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  marginBottom: 8,
+                  marginBottom: 10,
                 }}>
                 <View
                   style={{
                     backgroundColor: '#EEF2FF',
                     borderRadius: 12,
-                    padding: 12,
+                    padding: 10,
                   }}>
-                  <MaterialIcons name="lightbulb" size={28} color="#6366F1" />
+                  <MaterialIcons name="tips-and-updates" size={26} color="#6366F1" />
                 </View>
                 <TouchableOpacity
                   onPress={() => setShowHelperTip(false)}
@@ -2896,170 +3005,122 @@ Try asking about one of these topics!`;
               </View>
               <Text
                 style={{
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: '700',
                   color: '#111827',
-                  marginBottom: 6,
+                  marginBottom: 4,
                 }}>
-                How to Ask Better Questions
+                How to Ask for Tips
               </Text>
-              <Text style={{fontSize: 14, color: '#6B7280'}}>
-                Get more relevant tips with these examples
+              <Text style={{fontSize: 13, color: '#6B7280', lineHeight: 18}}>
+                Describe what your child is doing and what skill you want to build. Tap an example to try it.
               </Text>
             </View>
 
-            {/* Examples */}
-            <View style={{marginBottom: 24}}>
-              {/* Good Example */}
-              <View style={{marginBottom: 20}}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                  }}>
-                  <MaterialIcons name="check-circle" size={20} color="#10B981" />
-                  <Text
-                    style={{
-                      fontSize: 16,
-                      fontWeight: '600',
-                      color: '#10B981',
-                      marginLeft: 6,
-                    }}>
-                    Try asking like this:
-                  </Text>
+            {/* Tappable examples */}
+            {(() => {
+              const name = userChildren.length === 1 ? userChildren[0].nickname : 'my child';
+              const examples = [
+                {
+                  icon: 'record-voice-over',
+                  color: '#7C4DFF',
+                  bg: '#F3EEFF',
+                  text: `How can ${name} build vocabulary and learn to talk at the grocery store?`,
+                },
+                {
+                  icon: 'science',
+                  color: '#0891B2',
+                  bg: '#ECFEFF',
+                  text: `Ways for ${name} to explore and discover nature at the park`,
+                },
+                {
+                  icon: 'menu-book',
+                  color: '#059669',
+                  bg: '#ECFDF5',
+                  text: `How to make ${name} enjoy reading books and story time`,
+                },
+                {
+                  icon: 'emoji-emotions',
+                  color: '#D97706',
+                  bg: '#FFFBEB',
+                  text: `How to help ${name} develop empathy and social skills`,
+                },
+              ];
+              return (
+                <View style={{gap: 8, marginBottom: 16}}>
+                  {examples.map((ex, i) => (
+                    <TouchableOpacity
+                      key={i}
+                      activeOpacity={0.75}
+                      onPress={() => {
+                        setSearchText(ex.text);
+                        setShowHelperTip(false);
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: ex.bg,
+                        borderRadius: 12,
+                        padding: 12,
+                        gap: 10,
+                      }}>
+                      <MaterialIcons name={ex.icon as any} size={20} color={ex.color} />
+                      <Text style={{flex: 1, fontSize: 13, color: '#1F2937', lineHeight: 18}}>
+                        {ex.text}
+                      </Text>
+                      <MaterialIcons name="north-west" size={16} color={ex.color} />
+                    </TouchableOpacity>
+                  ))}
                 </View>
-                <View
-                  style={{
-                    backgroundColor: '#F0FDF4',
-                    borderLeftWidth: 3,
-                    borderLeftColor: '#10B981',
-                    padding: 12,
-                    borderRadius: 8,
-                  }}>
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      color: '#065F46',
-                      fontWeight: '500',
-                      marginBottom: 4,
-                    }}>
-                    "bathtime activities"
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      color: '#065F46',
-                      fontWeight: '500',
-                      marginBottom: 4,
-                    }}>
-                    "reading activities"
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      color: '#065F46',
-                      fontWeight: '500',
-                    }}>
-                    "outdoor play ideas"
-                  </Text>
-                </View>
-              </View>
+              );
+            })()}
 
-              {/* Bad Example */}
-              <View>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                  }}>
-                  <MaterialIcons name="cancel" size={20} color="#EF4444" />
-                  <Text
-                    style={{
-                      fontSize: 16,
-                      fontWeight: '600',
-                      color: '#EF4444',
-                      marginLeft: 6,
-                    }}>
-                    Avoid asking like this:
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    backgroundColor: '#FEF2F2',
-                    borderLeftWidth: 3,
-                    borderLeftColor: '#EF4444',
-                    padding: 12,
-                    borderRadius: 8,
-                  }}>
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      color: '#991B1B',
-                      fontWeight: '500',
-                      marginBottom: 4,
-                    }}>
-                    "bathtime tips" ❌
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      color: '#991B1B',
-                      fontWeight: '500',
-                      marginBottom: 4,
-                    }}>
-                    "reading tips" ❌
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      color: '#991B1B',
-                      fontWeight: '500',
-                    }}>
-                    "give me tips" ❌
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Pro Tip */}
-            <View
+            {/* Content preferences tip */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                setShowHelperTip(false);
+                navigation.navigate('Settings');
+              }}
               style={{
-                backgroundColor: '#FEF3C7',
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#F0F9FF',
                 borderRadius: 12,
-                padding: 14,
-                marginBottom: 20,
+                padding: 12,
+                marginBottom: 14,
                 borderWidth: 1,
-                borderColor: '#FDE68A',
+                borderColor: '#BAE6FD',
+                gap: 10,
               }}>
+              <MaterialIcons name="tune" size={20} color="#0284C7" />
+              <View style={{flex: 1}}>
+                <Text style={{fontSize: 13, fontWeight: '600', color: '#0369A1'}}>
+                  Personalise your tips
+                </Text>
+                <Text style={{fontSize: 12, color: '#0284C7', marginTop: 2}}>
+                  Set your content preferences in Settings — the app will focus on those topics automatically.
+                </Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={20} color="#0284C7" />
+            </TouchableOpacity>
+
+            {/* Not supported */}
+            <View style={{marginBottom: 20}}>
               <View
                 style={{
                   flexDirection: 'row',
-                  alignItems: 'flex-start',
+                  alignItems: 'center',
+                  marginBottom: 6,
                 }}>
-                <MaterialIcons
-                  name="star"
-                  size={18}
-                  color="#D97706"
-                  style={{marginTop: 2}}
-                />
-                <View style={{flex: 1, marginLeft: 8}}>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: '600',
-                      color: '#92400E',
-                      marginBottom: 4,
-                    }}>
-                    Pro Tip
-                  </Text>
-                  <Text style={{fontSize: 13, color: '#78350F', lineHeight: 18}}>
-                    Use words like "activities", "ideas", or "games" instead of
-                    "tips" for better results!
-                  </Text>
-                </View>
+                <MaterialIcons name="cancel" size={16} color="#EF4444" />
+                <Text style={{fontSize: 13, fontWeight: '600', color: '#EF4444', marginLeft: 5}}>
+                  Not supported
+                </Text>
               </View>
+              <Text style={{fontSize: 12, color: '#9CA3AF', lineHeight: 18}}>
+                Sleep training · Potty training · General parenting advice · Behaviour/discipline
+              </Text>
             </View>
 
             {/* Close Button */}
@@ -3222,16 +3283,17 @@ const styles = StyleSheet.create({
   // Input field
   inputField: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#F8F9FB',
     borderRadius: 14,
-    height: 48,
+    minHeight: 48,
     paddingHorizontal: 12,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     marginBottom: 12,
   },
-  fieldText: {flex: 1, marginLeft: 8, color: '#111827', fontSize: 15},
+  fieldText: {flex: 1, marginLeft: 8, color: '#111827', fontSize: 15, textAlignVertical: 'top', minHeight: 24},
   micPill: {
     width: 32,
     height: 32,

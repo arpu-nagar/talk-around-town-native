@@ -10,186 +10,11 @@ import PushNotification from 'react-native-push-notification';
 import {navigationRef} from './src/ref/NavigationRef';
 import {Platform} from 'react-native';
 import messaging from '@react-native-firebase/messaging';
+import notifee, {AndroidImportance} from '@notifee/react-native';
 import BackgroundFetch from 'react-native-background-fetch';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Geolocation from '@react-native-community/geolocation';
 import {BASE_URL} from './src/config';
-
-// Enable comprehensive notification logging
-const enableNotificationLogging = () => {
-  // Log FCM token refreshes
-  messaging().onTokenRefresh(token => {
-    console.log('FCM token refreshed:', token);
-  });
-
-  // Log when app is opened by clicking a notification
-  messaging().onNotificationOpenedApp(message => {
-    console.log('App opened via notification:', message);
-  });
-
-  // Log initial notification if app was launched by notification
-  messaging()
-    .getInitialNotification()
-    .then(message => {
-      if (message) {
-        console.log('App launched via notification:', message);
-      }
-    });
-};
-
-// Call this function to enable all notification logging
-enableNotificationLogging();
-
-console.log('🔔 Registering FCM message handlers...');
-
-// Enhanced background message handler with better data preservation
-messaging().setBackgroundMessageHandler(async remoteMessage => {
-  console.log('📩 Background message received:', remoteMessage);
-
-  // Store complete data including metadata to help with debugging
-  const enhancedData = {
-    ...remoteMessage.data,
-    _receivedAt: new Date().toISOString(),
-    _isBackground: true,
-  };
-
-  // Extract title and message correctly from the incoming FCM message
-  const title =
-    remoteMessage.data?.title ||
-    remoteMessage.notification?.title ||
-    'New notification';
-
-  const message =
-    remoteMessage.data?.message ||
-    remoteMessage.notification?.body ||
-    'You have a new notification';
-
-  // Store the title and message explicitly in the enhancedData
-  enhancedData.title = title;
-  enhancedData.message = message;
-
-  // Parse tips data if present to ensure it's accessible when notification is clicked
-  let parsedTips = [];
-  if (remoteMessage.data?.tips) {
-    try {
-      parsedTips = JSON.parse(remoteMessage.data.tips);
-      enhancedData.parsedTips = parsedTips;
-    } catch (error) {
-      console.error('Error parsing tips from background notification:', error);
-    }
-  }
-
-  // Create a local notification with all necessary data
-  PushNotification.localNotification({
-    channelId: 'location-tips',
-    title: title,
-    message: message,
-    userInfo: enhancedData,
-    playSound: true,
-    soundName: 'default',
-    importance: 'high',
-    priority: 'high',
-    // Ensure data is duplicated here as some devices need it in different places
-    data: enhancedData,
-  });
-
-  return Promise.resolve();
-});
-
-// Foreground notification handling (both iOS and Android)
-console.log('🔔 Registering foreground message handler...');
-messaging().onMessage(async remoteMessage => {
-  console.log('📩 Foreground message received:', remoteMessage);
-
-  const enhancedData = {
-    ...remoteMessage.data,
-    _receivedAt: new Date().toISOString(),
-    _isForeground: true,
-  };
-
-  // Extract title and message
-  const title =
-    remoteMessage.data?.title ||
-    remoteMessage.notification?.title ||
-    'New notification';
-
-  const message =
-    remoteMessage.data?.message ||
-    remoteMessage.notification?.body ||
-    'You have a new notification';
-
-  enhancedData.title = title;
-  enhancedData.message = message;
-
-  // Parse tips if present
-  if (remoteMessage.data?.tips) {
-    try {
-      const parsedTips = JSON.parse(remoteMessage.data.tips);
-      enhancedData.parsedTips = parsedTips;
-    } catch (error) {
-      console.error('Error parsing tips from foreground notification:', error);
-    }
-  }
-
-  // Create local notification to display while app is in foreground
-  PushNotification.localNotification({
-    channelId: 'location-tips',
-    title: title,
-    message: message,
-    userInfo: enhancedData,
-    data: enhancedData,
-    playSound: true,
-    soundName: 'default',
-    importance: 'high',
-    priority: 'high',
-  });
-});
-
-// Request permissions explicitly for iOS
-if (Platform.OS === 'ios') {
-  messaging()
-    .requestPermission()
-    .then(authStatus => {
-      console.log('iOS notification permission status:', authStatus);
-    });
-}
-
-// Create notification channels (don't delete existing - just ensure they exist)
-console.log('📱 Setting up notification channels...');
-
-PushNotification.channelExists('location-tips', exists => {
-  if (!exists) {
-    PushNotification.createChannel(
-      {
-        channelId: 'location-tips',
-        channelName: 'Location Tips',
-        channelDescription: 'Notifications for location updates',
-        importance: 4,
-        vibrate: true,
-      },
-      created => console.log(`Main channel created: ${created}`),
-    );
-  } else {
-    console.log('Main channel already exists');
-  }
-});
-
-PushNotification.channelExists('app-reminders', exists => {
-  if (!exists) {
-    PushNotification.createChannel(
-      {
-        channelId: 'app-reminders',
-        channelName: 'App Reminders',
-        channelDescription: 'Reminders to open the app',
-        importance: 4,
-        vibrate: true,
-      },
-      created => console.log(`Reminders channel created: ${created}`),
-    );
-  } else {
-    console.log('Reminders channel already exists');
-  }
-});
 
 // Improved navigation function with retry mechanism
 const navigateToNotification = (title, message, data) => {
@@ -270,6 +95,235 @@ const navigateToNotification = (title, message, data) => {
   }, 800);
 };
 
+// Enable comprehensive notification logging
+const enableNotificationLogging = () => {
+  // Log FCM token refreshes
+  messaging().onTokenRefresh(token => {
+    console.log('FCM token refreshed:', token);
+  });
+
+  // Handle app opened by tapping a background notification (iOS)
+  messaging().onNotificationOpenedApp(message => {
+    console.log('App opened via notification:', message);
+    const { data, notification } = message;
+    const title = data?.title || notification?.title || 'New Notification';
+    const body = data?.message || data?.body || notification?.body || '';
+    navigateToNotification(title, body, {
+      ...data,
+      tipDetail: body,
+      tipCategory: data?.locationType || 'Tip',
+    });
+  });
+
+  // Handle app launched from killed state by tapping a notification (iOS)
+  messaging()
+    .getInitialNotification()
+    .then(message => {
+      if (message) {
+        console.log('App launched via notification:', message);
+        const { data, notification } = message;
+        const title = data?.title || notification?.title || 'New Notification';
+        const body = data?.message || data?.body || notification?.body || '';
+        // Delay navigation to allow the navigator to mount first
+        setTimeout(() => {
+          navigateToNotification(title, body, {
+            ...data,
+            tipDetail: body,
+            tipCategory: data?.locationType || 'Tip',
+          });
+        }, 1000);
+      }
+    });
+};
+
+// Call this function to enable all notification logging
+enableNotificationLogging();
+
+console.log('🔔 Registering FCM message handlers...');
+
+// Register notifee background event handler (required for notifee to work in background)
+notifee.onBackgroundEvent(async ({type, detail}) => {
+  console.log('📲 Notifee background event:', type, detail.notification?.id);
+  if (type === 3 /* EventType.PRESS */ && detail.notification?.data) {
+    const d = detail.notification.data;
+    const title = d.title || 'New Notification';
+    const body = d.message || d.body || '';
+    console.log('📲 Notifee background press:', {title, body});
+    navigateToNotification(title, body, {
+      ...d,
+      tipDetail: body,
+      tipCategory: d.locationType || 'Tip',
+    });
+  }
+});
+
+// Handle foreground notifee notification taps (both iOS and Android)
+notifee.onForegroundEvent(({type, detail}) => {
+  if (type === 3 /* EventType.PRESS */ && detail.notification?.data) {
+    const d = detail.notification.data;
+    const title = d.title || 'New Notification';
+    const body = d.message || d.body || '';
+    console.log('📲 Notifee foreground press:', {title, body});
+    navigateToNotification(title, body, {
+      ...d,
+      tipDetail: body,
+      tipCategory: d.locationType || 'Tip',
+    });
+  }
+});
+
+// Enhanced background message handler with better data preservation
+messaging().setBackgroundMessageHandler(async remoteMessage => {
+  console.log('📩 Background message received:', remoteMessage);
+
+  // iOS: if the message has a notification payload the OS already displayed it.
+  // Only skip for those — data-only (silent) messages fall through so notifee shows them.
+  if (Platform.OS === 'ios' && remoteMessage.notification) return;
+
+  const title =
+    remoteMessage.data?.title ||
+    remoteMessage.notification?.title ||
+    'New notification';
+
+  const message =
+    remoteMessage.data?.message ||
+    remoteMessage.data?.body ||
+    remoteMessage.notification?.body ||
+    'You have a new notification';
+
+  const enhancedData = {
+    ...remoteMessage.data,
+    title,
+    message,
+    _receivedAt: new Date().toISOString(),
+    _isBackground: 'true',
+  };
+
+  // Note: remoteMessage.data.tips is already a string (JSON), which is valid for notifee.
+  // Do not parse it here — keep it as a string so notifee doesn't reject it.
+
+  // Android: use notifee — creates the channel inline and works reliably
+  // in headless/background mode (unlike react-native-push-notification).
+  const channelId = await notifee.createChannel({
+    id: 'location-tips',
+    name: 'Location Tips',
+    importance: AndroidImportance.HIGH,
+  });
+
+  await notifee.displayNotification({
+    title,
+    body: message,
+    data: enhancedData,
+    android: {
+      channelId,
+      importance: AndroidImportance.HIGH,
+      pressAction: {id: 'default'},
+    },
+  });
+});
+
+// Foreground notification handling (both iOS and Android)
+console.log('🔔 Registering foreground message handler...');
+messaging().onMessage(async remoteMessage => {
+  console.log('📩 Foreground message received:', remoteMessage);
+
+  const title =
+    remoteMessage.data?.title ||
+    remoteMessage.notification?.title ||
+    'New notification';
+
+  const message =
+    remoteMessage.data?.message ||
+    remoteMessage.data?.body ||
+    remoteMessage.notification?.body ||
+    'You have a new notification';
+
+  const enhancedData = {
+    ...remoteMessage.data,
+    title,
+    message,
+    _receivedAt: new Date().toISOString(),
+    _isForeground: 'true',
+  };
+
+  // Note: remoteMessage.data.tips is already a string (JSON), which is valid for notifee.
+  // Do not parse it here — keep it as a string so notifee doesn't reject it.
+
+  // Use notifee for foreground display — reliable on both Android and iOS.
+  // (On iOS, FCM suppresses notification-type messages while in foreground,
+  // so we must display them manually regardless of platform.)
+  const channelId = await notifee.createChannel({
+    id: 'location-tips',
+    name: 'Location Tips',
+    importance: AndroidImportance.HIGH,
+  });
+
+  await notifee.displayNotification({
+    title,
+    body: message,
+    data: enhancedData,
+    android: {
+      channelId,
+      importance: AndroidImportance.HIGH,
+      pressAction: {id: 'default'},
+    },
+    ios: {
+      sound: 'default',
+      foregroundPresentationOptions: {
+        alert: true,
+        badge: true,
+        sound: true,
+      },
+    },
+  });
+});
+
+// Request permissions explicitly for iOS
+if (Platform.OS === 'ios') {
+  messaging()
+    .requestPermission()
+    .then(authStatus => {
+      console.log('iOS notification permission status:', authStatus);
+    });
+}
+
+// Create notification channels (don't delete existing - just ensure they exist)
+console.log('📱 Setting up notification channels...');
+
+PushNotification.channelExists('location-tips', exists => {
+  if (!exists) {
+    PushNotification.createChannel(
+      {
+        channelId: 'location-tips',
+        channelName: 'Location Tips',
+        channelDescription: 'Notifications for location updates',
+        importance: 4,
+        vibrate: true,
+      },
+      created => console.log(`Main channel created: ${created}`),
+    );
+  } else {
+    console.log('Main channel already exists');
+  }
+});
+
+PushNotification.channelExists('app-reminders', exists => {
+  if (!exists) {
+    PushNotification.createChannel(
+      {
+        channelId: 'app-reminders',
+        channelName: 'App Reminders',
+        channelDescription: 'Reminders to open the app',
+        importance: 4,
+        vibrate: true,
+      },
+      created => console.log(`Reminders channel created: ${created}`),
+    );
+  } else {
+    console.log('Reminders channel already exists');
+  }
+});
+
 // Enhanced notification configuration with better debugging
 PushNotification.configure({
   onRegister: function (token) {
@@ -277,39 +331,8 @@ PushNotification.configure({
   },
 
   onNotification: function (notification) {
-    const {message, title, userInteraction, foreground, data} = notification;
-
-    // Safety checks for notification content
-    const safeTitle = title || 'New Notification';
-    const safeMessage = message || 'You have a new notification';
-
-    // Add more detailed logging for debugging
-    console.log('======== NOTIFICATION RECEIVED ========');
-    console.log('Title:', safeTitle);
-    console.log('Message:', safeMessage);
-    console.log('User Interaction:', userInteraction);
-    console.log('Foreground:', foreground);
-    console.log('Raw data object:', data);
-
-    // Enhanced logging for background notification clicks
-    if (userInteraction) {
-      console.log('👆 USER CLICKED NOTIFICATION - DETAILED DATA:');
-      console.log('data object keys:', Object.keys(data || {}));
-      console.log('message contains:', safeMessage.substring(0, 50) + '...');
-
-      // Ensure we pass the complete message content as tipDetail for TipsScreen
-      const enhancedNavigationData = {
-        ...data,
-        tipDetail: safeMessage, // Add the full message as tipDetail
-        tipCategory: data?.locationType || 'Tip', // Use locationType as category
-      };
-
-      console.log('Enhanced navigation data:', enhancedNavigationData);
-
-      // Navigate with enhanced data
-      navigateToNotification(safeTitle, safeMessage, enhancedNavigationData);
-    }
-
+    // Navigation on tap is handled by messaging().onNotificationOpenedApp()
+    // and messaging().getInitialNotification() to avoid double navigation.
     // Required on iOS
     notification.finish && notification.finish();
   },

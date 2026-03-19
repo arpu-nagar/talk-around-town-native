@@ -76,9 +76,7 @@ export const LocationForm: React.FC<LocationFormProps> = React.memo(({
     return true;
   }, [name, description, selectedType, location, isLocationNearby]);
 
-  const handleSubmit = useCallback(async () => {
-    if (!validateForm() || isSubmitting) return;
-
+  const doSubmit = useCallback(async () => {
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -88,8 +86,6 @@ export const LocationForm: React.FC<LocationFormProps> = React.memo(({
         latitude: location.latitude,
         longitude: location.longitude,
       });
-      
-      // Reset form
       setName('');
       setDescription('');
       setSelectedType(null);
@@ -98,7 +94,25 @@ export const LocationForm: React.FC<LocationFormProps> = React.memo(({
     } finally {
       setIsSubmitting(false);
     }
-  }, [validateForm, isSubmitting, onSubmit, name, description, selectedType, location]);
+  }, [onSubmit, name, description, selectedType, location]);
+
+  const handleSubmit = useCallback(async () => {
+    if (!validateForm() || isSubmitting) return;
+
+    if (name.trim().toLowerCase() === 'home') {
+      Alert.alert(
+        'Home Location Not Recommended',
+        "Just a reminder: to ensure your privacy, please don't save your home address as a location to receive tips.\n\nIf you're adding a friend's or relative's home, feel free to proceed.",
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {text: 'Proceed Anyway', onPress: () => doSubmit()},
+        ],
+      );
+      return;
+    }
+
+    await doSubmit();
+  }, [validateForm, isSubmitting, name, doSubmit]);
 
   return (
     <LinearGradient

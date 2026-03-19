@@ -53,11 +53,15 @@ const ReminderSettingsScreen: React.FC<ReminderSettingsScreenProps> = ({
   const [currentEditingReminder, setCurrentEditingReminder] =
     useState<ReminderTime | null>(null);
   const [showDayPicker, setShowDayPicker] = useState(false);
+  const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
+  const isInitializedRef = React.useRef(false);
+
   useEffect(() => {
     // This runs only once when the component mounts
     const initializeScreen = async () => {
       await requestAlarmPermissions();
       await loadReminderSettings();
+      isInitializedRef.current = true;
     };
 
     console.log('ReminderSettings screen mounted');
@@ -66,9 +70,9 @@ const ReminderSettingsScreen: React.FC<ReminderSettingsScreenProps> = ({
 
   // Second useEffect: Save data and schedule notifications when data changes
   useEffect(() => {
-    // Skip on initial render when both might be default values
-    if (specificReminders.length === 0 && !generalRemindersEnabled) {
-      console.log('Skipping initial save with empty values');
+    // Skip until settings have been loaded from storage on mount
+    if (!isInitializedRef.current) {
+      console.log('Skipping save — settings not yet loaded');
       return;
     }
 
@@ -380,26 +384,54 @@ const ReminderSettingsScreen: React.FC<ReminderSettingsScreenProps> = ({
 
   const editReminderTime = (reminder: ReminderTime) => {
     setCurrentEditingReminder(reminder);
+    setTempSelectedDate(
+      new Date(new Date().getFullYear(), 0, 1, reminder.hour, reminder.minute),
+    );
     setShowTimePicker(true);
   };
 
   const handleTimeChange = (event: any, selectedDate?: Date) => {
-    setShowTimePicker(false);
+    if (Platform.OS === 'android') {
+      if (event.type === 'set' || event.type === 'dismissed') {
+        setShowTimePicker(false);
+      }
+      if (event.type === 'set' && selectedDate && currentEditingReminder) {
+        const updatedReminders = specificReminders.map(reminder => {
+          if (reminder.id === currentEditingReminder.id) {
+            return {
+              ...reminder,
+              hour: selectedDate.getHours(),
+              minute: selectedDate.getMinutes(),
+            };
+          }
+          return reminder;
+        });
+        setSpecificReminders(updatedReminders);
+      }
+    } else {
+      // iOS: just store the selected date; don't close until user taps Done
+      if (selectedDate) {
+        setTempSelectedDate(selectedDate);
+      }
+    }
+  };
 
-    if (selectedDate && currentEditingReminder) {
+  const confirmTimeSelection = () => {
+    if (tempSelectedDate && currentEditingReminder) {
       const updatedReminders = specificReminders.map(reminder => {
         if (reminder.id === currentEditingReminder.id) {
           return {
             ...reminder,
-            hour: selectedDate.getHours(),
-            minute: selectedDate.getMinutes(),
+            hour: tempSelectedDate.getHours(),
+            minute: tempSelectedDate.getMinutes(),
           };
         }
         return reminder;
       });
-
       setSpecificReminders(updatedReminders);
     }
+    setShowTimePicker(false);
+    setTempSelectedDate(null);
   };
 
   const editReminderDay = (reminder: ReminderTime) => {
@@ -544,11 +576,11 @@ const ReminderSettingsScreen: React.FC<ReminderSettingsScreenProps> = ({
           </View>
         </ScrollView>
 
-        {showTimePicker && currentEditingReminder && (
+        {showTimePicker && currentEditingReminder && Platform.OS === 'android' && (
           <DateTimePicker
             value={
               new Date(
-                2025,
+                new Date().getFullYear(),
                 0,
                 1,
                 currentEditingReminder.hour,
@@ -560,6 +592,41 @@ const ReminderSettingsScreen: React.FC<ReminderSettingsScreenProps> = ({
             display="default"
             onChange={handleTimeChange}
           />
+        )}
+
+        {showTimePicker && currentEditingReminder && Platform.OS === 'ios' && (
+          <View style={styles.timePickerContainer}>
+            <View style={styles.timePickerHeader}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowTimePicker(false);
+                  setTempSelectedDate(null);
+                }}>
+                <Text style={styles.timePickerCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.timePickerTitle}>Select Time</Text>
+              <TouchableOpacity onPress={confirmTimeSelection}>
+                <Text style={styles.timePickerDone}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={
+                tempSelectedDate ||
+                new Date(
+                  new Date().getFullYear(),
+                  0,
+                  1,
+                  currentEditingReminder.hour,
+                  currentEditingReminder.minute,
+                )
+              }
+              mode="time"
+              is24Hour={false}
+              display="spinner"
+              themeVariant="light"
+              onChange={handleTimeChange}
+            />
+          </View>
         )}
 
         {showDayPicker && (
@@ -768,6 +835,43 @@ const styles = StyleSheet.create({
   dayPickerItemText: {
     fontSize: 16,
     color: '#333',
+  },
+  timePickerContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: -3},
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  timePickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  timePickerCancel: {
+    fontSize: 16,
+    color: '#999',
+  },
+  timePickerDone: {
+    fontSize: 16,
+    color: '#6366F1',
+    fontWeight: '600',
   },
 });
 
