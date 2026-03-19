@@ -1718,6 +1718,13 @@ const MainScreen: React.FC = () => {
           setShowAgePrompt(true);
           return;
         }
+        if (errorData.error === 'out_of_scope') {
+          Alert.alert(
+            'Outside My Expertise',
+            'I can only help with:\n\n• Language Development\n• Early Science Skills\n• Literacy Foundations\n• Social-Emotional Learning\n\nTry asking about one of these topics!',
+          );
+          return;
+        }
         throw new Error(`Server responded with ${response.status}`);
       }
 

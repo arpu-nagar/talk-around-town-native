@@ -176,9 +176,9 @@ notifee.onForegroundEvent(({type, detail}) => {
 messaging().setBackgroundMessageHandler(async remoteMessage => {
   console.log('📩 Background message received:', remoteMessage);
 
-  // iOS: if the message has a notification payload the OS already displayed it.
-  // Only skip for those — data-only (silent) messages fall through so notifee shows them.
-  if (Platform.OS === 'ios' && remoteMessage.notification) return;
+  // If the message has a notification payload the OS already displayed it (both iOS and Android).
+  // Skip manual display to avoid duplicates.
+  if (remoteMessage.notification) return;
 
   const title =
     remoteMessage.data?.title ||
