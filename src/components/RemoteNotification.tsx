@@ -3,7 +3,8 @@ import Geolocation from '@react-native-community/geolocation';
 import messaging from '@react-native-firebase/messaging';
 import notifee, {EventType} from '@notifee/react-native';
 import {AuthContext, AuthContextType} from '../context/AuthContext';
-import {Platform} from 'react-native';
+import {Alert, AppState, Linking, Platform} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {BASE_URL} from '../config';
 import BackgroundFetch from 'react-native-background-fetch';
 
@@ -19,6 +20,8 @@ const RemoteNotification: React.FC = () => {
   const lastPressTime = useRef<number>(0);
   const isAuthenticatedRef = useRef(false);
   const setupCompleted = useRef(false);
+  const appStateSubRef = useRef<ReturnType<typeof AppState.addEventListener> | null>(null);
+  const isCheckingRef = useRef(false);
 
   const verifyAuth = async (token: string) => {
     try {
@@ -88,11 +91,16 @@ const RemoteNotification: React.FC = () => {
   };
 
   const locationCheck = useCallback(async () => {
+    if (isCheckingRef.current) {
+      console.log('[RemoteNotification] Location check already in progress, skipping');
+      return;
+    }
     console.log('[RemoteNotification] Location check - authenticated:', isAuthenticatedRef.current, 'hasToken:', !!userInfo?.access_token);
     if (!userInfo?.access_token || !isAuthenticatedRef.current) {
       console.log('[RemoteNotification] Skipping location check - not authenticated');
       return;
     }
+    isCheckingRef.current = true;
 
     try {
       const position = await new Promise<any>((resolve, reject) => {
@@ -113,10 +121,6 @@ const RemoteNotification: React.FC = () => {
           longitude,
         );
         setIsMoving(distance > 10);
-        if (distance <= 10) {
-          console.log('[RemoteNotification] Location unchanged, skipping server check');
-          return;
-        }
       }
 
       lastLocationRef.current = {latitude, longitude};
@@ -145,6 +149,8 @@ const RemoteNotification: React.FC = () => {
       if (error instanceof Error && error.message.includes('401')) {
         isAuthenticatedRef.current = false;
       }
+    } finally {
+      isCheckingRef.current = false;
     }
   }, [userInfo?.access_token]);
 
@@ -176,6 +182,26 @@ const RemoteNotification: React.FC = () => {
 
         await setupFCM();
 
+        // On Android, prompt once to disable battery optimization so background
+        // location checks (BackgroundFetch) are not deferred by the OS.
+        if (Platform.OS === 'android') {
+          const prompted = await AsyncStorage.getItem('batteryOptimizationPrompted');
+          if (!prompted) {
+            await AsyncStorage.setItem('batteryOptimizationPrompted', 'true');
+            Alert.alert(
+              'Enable Background Notifications',
+              'To receive tips while ENACT is in the background, please set battery usage to "Unrestricted":\n\nSettings → Apps → ENACT → Battery → Unrestricted',
+              [
+                {text: 'Later', style: 'cancel'},
+                {
+                  text: 'Open Settings',
+                  onPress: () => Linking.openSettings(),
+                },
+              ],
+            );
+          }
+        }
+
         notifee.onForegroundEvent(({type, detail}) => {
           if (type === EventType.PRESS) {
             const now = Date.now();
@@ -202,6 +228,19 @@ const RemoteNotification: React.FC = () => {
           isMoving ? 30000 : 60000,
         );
 
+        // Fire an immediate location check when the app returns to the foreground
+        // so the server receives a ping without waiting for the next interval tick
+        const appStateSubscription = AppState.addEventListener(
+          'change',
+          nextState => {
+            if (nextState === 'active') {
+              console.log('[RemoteNotification] App foregrounded – running location check');
+              locationCheck();
+            }
+          },
+        );
+        appStateSubRef.current = appStateSubscription;
+
         // Configure BackgroundFetch for background location checks
         console.log('[RemoteNotification] Configuring BackgroundFetch...');
         await BackgroundFetch.configure(
@@ -213,6 +252,12 @@ const RemoteNotification: React.FC = () => {
           },
           async (taskId: string) => {
             console.log('[BackgroundFetch] Fetch event:', taskId);
+            // Skip if a foreground location check is already in progress
+            if (isCheckingRef.current) {
+              console.log('[BackgroundFetch] Foreground check in progress, skipping');
+              BackgroundFetch.finish(taskId);
+              return;
+            }
             // Perform location check in background
             try {
               const position = await new Promise<any>((resolve, reject) => {
@@ -264,6 +309,10 @@ const RemoteNotification: React.FC = () => {
       if (locationIntervalRef.current) {
         clearInterval(locationIntervalRef.current);
         locationIntervalRef.current = null;
+      }
+      if (appStateSubRef.current) {
+        appStateSubRef.current.remove();
+        appStateSubRef.current = null;
       }
       // Note: BackgroundFetch continues running intentionally for background location
     };

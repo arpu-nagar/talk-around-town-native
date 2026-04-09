@@ -1131,6 +1131,13 @@ const MainScreen: React.FC<Props> = ({navigation}) => {
     }
   }, [userInfo, saveToCache]);
 
+  // Refresh locations whenever the screen comes into focus (e.g. after returning from LocationList)
+  useFocusEffect(
+    useCallback(() => {
+      refreshDataInBackground();
+    }, [refreshDataInBackground]),
+  );
+
   // Startup sequence
   useEffect(() => {
     let mounted = true;

@@ -21,6 +21,7 @@ import {NavigationProp} from '@react-navigation/native';
 import messaging from '@react-native-firebase/messaging';
 import LinearGradient from 'react-native-linear-gradient';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {Ionicons} from '@expo/vector-icons';
 import {BASE_URL} from '../config';
 // Removed incorrect import of userInfo from 'os'
 
@@ -40,6 +41,7 @@ const inputWidth = Math.min(width * 0.85, 400);
 const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fcmTokenStatus, setFcmTokenStatus] = useState<
     'loading' | 'success' | 'error' | 'skipped'
@@ -395,10 +397,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               value={password}
               onChangeText={setPassword}
               placeholder="Enter your password"
-              secureTextEntry
+              secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoComplete="password"
               editable={!isSubmitting}
+              showToggle={showPassword}
+              onToggle={() => setShowPassword(prev => !prev)}
             />
 
             <TouchableOpacity
@@ -456,12 +460,23 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
 
 interface InputFieldProps extends React.ComponentProps<typeof TextInput> {
   label: string;
+  showToggle?: boolean;
+  onToggle?: () => void;
 }
 
-const InputField: React.FC<InputFieldProps> = ({label, ...props}) => (
+const InputField: React.FC<InputFieldProps> = ({label, showToggle, onToggle, ...props}) => (
   <View style={styles.inputContainer}>
     <Text style={styles.inputLabel}>{label}</Text>
-    <TextInput style={styles.input} placeholderTextColor="#A0A0A0" {...props} />
+    {onToggle ? (
+      <View style={styles.passwordRow}>
+        <TextInput style={styles.passwordRowInput} placeholderTextColor="#A0A0A0" {...props} />
+        <TouchableOpacity onPress={onToggle} style={styles.eyeButton}>
+          <Ionicons name={showToggle ? 'eye-off' : 'eye'} size={24} color="#666666" />
+        </TouchableOpacity>
+      </View>
+    ) : (
+      <TextInput style={styles.input} placeholderTextColor="#A0A0A0" {...props} />
+    )}
   </View>
 );
 
@@ -557,6 +572,26 @@ const styles = StyleSheet.create({
     height: 48,
     fontSize: 16,
     color: '#333333',
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    height: 48,
+  },
+  passwordRowInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#333333',
+  },
+  eyeButton: {
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loginButton: {
     backgroundColor: '#4A90E2',

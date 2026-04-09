@@ -176,9 +176,10 @@ notifee.onForegroundEvent(({type, detail}) => {
 messaging().setBackgroundMessageHandler(async remoteMessage => {
   console.log('📩 Background message received:', remoteMessage);
 
-  // If the message has a notification payload the OS already displayed it (both iOS and Android).
-  // Skip manual display to avoid duplicates.
-  if (remoteMessage.notification) return;
+  // Android messages are data-only — no notification field, so no OS auto-display.
+  // Always display via notifee here.
+  // (iOS background messages use the notification field for auto-display and are
+  // handled by APNs directly; this handler primarily runs on Android.)
 
   const title =
     remoteMessage.data?.title ||

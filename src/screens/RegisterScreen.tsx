@@ -21,7 +21,7 @@ import ProgressBar from '../components/Register/ProgressBar';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import NumberOfChildren from '../components/Register/NumberOfChildren';
 import ChildrenDetailsStep from '../components/Register/ChildrenDetailsStep';
-import {Picker} from '@react-native-picker/picker';
+import {Dropdown} from 'react-native-element-dropdown';
 
 const {height} = Dimensions.get('window');
 
@@ -225,23 +225,20 @@ const RegisterScreen = ({navigation}: any) => {
               <View style={{width: 22}} />
             </View>
             <Text style={styles.fieldLabel}>I am a...</Text>
-            <View style={styles.caregiverPickerContainer}>
-              <Picker
-                selectedValue={caregiverType}
-                onValueChange={value => setCaregiverType(value)}
-                style={styles.caregiverPicker}
-                enabled={true}
-                mode="dropdown">
-                <Picker.Item label="Select your role" value="" enabled={false} />
-                {CAREGIVER_TYPES.map(type => (
-                  <Picker.Item
-                    key={type.value}
-                    label={type.label}
-                    value={type.value}
-                  />
-                ))}
-              </Picker>
-            </View>
+            <Dropdown
+              style={styles.caregiverPickerContainer}
+              placeholderStyle={styles.caregiverPickerPlaceholder}
+              selectedTextStyle={styles.caregiverPickerSelected}
+              itemTextStyle={styles.caregiverPickerItemText}
+              itemContainerStyle={styles.caregiverPickerItemContainer}
+              data={CAREGIVER_TYPES}
+              maxHeight={300}
+              labelField="label"
+              valueField="value"
+              placeholder="Select your role"
+              value={caregiverType || null}
+              onChange={item => setCaregiverType(item.value)}
+            />
             <TextInput
               style={[commonInputStyle, {marginTop: 16}]}
               placeholder="Enter your name"
@@ -671,13 +668,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: 12,
-    overflow: 'hidden',
-    height: Platform.OS === 'ios' ? 150 : 50,
+    height: 50,
+    paddingHorizontal: 12,
   },
-  caregiverPicker: {
-    height: Platform.OS === 'ios' ? 150 : 50,
-    backgroundColor: '#F5F5F5',
+  caregiverPickerPlaceholder: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  caregiverPickerSelected: {
+    fontSize: 16,
     color: '#1F2937',
+  },
+  caregiverPickerItemText: {
+    fontSize: 16,
+    color: '#1F2937',
+  },
+  caregiverPickerItemContainer: {
+    backgroundColor: '#FFFFFF',
   },
   nextButton: {
     paddingVertical: 16,
